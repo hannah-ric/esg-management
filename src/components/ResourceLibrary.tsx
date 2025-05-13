@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Card,
@@ -19,6 +19,10 @@ import {
   Download,
   ExternalLink,
   Filter,
+  Plus,
+  Sparkles,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import {
   Select,
@@ -29,6 +33,18 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import ResourceAnalyzer from "./ResourceAnalyzer";
+import { supabase } from "@/lib/supabase";
+import { getResourceRecommendations } from "@/lib/ai-services";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAppContext } from "./AppContext";
 
 interface ResourceItem {
   id: string;
@@ -87,12 +103,22 @@ const getTypeLabel = (type: string) => {
 };
 
 const ResourceLibrary: React.FC = () => {
+  const { questionnaireData, esgPlan } = useAppContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [resources, setResources] = useState<ResourceItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
+  const [isGeneratingRecommendations, setIsGeneratingRecommendations] =
+    useState(false);
+  const [aiRecommendations, setAiRecommendations] = useState<string | null>(
+    null,
+  );
+  const [aiError, setAiError] = useState<string | null>(null);
 
-  // Sample resource data
-  const resources: ResourceItem[] = [
+  // Sample resource data as fallback
+  const sampleResources: ResourceItem[] = [
     {
       id: "1",
       title: "GRI Standards Implementation Guide",
@@ -187,6 +213,62 @@ const ResourceLibrary: React.FC = () => {
     },
   ];
 
+  useEffect(() => {
+    const fetchResources = async () => {
+      setIsLoading(true);
+      try {
+        // Try to fetch resources from the database
+        const { data, error } = await supabase.from("resources").select("*");
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          // Map database resources to our ResourceItem format
+          const formattedResources = data.map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            type: item.type,
+            category: item.category,
+            framework: item.framework,
+            fileType: item.file_type || "url",
+            url: item.url,
+            dateAdded: new Date(item.date_added).toLocaleDateString(),
+          }));
+          setResources(formattedResources);
+        } else {
+          // If no resources in database, use sample data
+          setResources(sampleResources);
+        }
+      } catch (error) {
+        console.error("Error fetching resources:", error);
+        // Fallback to sample data
+        setResources(sampleResources);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchResources();
+  }, []);
+
+  const handleResourceAdded = (newResource: any) => {
+    // Add the new resource to the list
+    const resourceItem: ResourceItem = {
+      id: `new-${Date.now()}`,
+      title: newResource.title,
+      description: newResource.description,
+      type: newResource.type as any,
+      category: newResource.category as any,
+      fileType: newResource.fileType as any,
+      url: newResource.url,
+      dateAdded: new Date().toLocaleDateString(),
+    };
+
+    setResources([resourceItem, ...resources]);
+    setIsAnalyzerOpen(false);
+  };
+
   // Filter resources based on search query and filters
   const filteredResources = resources.filter((resource) => {
     const matchesSearch =
@@ -219,7 +301,117 @@ const ResourceLibrary: React.FC = () => {
               management
             </p>
           </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="mt-4 md:mt-0"
+              onClick={async () => {
+                setIsGeneratingRecommendations(true);
+                setAiError(null);
+
+                try {
+                  // Get company profile from context
+                  const companyProfile = {
+                    companyName:
+                      questionnaireData?.companyName || "Your Company",
+                    industry: questionnaireData?.industry || "General",
+                    size: questionnaireData?.size || "Medium Enterprise",
+                    region: questionnaireData?.region || "Global",
+                  };
+
+                  // Get AI-powered resource recommendations
+                  const result = await getResourceRecommendations(
+                    esgPlan,
+                    companyProfile,
+                  );
+
+                  if (result.error) {
+                    setAiError(result.error);
+                    return;
+                  }
+
+                  setAiRecommendations(result.content);
+
+                  // Auto-search for the first recommended resource type
+                  const match = result.content.match(
+                    /recommend\s+([\w\s-]+)\s+resources/i,
+                  );
+                  if (match && match[1]) {
+                    setSearchQuery(match[1]);
+                    searchResources();
+                  }
+                } catch (err) {
+                  console.error("Error generating AI recommendations:", err);
+                  setAiError(
+                    err.message ||
+                      "Failed to generate AI recommendations. Please try again.",
+                  );
+                } finally {
+                  setIsGeneratingRecommendations(false);
+                }
+              }}
+              disabled={isGeneratingRecommendations}
+            >
+              {isGeneratingRecommendations ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  AI Recommendations
+                </>
+              )}
+            </Button>
+
+            <Dialog open={isAnalyzerOpen} onOpenChange={setIsAnalyzerOpen}>
+              <DialogTrigger asChild>
+                <Button className="mt-4 md:mt-0">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Resource
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Add ESG Resource</DialogTitle>
+                </DialogHeader>
+                <ResourceAnalyzer onResourceAdded={handleResourceAdded} />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
+
+        {aiRecommendations && (
+          <div className="mb-6 p-4 border rounded-md bg-primary/5">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-medium mb-2 flex items-center">
+                  <Sparkles className="h-4 w-4 mr-2 text-primary" />
+                  AI Resource Recommendations
+                </h3>
+                <div className="text-sm whitespace-pre-line">
+                  {aiRecommendations}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setAiRecommendations(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {aiError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{aiError}</AlertDescription>
+          </Alert>
+        )}
 
         <div className="mb-8">
           <div className="flex flex-col md:flex-row gap-4">
@@ -271,7 +463,14 @@ const ResourceLibrary: React.FC = () => {
           </TabsList>
 
           <TabsContent value="all" className="space-y-4">
-            {filteredResources.length > 0 ? (
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+                <p className="mt-4 text-muted-foreground">
+                  Loading resources...
+                </p>
+              </div>
+            ) : filteredResources.length > 0 ? (
               filteredResources.map((resource) => (
                 <ResourceCard key={resource.id} resource={resource} />
               ))
@@ -354,7 +553,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
             </Button>
             <Button size="sm">
               <Download className="mr-2 h-4 w-4" />
-              Download {resource.fileType.toUpperCase()}
+              {resource.fileType === "url"
+                ? "Open Link"
+                : `Download ${resource.fileType.toUpperCase()}`}
             </Button>
           </div>
         </div>

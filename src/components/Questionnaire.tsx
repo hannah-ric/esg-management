@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import QuestionnaireStep from "./QuestionnaireStep";
 import { useAppContext } from "./AppContext";
+import { saveQuestionnaireData } from "@/lib/services";
 
 interface QuestionnaireProps {
   onComplete?: (data: any) => void;
@@ -289,14 +290,32 @@ const Questionnaire = ({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    // Simulate saving data
-    setTimeout(() => {
+    try {
+      // Save questionnaire data to Supabase
+      const { user } = useAppContext();
+      if (!user) {
+        throw new Error("You must be logged in to save your progress");
+      }
+
+      // Prepare data for saving
+      const dataToSave = {
+        user_id: user.id,
+        data: formData,
+      };
+
+      // Save to Supabase using the service
+      await saveQuestionnaireData(dataToSave);
+
+      // Update context
+      setQuestionnaireData(formData);
+    } catch (error) {
+      console.error("Error saving questionnaire data:", error);
+      // You could add a toast notification here
+    } finally {
       setIsSaving(false);
-      // Here you would typically save to a database or local storage
-      console.log("Saved data:", formData);
-    }, 1000);
+    }
   };
 
   const handleStepDataChange = (stepId: string, data: any) => {

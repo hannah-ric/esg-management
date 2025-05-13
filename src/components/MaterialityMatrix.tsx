@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "./AppContext";
+import { analyzeMaterialityTopics } from "@/lib/ai-services";
 import {
   Card,
   CardContent,
@@ -19,7 +20,17 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { InfoIcon, Download, ZoomIn, ZoomOut, RefreshCw } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  InfoIcon,
+  Download,
+  ZoomIn,
+  ZoomOut,
+  RefreshCw,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -128,6 +139,8 @@ const MaterialityMatrix = ({
     "all" | "environmental" | "social" | "governance"
   >("all");
   const [zoom, setZoom] = useState<number>(1);
+  const [isGeneratingTopics, setIsGeneratingTopics] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     setMatrixTopics(topics);
@@ -157,6 +170,104 @@ const MaterialityMatrix = ({
   const handleReset = () => {
     setZoom(1);
     setFilter("all");
+  };
+
+  const generateAITopics = async () => {
+    setIsGeneratingTopics(true);
+    setAiError(null);
+
+    try {
+      // Get industry, size, and region from the context if available
+      const industry = questionnaireData?.industry || "General";
+      const size = questionnaireData?.size || "Medium Enterprise";
+      const region = questionnaireData?.region || "Global";
+
+      const result = await analyzeMaterialityTopics(industry, size, region);
+
+      if (result.error) {
+        setAiError(result.error);
+        return;
+      }
+
+      // Parse the AI response to extract topics
+      // This is a simplified implementation - in a real app, you'd want more robust parsing
+      try {
+        // Extract topics from the AI response text
+        // This is a very basic implementation and would need to be enhanced
+        const content = result.content;
+        const topicMatches = content.match(
+          /([\w\s&]+)\s*-\s*Stakeholder Impact:\s*([0-9.]+)\s*,\s*Business Impact:\s*([0-9.]+)/g,
+        );
+
+        if (topicMatches && topicMatches.length > 0) {
+          const newTopics = topicMatches.map((match, index) => {
+            const nameMatch = match.match(/([\w\s&]+)\s*-/);
+            const stakeholderMatch = match.match(
+              /Stakeholder Impact:\s*([0-9.]+)/,
+            );
+            const businessMatch = match.match(/Business Impact:\s*([0-9.]+)/);
+            const descriptionMatch = match.match(/- (.+)$/);
+
+            const name = nameMatch ? nameMatch[1].trim() : `Topic ${index + 1}`;
+            const stakeholderImpact = stakeholderMatch
+              ? parseFloat(stakeholderMatch[1])
+              : 0.5;
+            const businessImpact = businessMatch
+              ? parseFloat(businessMatch[1])
+              : 0.5;
+            const description = descriptionMatch
+              ? descriptionMatch[1].trim()
+              : "";
+
+            // Determine category based on topic name
+            let category: "environmental" | "social" | "governance" =
+              "environmental";
+            if (
+              /diversity|employee|human|community|social|health|safety/i.test(
+                name,
+              )
+            ) {
+              category = "social";
+            } else if (/governance|board|ethics|compliance|risk/i.test(name)) {
+              category = "governance";
+            }
+
+            return {
+              id: `ai-${index}`,
+              name,
+              category,
+              stakeholderImpact,
+              businessImpact,
+              description:
+                description ||
+                `${name} is an important ESG topic for your industry.`,
+            };
+          });
+
+          // Update the topics
+          if (newTopics.length > 0) {
+            setMatrixTopics(newTopics);
+            if (onTopicUpdate) {
+              onTopicUpdate(newTopics);
+            }
+          }
+        } else {
+          setAiError(
+            "Could not extract topics from AI response. Please try again.",
+          );
+        }
+      } catch (parseError) {
+        console.error("Error parsing AI response:", parseError);
+        setAiError("Error parsing AI recommendations. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error generating AI topics:", err);
+      setAiError(
+        err.message || "Failed to generate AI topics. Please try again.",
+      );
+    } finally {
+      setIsGeneratingTopics(false);
+    }
   };
 
   const categoryColors = {
@@ -232,6 +343,24 @@ const MaterialityMatrix = ({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Download Matrix</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={generateAITopics}
+                    disabled={isGeneratingTopics}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Generate AI Topics</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -465,6 +594,26 @@ const MaterialityMatrix = ({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {aiError && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{aiError}</AlertDescription>
+          </Alert>
+        )}
+
+        {isGeneratingTopics && (
+          <div className="mt-4 p-4 border rounded-md bg-primary/5">
+            <div className="flex items-center">
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <p>
+                Generating AI-powered materiality topics based on your industry
+                and company profile...
+              </p>
+            </div>
           </div>
         )}
 

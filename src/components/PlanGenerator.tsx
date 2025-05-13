@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAppContext } from "./AppContext";
+import {
+  getImplementationPhases,
+  saveImplementationPhases,
+  saveESGPlan,
+} from "@/lib/services";
 import { motion } from "framer-motion";
 import {
   Download,
@@ -13,6 +18,7 @@ import {
   Printer,
   FileSpreadsheet,
   FileDown,
+  Sparkles,
 } from "lucide-react";
 import {
   exportToPDF,
@@ -52,6 +58,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
+import PlanGeneratorEnhanced from "./PlanGeneratorEnhanced";
+import { getFrameworkRecommendations } from "@/lib/ai-services";
 
 interface PlanGeneratorProps {
   questionnaireData?: any;
@@ -77,7 +92,11 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
   onDownload = () => {},
   onCustomize = () => {},
 }) => {
-  const { questionnaireData: contextData, materialityTopics } = useAppContext();
+  const {
+    questionnaireData: contextData,
+    materialityTopics,
+    user,
+  } = useAppContext();
   const [questionnaireData, setQuestionnaireData] = useState(
     propQuestionnaireData,
   );
@@ -121,18 +140,62 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
     { name: "UN SDGs", coverage: 58, color: "bg-purple-500" },
   ];
 
-  const implementationPhases = [
-    { name: "Planning & Assessment", duration: "1-2 months", status: "Ready" },
+  const [implementationPhases, setImplementationPhases] = useState([
+    {
+      name: "Planning & Assessment",
+      duration: "1-2 months",
+      status: "Ready",
+      progress: 0,
+    },
     {
       name: "Data Collection Systems",
       duration: "2-3 months",
-      status: "Ready",
+      status: "Not Started",
+      progress: 0,
     },
-    { name: "Policy Development", duration: "2-4 months", status: "Ready" },
-    { name: "Initial Reporting", duration: "1-2 months", status: "Ready" },
-    { name: "Stakeholder Engagement", duration: "3-6 months", status: "Ready" },
-    { name: "Continuous Improvement", duration: "Ongoing", status: "Ready" },
-  ];
+    {
+      name: "Policy Development",
+      duration: "2-4 months",
+      status: "Not Started",
+      progress: 0,
+    },
+    {
+      name: "Initial Reporting",
+      duration: "1-2 months",
+      status: "Not Started",
+      progress: 0,
+    },
+    {
+      name: "Stakeholder Engagement",
+      duration: "3-6 months",
+      status: "Not Started",
+      progress: 0,
+    },
+    {
+      name: "Continuous Improvement",
+      duration: "Ongoing",
+      status: "Not Started",
+      progress: 0,
+    },
+  ]);
+
+  // Load implementation phases from Supabase if available
+  useEffect(() => {
+    const loadImplementationPhases = async () => {
+      try {
+        if (user) {
+          const savedPhases = await getImplementationPhases(user.id);
+          if (savedPhases && savedPhases.length > 0) {
+            setImplementationPhases(savedPhases);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading implementation phases:", error);
+      }
+    };
+
+    loadImplementationPhases();
+  }, [user]);
 
   const resourceRequirements = [
     {
@@ -169,26 +232,47 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
   const planRef = useRef<HTMLDivElement>(null);
 
   const handleDownload = async () => {
-    if (selectedFormat === "pdf") {
-      await exportToPDF(
-        "plan-content",
-        `${questionnaireData.companyName.replace(/\s+/g, "-").toLowerCase()}-esg-plan.pdf`,
-      );
-    } else if (selectedFormat === "excel") {
-      const excelData = prepareExcelData(
-        questionnaireData,
-        materialityTopics,
-        frameworks,
-        implementationPhases,
-        resourceRequirements,
-      );
-      exportToMultipleSheets(
-        excelData,
-        `${questionnaireData.companyName.replace(/\s+/g, "-").toLowerCase()}-esg-plan.xlsx`,
-      );
-    } else {
-      // Default fallback to the provided onDownload
-      onDownload(selectedFormat);
+    try {
+      // Save the plan before downloading
+      if (user) {
+        await saveESGPlan({
+          title: `ESG Management Plan for ${questionnaireData.companyName}`,
+          description: `Generated ESG management plan based on ${questionnaireData.industry} industry requirements`,
+          frameworks: frameworks,
+          implementationPhases: implementationPhases,
+          resourceRequirements: resourceRequirements,
+        });
+      }
+
+      if (selectedFormat === "pdf") {
+        await exportToPDF(
+          "plan-content",
+          `${questionnaireData.companyName.replace(/\s+/g, "-").toLowerCase()}-esg-plan.pdf`,
+        );
+      } else if (selectedFormat === "excel") {
+        const excelData = prepareExcelData(
+          questionnaireData,
+          materialityTopics,
+          frameworks,
+          implementationPhases,
+          resourceRequirements,
+        );
+        exportToMultipleSheets(
+          excelData,
+          `${questionnaireData.companyName.replace(/\s+/g, "-").toLowerCase()}-esg-plan.xlsx`,
+        );
+      } else if (selectedFormat === "ppt") {
+        // Create a PowerPoint presentation
+        alert(
+          "PowerPoint export is coming soon. Please use PDF or Excel for now.",
+        );
+      } else {
+        // Default fallback to the provided onDownload
+        onDownload(selectedFormat);
+      }
+    } catch (error) {
+      console.error("Error during export:", error);
+      alert("There was an error exporting your plan. Please try again.");
     }
   };
 
@@ -228,6 +312,55 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
                 </SelectContent>
               </Select>
             </div>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="mr-2">
+                  <Sparkles className="mr-2 h-4 w-4" /> Enhance
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Enhance Your ESG Plan</DialogTitle>
+                </DialogHeader>
+                <PlanGeneratorEnhanced
+                  companyName={questionnaireData.companyName}
+                  industry={questionnaireData.industry}
+                  materialityTopics={materialityTopics}
+                  esgPlan={{
+                    frameworks,
+                    implementationPhases,
+                    resourceRequirements,
+                  }}
+                  onEnhancementComplete={(data) => {
+                    console.log("Enhancement data:", data);
+
+                    // Process AI recommendations
+                    if (data.source === "ai" && data.data.frameworks) {
+                      // Here we could update the frameworks based on AI recommendations
+                      // This would require parsing the AI response and mapping it to our framework structure
+                      // For now, we'll just log it
+                      console.log(
+                        "AI framework recommendations:",
+                        data.data.frameworks,
+                      );
+                    }
+
+                    // Process URL analysis
+                    if (data.source === "diffbot") {
+                      // Process the analyzed content
+                      console.log("Analyzed content:", data.data);
+                    }
+
+                    // Process resource selections
+                    if (data.source === "resource_library") {
+                      // Add selected resources to the plan
+                      console.log("Selected resources:", data.data);
+                    }
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
 
             <Button variant="outline" onClick={onCustomize}>
               Customize
@@ -565,12 +698,85 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
                               <span className="text-sm text-muted-foreground">
                                 {phase.duration}
                               </span>
-                              <Badge variant="outline" className="ml-2">
-                                {phase.status}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className={`ml-2 ${
+                                    phase.status === "Completed"
+                                      ? "bg-green-100 text-green-800"
+                                      : phase.status === "In Progress"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : "bg-gray-100 text-gray-800"
+                                  }`}
+                                >
+                                  {phase.status}
+                                </Badge>
+                                <Select
+                                  value={phase.status}
+                                  onValueChange={(value) => {
+                                    const updatedPhases = [
+                                      ...implementationPhases,
+                                    ];
+                                    const phaseIndex = updatedPhases.findIndex(
+                                      (p) => p.name === phase.name,
+                                    );
+                                    if (phaseIndex !== -1) {
+                                      updatedPhases[phaseIndex].status = value;
+                                      // Update progress based on status
+                                      if (value === "Completed") {
+                                        updatedPhases[phaseIndex].progress =
+                                          100;
+                                      } else if (value === "In Progress") {
+                                        updatedPhases[phaseIndex].progress = 50;
+                                      } else {
+                                        updatedPhases[phaseIndex].progress = 0;
+                                      }
+                                      setImplementationPhases(updatedPhases);
+                                      if (user) {
+                                        saveImplementationPhases(
+                                          user.id,
+                                          updatedPhases,
+                                        );
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-[130px] h-7 text-xs">
+                                    <SelectValue placeholder="Status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Not Started">
+                                      Not Started
+                                    </SelectItem>
+                                    <SelectItem value="In Progress">
+                                      In Progress
+                                    </SelectItem>
+                                    <SelectItem value="Completed">
+                                      Completed
+                                    </SelectItem>
+                                    <SelectItem value="Delayed">
+                                      Delayed
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                           </div>
                           <div className="bg-card border rounded-lg p-4 mt-2">
+                            <div className="mb-2">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm font-medium">
+                                  Progress
+                                </span>
+                                <span className="text-sm">
+                                  {phase.progress}%
+                                </span>
+                              </div>
+                              <Progress
+                                value={phase.progress}
+                                className="h-2"
+                              />
+                            </div>
                             <h4 className="font-medium mb-2">
                               Key Activities:
                             </h4>

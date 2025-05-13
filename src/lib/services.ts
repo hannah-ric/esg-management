@@ -39,6 +39,65 @@ export const saveCompanyProfile = async (profileData: any) => {
   return data;
 };
 
+// Questionnaire data services
+export const saveQuestionnaireData = async (questionnaireData: any) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated");
+
+  // First check if there's existing data to update
+  const { data: existingData } = await supabase
+    .from("questionnaire_data")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  let result;
+
+  if (existingData) {
+    // Update existing record
+    const { data, error } = await supabase
+      .from("questionnaire_data")
+      .update({
+        data: questionnaireData.data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    result = data;
+  } else {
+    // Insert new record
+    const { data, error } = await supabase
+      .from("questionnaire_data")
+      .insert({
+        user_id: user.id,
+        data: questionnaireData.data,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    result = data;
+  }
+
+  return result;
+};
+
+export const getQuestionnaireData = async (userId: string) => {
+  const { data, error } = await supabase
+    .from("questionnaire_data")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error && error.code !== "PGRST116") throw error; // PGRST116 is the error code for no rows returned
+  return data?.data || {};
+};
+
 export const getCompanyProfile = async (userId: string) => {
   const { data, error } = await supabase
     .from("company_profiles")
@@ -138,6 +197,63 @@ export const getESGPlan = async (userId: string) => {
 
   if (error && error.code !== "PGRST116") throw error;
   return data;
+};
+
+// Implementation phases services
+export const saveImplementationPhases = async (
+  userId: string,
+  phases: any[],
+) => {
+  // First check if there's existing data to update
+  const { data: existingData } = await supabase
+    .from("implementation_phases")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  let result;
+
+  if (existingData) {
+    // Update existing record
+    const { data, error } = await supabase
+      .from("implementation_phases")
+      .update({
+        phases: phases,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    result = data;
+  } else {
+    // Insert new record
+    const { data, error } = await supabase
+      .from("implementation_phases")
+      .insert({
+        user_id: userId,
+        phases: phases,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    result = data;
+  }
+
+  return result;
+};
+
+export const getImplementationPhases = async (userId: string) => {
+  const { data, error } = await supabase
+    .from("implementation_phases")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error && error.code !== "PGRST116") throw error;
+  return data?.phases || [];
 };
 
 // Resource library services
