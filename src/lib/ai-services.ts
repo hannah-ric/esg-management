@@ -46,6 +46,7 @@ export async function getFrameworkRecommendations(
 export async function getResourceRecommendations(
   esgPlan: any,
   companyProfile: any,
+  materialityTopics: any[] = [],
 ): Promise<AIAssistantResponse> {
   try {
     const { data, error } = await supabase.functions.invoke(
@@ -53,10 +54,11 @@ export async function getResourceRecommendations(
       {
         body: {
           prompt:
-            "Recommend resources from the library that would help implement this ESG plan effectively.",
+            "Recommend resources from the library that would help implement this ESG plan effectively, with special focus on the high-priority materiality topics.",
           context: {
             esgPlan,
             companyProfile,
+            materialityTopics,
           },
           task: "resource-recommendation",
           maxTokens: 600,
@@ -76,10 +78,50 @@ export async function getResourceRecommendations(
   }
 }
 
+export async function getMaterialityBasedResources(
+  materialityTopics: any[],
+): Promise<AIAssistantResponse> {
+  try {
+    // Filter to high-priority topics (high stakeholder and business impact)
+    const highPriorityTopics = materialityTopics.filter(
+      (topic) => topic.stakeholderImpact > 0.6 && topic.businessImpact > 0.6,
+    );
+
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-esg-ai-assistant",
+      {
+        body: {
+          prompt:
+            "Based on the user's high-priority materiality topics, recommend specific resources from the library that would be most relevant. Include specific resource types (guides, templates, frameworks) that would be helpful for each topic.",
+          context: {
+            materialityTopics: highPriorityTopics,
+          },
+          task: "materiality-resource-recommendation",
+          maxTokens: 800,
+        },
+      },
+    );
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error(
+      "Error getting materiality-based resource recommendations:",
+      error,
+    );
+    return {
+      content:
+        "Unable to generate resource recommendations based on materiality at this time.",
+      task: "materiality-resource-recommendation",
+      error: error.message,
+    };
+  }
+}
+
 export async function analyzeMaterialityTopics(
   industry: string,
   companySize: string,
-  region: string,
+  region: string = "Global",
 ): Promise<AIAssistantResponse> {
   try {
     const { data, error } = await supabase.functions.invoke(

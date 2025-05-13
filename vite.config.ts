@@ -5,13 +5,18 @@ import { tempo } from "tempo-devtools/dist/vite";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: process.env.NODE_ENV === "development" ? "/" : process.env.VITE_BASE_PATH || "/",
+  base:
+    process.env.NODE_ENV === "development"
+      ? "/"
+      : process.env.VITE_BASE_PATH || "/",
   optimizeDeps: {
     entries: ["src/main.tsx", "src/tempobook/**/*"],
   },
   plugins: [
     react(),
-    tempo(),
+    tempo({
+      exclude: ["src/components/AppContext.tsx"],
+    }),
   ],
   resolve: {
     preserveSymlinks: true,
@@ -22,5 +27,5 @@ export default defineConfig({
   server: {
     // @ts-ignore
     allowedHosts: true,
-  }
+  },
 });

@@ -290,11 +290,12 @@ const Questionnaire = ({
     }
   };
 
+  const { user } = useAppContext();
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
       // Save questionnaire data to Supabase
-      const { user } = useAppContext();
       if (!user) {
         throw new Error("You must be logged in to save your progress");
       }

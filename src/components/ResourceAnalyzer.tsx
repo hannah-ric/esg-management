@@ -10,12 +10,45 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, Link as LinkIcon, Check, AlertCircle } from "lucide-react";
+import {
+  Loader2,
+  Link as LinkIcon,
+  Check,
+  AlertCircle,
+  Edit,
+  Save,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface ResourceAnalyzerProps {
   onResourceAdded?: (resource: any) => void;
+}
+
+interface ESGDataPoint {
+  id?: string;
+  metric_id: string;
+  value: string;
+  context?: string;
+  confidence: number;
+  source: string;
+  framework_id?: string;
+  disclosure_id?: string;
+  is_edited?: boolean;
+}
+
+interface ESGFrameworkMapping {
+  framework_id: string;
+  disclosure_id: string;
 }
 
 const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
@@ -25,6 +58,9 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [editingDataPoint, setEditingDataPoint] = useState<string | null>(null);
+  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
 
   const analyzeUrl = async () => {
     if (!url) return;
@@ -80,6 +116,119 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
         return "Case Study";
       default:
         return "Article";
+    }
+  };
+
+  const getFrameworkColor = (frameworkId: string) => {
+    switch (frameworkId) {
+      case "GRI":
+        return "bg-blue-100 text-blue-800";
+      case "SASB":
+        return "bg-green-100 text-green-800";
+      case "TCFD":
+        return "bg-purple-100 text-purple-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getMetricLabel = (metricId: string) => {
+    const labels: Record<string, string> = {
+      "carbon-emissions": "Carbon Emissions",
+      "energy-consumption": "Energy Consumption",
+      "water-usage": "Water Usage",
+      "waste-management": "Waste Management",
+      "diversity-inclusion": "Diversity & Inclusion",
+      "health-safety": "Health & Safety",
+    };
+    return (
+      labels[metricId] ||
+      metricId.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    );
+  };
+
+  const handleEditDataPoint = (metricId: string) => {
+    setEditingDataPoint(metricId);
+    if (result?.esgData?.dataPoints[metricId]) {
+      setEditedValues({
+        ...editedValues,
+        [metricId]: result.esgData.dataPoints[metricId].value,
+      });
+    }
+  };
+
+  const handleSaveDataPoint = async (metricId: string) => {
+    if (!result || !result.esgData || !result.esgData.dataPoints[metricId])
+      return;
+
+    try {
+      // Update the local state first
+      const updatedDataPoints = {
+        ...result.esgData.dataPoints,
+        [metricId]: {
+          ...result.esgData.dataPoints[metricId],
+          value: editedValues[metricId],
+          is_edited: true,
+        },
+      };
+
+      setResult({
+        ...result,
+        esgData: {
+          ...result.esgData,
+          dataPoints: updatedDataPoints,
+        },
+      });
+
+      // Save to database if we have a resource ID
+      const { data: resourceData } = await supabase
+        .from("resources")
+        .select("id")
+        .eq("url", result.url)
+        .single();
+
+      if (resourceData?.id) {
+        // Check if data point already exists
+        const { data: existingDataPoint } = await supabase
+          .from("esg_data_points")
+          .select("id")
+          .eq("resource_id", resourceData.id)
+          .eq("metric_id", metricId)
+          .single();
+
+        if (existingDataPoint?.id) {
+          // Update existing data point
+          await supabase
+            .from("esg_data_points")
+            .update({
+              value: editedValues[metricId],
+              updated_at: new Date().toISOString(),
+              is_edited: true,
+              user_id: (await supabase.auth.getUser()).data.user?.id,
+            })
+            .eq("id", existingDataPoint.id);
+        } else {
+          // Insert new data point
+          const dataPoint = result.esgData.dataPoints[metricId];
+          await supabase.from("esg_data_points").insert({
+            resource_id: resourceData.id,
+            metric_id: metricId,
+            value: editedValues[metricId],
+            context: dataPoint.context,
+            confidence: dataPoint.confidence,
+            source: dataPoint.source,
+            framework_id: dataPoint.frameworkId,
+            disclosure_id: dataPoint.disclosureId,
+            is_edited: true,
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error saving data point:", err);
+      setError("Failed to save data point. Please try again.");
+    } finally {
+      setEditingDataPoint(null);
     }
   };
 
@@ -165,20 +314,220 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
                 </div>
               )}
 
-              <Alert>
-                <Check className="h-4 w-4" />
-                <AlertTitle>Analysis Complete</AlertTitle>
-                <AlertDescription>
-                  This content has been analyzed and categorized as{" "}
-                  {result.category} content.
-                  {result.type === "framework" &&
-                    " It appears to be a reporting framework or standard."}
-                  {result.type === "guide" &&
-                    " It appears to be a guide or instructional content."}
-                  {result.type === "template" &&
-                    " It appears to be a template or example document."}
-                </AlertDescription>
-              </Alert>
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="mt-4"
+              >
+                <TabsList className="mb-2">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="esg-data">
+                    ESG Data
+                    {result.esgData?.dataPoints &&
+                      Object.keys(result.esgData.dataPoints).length > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          {Object.keys(result.esgData.dataPoints).length}
+                        </Badge>
+                      )}
+                  </TabsTrigger>
+                  <TabsTrigger value="frameworks">
+                    Frameworks
+                    {result.esgData?.mappings &&
+                      Object.keys(result.esgData.mappings).length > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          {Object.keys(result.esgData.mappings).length}
+                        </Badge>
+                      )}
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview">
+                  <Alert>
+                    <Check className="h-4 w-4" />
+                    <AlertTitle>Analysis Complete</AlertTitle>
+                    <AlertDescription>
+                      This content has been analyzed and categorized as{" "}
+                      {result.category} content.
+                      {result.type === "framework" &&
+                        " It appears to be a reporting framework or standard."}
+                      {result.type === "guide" &&
+                        " It appears to be a guide or instructional content."}
+                      {result.type === "template" &&
+                        " It appears to be a template or example document."}
+                    </AlertDescription>
+                  </Alert>
+                </TabsContent>
+
+                <TabsContent value="esg-data">
+                  {result.esgData?.dataPoints &&
+                  Object.keys(result.esgData.dataPoints).length > 0 ? (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium">
+                        Extracted ESG Data Points
+                      </h4>
+                      <div className="space-y-3">
+                        {Object.entries(result.esgData.dataPoints).map(
+                          ([metricId, dataPoint]: [string, any]) => (
+                            <div
+                              key={metricId}
+                              className="border rounded-md p-3"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h5 className="font-medium">
+                                    {getMetricLabel(metricId)}
+                                  </h5>
+                                  {dataPoint.framework_id &&
+                                    dataPoint.disclosure_id && (
+                                      <Badge variant="outline" className="mt-1">
+                                        {dataPoint.framework_id}{" "}
+                                        {dataPoint.disclosure_id}
+                                      </Badge>
+                                    )}
+                                </div>
+                                <div>
+                                  {editingDataPoint === metricId ? (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() =>
+                                        handleSaveDataPoint(metricId)
+                                      }
+                                    >
+                                      <Save className="h-4 w-4 mr-1" /> Save
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() =>
+                                        handleEditDataPoint(metricId)
+                                      }
+                                    >
+                                      <Edit className="h-4 w-4 mr-1" /> Edit
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {editingDataPoint === metricId ? (
+                                <div className="mt-2">
+                                  <Label htmlFor={`edit-${metricId}`}>
+                                    Value
+                                  </Label>
+                                  <Input
+                                    id={`edit-${metricId}`}
+                                    value={
+                                      editedValues[metricId] || dataPoint.value
+                                    }
+                                    onChange={(e) =>
+                                      setEditedValues({
+                                        ...editedValues,
+                                        [metricId]: e.target.value,
+                                      })
+                                    }
+                                    className="mt-1"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="mt-2">
+                                  <div className="text-sm font-medium">
+                                    Value:
+                                  </div>
+                                  <div className="text-lg">
+                                    {dataPoint.value}
+                                  </div>
+                                  {dataPoint.is_edited && (
+                                    <Badge
+                                      variant="outline"
+                                      className="mt-1 text-xs"
+                                    >
+                                      Edited
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+
+                              <Accordion
+                                type="single"
+                                collapsible
+                                className="mt-2"
+                              >
+                                <AccordionItem value="context">
+                                  <AccordionTrigger className="text-xs py-1">
+                                    Show Context
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                                      {dataPoint.context}
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              </Accordion>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">
+                        No ESG data points were extracted from this content.
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="frameworks">
+                  {result.esgData?.mappings &&
+                  Object.keys(result.esgData.mappings).length > 0 ? (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium">
+                        Detected Framework References
+                      </h4>
+                      <div className="space-y-3">
+                        {Object.entries(result.esgData.mappings).map(
+                          ([frameworkId, disclosures]: [string, any]) => (
+                            <div
+                              key={frameworkId}
+                              className="border rounded-md p-3"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <Badge
+                                    className={getFrameworkColor(frameworkId)}
+                                  >
+                                    {frameworkId}
+                                  </Badge>
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    {disclosures.map(
+                                      (disclosure: string, i: number) => (
+                                        <Badge
+                                          key={i}
+                                          variant="outline"
+                                          className="text-xs"
+                                        >
+                                          {disclosure}
+                                        </Badge>
+                                      ),
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">
+                        No framework references were detected in this content.
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </motion.div>
           )}
         </div>

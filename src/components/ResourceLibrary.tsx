@@ -23,6 +23,8 @@ import {
   Sparkles,
   Loader2,
   AlertCircle,
+  Upload,
+  Target,
 } from "lucide-react";
 import {
   Select,
@@ -34,8 +36,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import ResourceAnalyzer from "./ResourceAnalyzer";
+import ResourceUploader from "./ResourceUploader";
 import { supabase } from "@/lib/supabase";
-import { getResourceRecommendations } from "@/lib/ai-services";
+import {
+  getResourceRecommendations,
+  getMaterialityBasedResources,
+} from "@/lib/ai-services";
 import {
   Dialog,
   DialogContent,
@@ -103,18 +109,29 @@ const getTypeLabel = (type: string) => {
 };
 
 const ResourceLibrary: React.FC = () => {
-  const { questionnaireData, esgPlan } = useAppContext();
+  const { questionnaireData, esgPlan, materialityTopics } = useAppContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
+  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
   const [isGeneratingRecommendations, setIsGeneratingRecommendations] =
     useState(false);
+  const [
+    isGeneratingMaterialityRecommendations,
+    setIsGeneratingMaterialityRecommendations,
+  ] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState<string | null>(
     null,
   );
+  const [materialityRecommendations, setMaterialityRecommendations] = useState<
+    string | null
+  >(null);
+  const [recommendedResources, setRecommendedResources] = useState<
+    ResourceItem[]
+  >([]);
   const [aiError, setAiError] = useState<string | null>(null);
 
   // Sample resource data as fallback
@@ -255,7 +272,7 @@ const ResourceLibrary: React.FC = () => {
   const handleResourceAdded = (newResource: any) => {
     // Add the new resource to the list
     const resourceItem: ResourceItem = {
-      id: `new-${Date.now()}`,
+      id: newResource.id || `new-${Date.now()}`,
       title: newResource.title,
       description: newResource.description,
       type: newResource.type as any,
@@ -267,6 +284,79 @@ const ResourceLibrary: React.FC = () => {
 
     setResources([resourceItem, ...resources]);
     setIsAnalyzerOpen(false);
+    setIsUploaderOpen(false);
+  };
+
+  const generateMaterialityRecommendations = async () => {
+    if (!materialityTopics || materialityTopics.length === 0) {
+      setAiError(
+        "No materiality topics found. Please complete the materiality assessment first.",
+      );
+      return;
+    }
+
+    setIsGeneratingMaterialityRecommendations(true);
+    setAiError(null);
+
+    try {
+      // Get recommendations based on materiality topics
+      const result = await getMaterialityBasedResources(materialityTopics);
+
+      if (result.error) {
+        setAiError(result.error);
+        return;
+      }
+
+      setMaterialityRecommendations(result.content);
+
+      // Extract topic names from high priority materiality topics
+      const highPriorityTopics = materialityTopics
+        .filter(
+          (topic) =>
+            topic.stakeholderImpact > 0.6 && topic.businessImpact > 0.6,
+        )
+        .map((topic) => topic.name);
+
+      // Search for resources related to these topics
+      if (highPriorityTopics.length > 0) {
+        const { data } = await supabase
+          .from("resources")
+          .select("*")
+          .or(
+            highPriorityTopics
+              .map(
+                (topic) =>
+                  `title.ilike.%${topic}%,description.ilike.%${topic}%`,
+              )
+              .join(","),
+          );
+
+        if (data && data.length > 0) {
+          // Map database resources to our ResourceItem format
+          const recommendedItems = data.map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            type: item.type,
+            category: item.category,
+            framework: item.framework,
+            fileType: item.file_type || "url",
+            url: item.url,
+            dateAdded: new Date(item.date_added).toLocaleDateString(),
+          }));
+
+          setRecommendedResources(recommendedItems);
+        }
+      }
+    } catch (err) {
+      console.error("Error generating materiality recommendations:", err);
+      setAiError(
+        err.message ||
+          "Failed to generate recommendations based on materiality.",
+      );
+    } finally {
+      setIsGeneratingMaterialityRecommendations(false);
+    }
   };
 
   // Filter resources based on search query and filters
@@ -313,16 +403,24 @@ const ResourceLibrary: React.FC = () => {
                   // Get company profile from context
                   const companyProfile = {
                     companyName:
-                      questionnaireData?.companyName || "Your Company",
-                    industry: questionnaireData?.industry || "General",
-                    size: questionnaireData?.size || "Medium Enterprise",
-                    region: questionnaireData?.region || "Global",
+                      questionnaireData?.["company-profile"]?.companyName ||
+                      "Your Company",
+                    industry:
+                      questionnaireData?.["industry-selection"]?.industry ||
+                      "General",
+                    size:
+                      questionnaireData?.["company-profile"]?.employeeCount ||
+                      "Medium Enterprise",
+                    region:
+                      questionnaireData?.["regulatory-requirements"]
+                        ?.primaryRegion || "Global",
                   };
 
                   // Get AI-powered resource recommendations
                   const result = await getResourceRecommendations(
                     esgPlan,
                     companyProfile,
+                    materialityTopics,
                   );
 
                   if (result.error) {
@@ -338,7 +436,6 @@ const ResourceLibrary: React.FC = () => {
                   );
                   if (match && match[1]) {
                     setSearchQuery(match[1]);
-                    searchResources();
                   }
                 } catch (err) {
                   console.error("Error generating AI recommendations:", err);
@@ -365,18 +462,56 @@ const ResourceLibrary: React.FC = () => {
               )}
             </Button>
 
+            <Button
+              variant="outline"
+              className="mt-4 md:mt-0"
+              onClick={generateMaterialityRecommendations}
+              disabled={
+                isGeneratingMaterialityRecommendations ||
+                !materialityTopics ||
+                materialityTopics.length === 0
+              }
+            >
+              {isGeneratingMaterialityRecommendations ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Target className="mr-2 h-4 w-4" />
+                  Materiality Recommendations
+                </>
+              )}
+            </Button>
+
             <Dialog open={isAnalyzerOpen} onOpenChange={setIsAnalyzerOpen}>
               <DialogTrigger asChild>
-                <Button className="mt-4 md:mt-0">
+                <Button className="mt-4 md:mt-0" variant="outline">
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Resource
+                  Analyze URL
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
-                  <DialogTitle>Add ESG Resource</DialogTitle>
+                  <DialogTitle>Analyze ESG Resource</DialogTitle>
                 </DialogHeader>
                 <ResourceAnalyzer onResourceAdded={handleResourceAdded} />
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isUploaderOpen} onOpenChange={setIsUploaderOpen}>
+              <DialogTrigger asChild>
+                <Button className="mt-4 md:mt-0">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Resource
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Upload ESG Resource</DialogTitle>
+                </DialogHeader>
+                <ResourceUploader onResourceAdded={handleResourceAdded} />
               </DialogContent>
             </Dialog>
           </div>
@@ -402,6 +537,57 @@ const ResourceLibrary: React.FC = () => {
                 Dismiss
               </Button>
             </div>
+          </div>
+        )}
+
+        {materialityRecommendations && (
+          <div className="mb-6 p-4 border rounded-md bg-green-50">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-medium mb-2 flex items-center">
+                  <Target className="h-4 w-4 mr-2 text-green-600" />
+                  Materiality-Based Resource Recommendations
+                </h3>
+                <div className="text-sm whitespace-pre-line">
+                  {materialityRecommendations}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMaterialityRecommendations(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {recommendedResources.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-medium mb-4 flex items-center">
+              <Target className="h-5 w-5 mr-2 text-green-600" />
+              Recommended Resources Based on Your Materiality Assessment
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {recommendedResources.slice(0, 4).map((resource) => (
+                <ResourceCard key={resource.id} resource={resource} />
+              ))}
+            </div>
+            {recommendedResources.length > 4 && (
+              <div className="mt-2 text-center">
+                <Button
+                  variant="link"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setCategoryFilter("all");
+                    setTypeFilter("all");
+                  }}
+                >
+                  View all {recommendedResources.length} recommended resources
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

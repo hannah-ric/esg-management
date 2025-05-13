@@ -4,6 +4,9 @@ import {
   getImplementationPhases,
   saveImplementationPhases,
   saveESGPlan,
+  getCustomMetrics,
+  saveCustomMetric,
+  deleteCustomMetric,
 } from "@/lib/services";
 import { motion } from "framer-motion";
 import {
@@ -19,6 +22,9 @@ import {
   FileSpreadsheet,
   FileDown,
   Sparkles,
+  PlusCircle,
+  Trash2,
+  BarChart3,
 } from "lucide-react";
 import {
   exportToPDF,
@@ -27,6 +33,7 @@ import {
   exportToMultipleSheets,
 } from "./ExportUtils";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import {
   Card,
   CardContent,
@@ -132,6 +139,22 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
     "executive-summary",
   ]);
   const [selectedFormat, setSelectedFormat] = useState("pdf");
+  const [customMetrics, setCustomMetrics] = useState<
+    Array<{
+      id?: string;
+      name: string;
+      target: string;
+      current: string;
+      unit: string;
+    }>
+  >([]);
+  const [newMetric, setNewMetric] = useState({
+    name: "",
+    target: "",
+    current: "",
+    unit: "",
+  });
+  const [showMetricForm, setShowMetricForm] = useState(false);
 
   const frameworks = [
     { name: "GRI", coverage: 85, color: "bg-green-500" },
@@ -197,6 +220,24 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
     loadImplementationPhases();
   }, [user]);
 
+  // Load custom metrics from Supabase if available
+  useEffect(() => {
+    const loadCustomMetrics = async () => {
+      try {
+        if (user) {
+          const savedMetrics = await getCustomMetrics(user.id);
+          if (savedMetrics && savedMetrics.length > 0) {
+            setCustomMetrics(savedMetrics);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading custom metrics:", error);
+      }
+    };
+
+    loadCustomMetrics();
+  }, [user]);
+
   const resourceRequirements = [
     {
       type: "Personnel",
@@ -241,6 +282,7 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
           frameworks: frameworks,
           implementationPhases: implementationPhases,
           resourceRequirements: resourceRequirements,
+          customMetrics: customMetrics,
         });
       }
 
@@ -378,7 +420,7 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
           onValueChange={setActiveTab}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-4 mb-8">
+          <TabsList className="grid grid-cols-5 mb-8">
             <TabsTrigger value="summary">Executive Summary</TabsTrigger>
             <TabsTrigger value="frameworks">
               Framework Recommendations
@@ -387,6 +429,7 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
               Implementation Roadmap
             </TabsTrigger>
             <TabsTrigger value="resources">Resource Requirements</TabsTrigger>
+            <TabsTrigger value="metrics">Custom Metrics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="summary" className="space-y-6">
@@ -706,7 +749,9 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
                                       ? "bg-green-100 text-green-800"
                                       : phase.status === "In Progress"
                                         ? "bg-blue-100 text-blue-800"
-                                        : "bg-gray-100 text-gray-800"
+                                        : phase.status === "Delayed"
+                                          ? "bg-amber-100 text-amber-800"
+                                          : "bg-gray-100 text-gray-800"
                                   }`}
                                 >
                                   {phase.status}
@@ -728,6 +773,8 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
                                           100;
                                       } else if (value === "In Progress") {
                                         updatedPhases[phaseIndex].progress = 50;
+                                      } else if (value === "Delayed") {
+                                        updatedPhases[phaseIndex].progress = 25;
                                       } else {
                                         updatedPhases[phaseIndex].progress = 0;
                                       }
@@ -768,13 +815,73 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
                                 <span className="text-sm font-medium">
                                   Progress
                                 </span>
-                                <span className="text-sm">
-                                  {phase.progress}%
-                                </span>
+                                <div className="flex items-center">
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    step="5"
+                                    value={phase.progress}
+                                    onChange={(e) => {
+                                      const newProgress = parseInt(
+                                        e.target.value,
+                                      );
+                                      const updatedPhases = [
+                                        ...implementationPhases,
+                                      ];
+                                      const phaseIndex =
+                                        updatedPhases.findIndex(
+                                          (p) => p.name === phase.name,
+                                        );
+                                      if (phaseIndex !== -1) {
+                                        updatedPhases[phaseIndex].progress =
+                                          newProgress;
+
+                                        // Update status based on progress
+                                        if (newProgress === 100) {
+                                          updatedPhases[phaseIndex].status =
+                                            "Completed";
+                                        } else if (
+                                          newProgress > 0 &&
+                                          newProgress < 100
+                                        ) {
+                                          if (
+                                            updatedPhases[phaseIndex].status !==
+                                            "Delayed"
+                                          ) {
+                                            updatedPhases[phaseIndex].status =
+                                              "In Progress";
+                                          }
+                                        } else {
+                                          updatedPhases[phaseIndex].status =
+                                            "Not Started";
+                                        }
+
+                                        setImplementationPhases(updatedPhases);
+                                        if (user) {
+                                          saveImplementationPhases(
+                                            user.id,
+                                            updatedPhases,
+                                          );
+                                        }
+                                      }
+                                    }}
+                                    className="w-20 h-2 mr-2"
+                                  />
+                                  <span className="text-sm">
+                                    {phase.progress}%
+                                  </span>
+                                </div>
                               </div>
                               <Progress
                                 value={phase.progress}
                                 className="h-2"
+                                style={{
+                                  backgroundColor:
+                                    phase.status === "Delayed"
+                                      ? "rgba(245, 158, 11, 0.2)"
+                                      : undefined,
+                                }}
                               />
                             </div>
                             <h4 className="font-medium mb-2">
@@ -963,6 +1070,249 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="metrics" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Custom ESG Metrics</CardTitle>
+                    <CardDescription>
+                      Define and track custom metrics specific to your company's
+                      ESG goals
+                    </CardDescription>
+                  </div>
+                  <Button
+                    onClick={() => setShowMetricForm(!showMetricForm)}
+                    variant="outline"
+                    className="flex items-center gap-1"
+                  >
+                    {showMetricForm ? (
+                      "Cancel"
+                    ) : (
+                      <>
+                        <PlusCircle className="h-4 w-4" />
+                        Add Metric
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {showMetricForm && (
+                  <div className="bg-muted/50 p-4 rounded-lg mb-6">
+                    <h3 className="text-lg font-medium mb-4">Add New Metric</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">
+                          Metric Name
+                        </label>
+                        <Input
+                          placeholder="e.g., Water Usage"
+                          value={newMetric.name}
+                          onChange={(e) =>
+                            setNewMetric({ ...newMetric, name: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">
+                          Unit
+                        </label>
+                        <Input
+                          placeholder="e.g., m³, kWh, tons"
+                          value={newMetric.unit}
+                          onChange={(e) =>
+                            setNewMetric({ ...newMetric, unit: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">
+                          Current Value
+                        </label>
+                        <Input
+                          placeholder="e.g., 1500"
+                          value={newMetric.current}
+                          onChange={(e) =>
+                            setNewMetric({
+                              ...newMetric,
+                              current: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">
+                          Target Value
+                        </label>
+                        <Input
+                          placeholder="e.g., 1200"
+                          value={newMetric.target}
+                          onChange={(e) =>
+                            setNewMetric({
+                              ...newMetric,
+                              target: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={async () => {
+                          if (!newMetric.name || !newMetric.unit) return;
+
+                          try {
+                            if (user) {
+                              const savedMetric = await saveCustomMetric(
+                                user.id,
+                                newMetric,
+                              );
+                              setCustomMetrics([...customMetrics, savedMetric]);
+                              setNewMetric({
+                                name: "",
+                                target: "",
+                                current: "",
+                                unit: "",
+                              });
+                              setShowMetricForm(false);
+                            }
+                          } catch (error) {
+                            console.error("Error saving custom metric:", error);
+                          }
+                        }}
+                      >
+                        Save Metric
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {customMetrics.length === 0 && !showMetricForm ? (
+                  <div className="text-center py-8">
+                    <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                    <h3 className="text-lg font-medium mb-1">
+                      No Custom Metrics
+                    </h3>
+                    <p className="text-muted-foreground mb-4">
+                      Add custom metrics to track specific ESG indicators
+                      relevant to your company
+                    </p>
+                    <Button
+                      onClick={() => setShowMetricForm(true)}
+                      variant="outline"
+                      className="mx-auto"
+                    >
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Add Your First Metric
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {customMetrics.map((metric, index) => (
+                      <div
+                        key={metric.id || index}
+                        className="border rounded-lg p-4"
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium">{metric.name}</h4>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={async () => {
+                              try {
+                                if (user && metric.id) {
+                                  await deleteCustomMetric(user.id, metric.id);
+                                  setCustomMetrics(
+                                    customMetrics.filter(
+                                      (m) => m.id !== metric.id,
+                                    ),
+                                  );
+                                }
+                              } catch (error) {
+                                console.error(
+                                  "Error deleting custom metric:",
+                                  error,
+                                );
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-sm text-muted-foreground block">
+                              Current
+                            </span>
+                            <span className="font-medium">
+                              {metric.current} {metric.unit}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-sm text-muted-foreground block">
+                              Target
+                            </span>
+                            <span className="font-medium">
+                              {metric.target} {metric.unit}
+                            </span>
+                          </div>
+                        </div>
+                        {metric.current && metric.target && (
+                          <div className="mt-3">
+                            <div className="flex justify-between text-xs mb-1">
+                              <span>Progress</span>
+                              <span>
+                                {Math.min(
+                                  100,
+                                  Math.max(
+                                    0,
+                                    Math.round(
+                                      parseFloat(metric.target) >
+                                        parseFloat(metric.current)
+                                        ? (1 -
+                                            parseFloat(metric.current) /
+                                              parseFloat(metric.target)) *
+                                            100
+                                        : (parseFloat(metric.target) /
+                                            parseFloat(metric.current)) *
+                                            100,
+                                    ),
+                                  ),
+                                )}
+                                %
+                              </span>
+                            </div>
+                            <Progress
+                              value={Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  Math.round(
+                                    parseFloat(metric.target) >
+                                      parseFloat(metric.current)
+                                      ? (1 -
+                                          parseFloat(metric.current) /
+                                            parseFloat(metric.target)) *
+                                          100
+                                      : (parseFloat(metric.target) /
+                                          parseFloat(metric.current)) *
+                                          100,
+                                  ),
+                                ),
+                              )}
+                              className="h-2"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "./AppContext";
 import { analyzeMaterialityTopics } from "@/lib/ai-services";
+import { saveMaterialityTopics } from "@/lib/services";
 import {
   Card,
   CardContent,
@@ -130,7 +131,7 @@ const MaterialityMatrix = ({
   readOnly = false,
 }: MaterialityMatrixProps) => {
   const navigate = useNavigate();
-  const { setMaterialityTopics } = useAppContext();
+  const { setMaterialityTopics, questionnaireData, user } = useAppContext();
   const [matrixTopics, setMatrixTopics] = useState<MaterialityTopic[]>(topics);
   const [selectedTopic, setSelectedTopic] = useState<MaterialityTopic | null>(
     null,
@@ -141,10 +142,32 @@ const MaterialityMatrix = ({
   const [zoom, setZoom] = useState<number>(1);
   const [isGeneratingTopics, setIsGeneratingTopics] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setMatrixTopics(topics);
   }, [topics]);
+
+  // Save materiality topics to Supabase when they change
+  useEffect(() => {
+    const saveTopics = async () => {
+      if (user && matrixTopics.length > 0 && !readOnly) {
+        try {
+          setIsSaving(true);
+          await saveMaterialityTopics(matrixTopics);
+        } catch (error) {
+          console.error("Error saving materiality topics:", error);
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    };
+
+    // Don't save on initial load, only when topics change after that
+    if (matrixTopics !== topics) {
+      saveTopics();
+    }
+  }, [matrixTopics, user, readOnly]);
 
   // Function to proceed to plan generator
   const handleProceedToPlan = () => {
@@ -178,9 +201,14 @@ const MaterialityMatrix = ({
 
     try {
       // Get industry, size, and region from the context if available
-      const industry = questionnaireData?.industry || "General";
-      const size = questionnaireData?.size || "Medium Enterprise";
-      const region = questionnaireData?.region || "Global";
+      const industry =
+        questionnaireData?.["industry-selection"]?.industry || "General";
+      const size =
+        questionnaireData?.["company-profile"]?.employeeCount ||
+        "Medium Enterprise";
+      const region =
+        questionnaireData?.["regulatory-requirements"]?.primaryRegion ||
+        "Global";
 
       const result = await analyzeMaterialityTopics(industry, size, region);
 
@@ -634,7 +662,14 @@ const MaterialityMatrix = ({
           </div>
 
           <Button onClick={handleProceedToPlan} className="ml-auto">
-            Continue to Plan Generator
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Continue to Plan Generator"
+            )}
           </Button>
 
           <TooltipProvider>

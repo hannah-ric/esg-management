@@ -1,10 +1,25 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { corsHeaders } from "../_shared/cors.ts";
+import { corsHeaders } from "@shared/cors.ts";
 import {
   AnalyzeUrlRequest,
   DiffbotAnalyzeResponse,
   ESGResource,
 } from "@shared/types.ts";
+
+interface ESGDataPoint {
+  value: string;
+  context: string;
+  confidence: number;
+  source: string;
+  frameworkId?: string;
+  disclosureId?: string;
+}
+
+interface ESGExtractedData {
+  dataPoints: Record<string, ESGDataPoint>;
+  mappings: Record<string, string[]>;
+  rawText: string;
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -28,13 +43,21 @@ Deno.serve(async (req) => {
     // Process the response into a format suitable for our application
     const processedData = processDiffbotResponse(diffbotResponse, url);
 
+    // Extract ESG-specific data points and map them to frameworks
+    const esgData = await extractESGDataPoints(processedData);
+
+    // Combine the processed data with ESG-specific data
+    const enhancedData = {
+      ...processedData,
+      esgData,
+    };
+
     // Store the processed data in Supabase if needed
-    // This is optional and depends on your application's requirements
-    if (processedData) {
-      await storeESGResource(processedData);
+    if (enhancedData) {
+      await storeESGResource(enhancedData);
     }
 
-    return new Response(JSON.stringify(processedData), {
+    return new Response(JSON.stringify(enhancedData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
@@ -58,6 +81,7 @@ async function callDiffbotAnalyze(
     url: encodeURIComponent(url),
     mode,
     timeout: "10000",
+    fields: "title,text,html,meta,tags",
   });
 
   const requestUrl = `${endpoint}?${params.toString()}`;
@@ -188,34 +212,248 @@ function processDiffbotResponse(
     source: new URL(originalUrl).hostname,
     tags,
     fileType,
+    rawContent: textContent,
+    html: mainObject.html || "",
   };
 }
 
-async function storeESGResource(resource: ESGResource) {
+async function extractESGDataPoints(
+  resource: ESGResource,
+): Promise<ESGExtractedData> {
+  // Initialize the ESG data structure
+  const esgData: ESGExtractedData = {
+    dataPoints: {},
+    mappings: {},
+    rawText: resource.rawContent || "",
+  };
+
+  // Define ESG frameworks and their disclosure patterns
+  const frameworks = {
+    GRI: {
+      pattern: /GRI\s*(\d{3}(?:-\d+)?)/gi,
+      disclosures: {
+        "GRI 102": "General Disclosures",
+        "GRI 103": "Management Approach",
+        "GRI 200": "Economic",
+        "GRI 300": "Environmental",
+        "GRI 400": "Social",
+      },
+    },
+    SASB: {
+      pattern: /SASB\s*([A-Z]{2,3}-\d{2,3}[A-Za-z]?)/gi,
+      disclosures: {},
+    },
+    TCFD: {
+      pattern: /TCFD|Task Force on Climate-related Financial Disclosures/gi,
+      disclosures: {
+        "TCFD-GOV": "Governance",
+        "TCFD-STR": "Strategy",
+        "TCFD-RM": "Risk Management",
+        "TCFD-MT": "Metrics and Targets",
+      },
+    },
+  };
+
+  // Extract specific ESG metrics based on common patterns
+  const metrics = {
+    "carbon-emissions": {
+      patterns: [
+        /carbon emissions[:\s]*(\d+(?:[,.]\d+)?\s*(?:tCO2e|tons|tonnes))/i,
+        /scope [123][:\s]*(\d+(?:[,.]\d+)?\s*(?:tCO2e|tons|tonnes))/i,
+        /greenhouse gas emissions[:\s]*(\d+(?:[,.]\d+)?\s*(?:tCO2e|tons|tonnes))/i,
+      ],
+      frameworks: ["GRI 305", "SASB", "TCFD-MT"],
+    },
+    "energy-consumption": {
+      patterns: [
+        /energy consumption[:\s]*(\d+(?:[,.]\d+)?\s*(?:MWh|GWh|kWh))/i,
+        /renewable energy[:\s]*(\d+(?:[,.]\d+)?\s*(?:%|percent))/i,
+      ],
+      frameworks: ["GRI 302", "SASB"],
+    },
+    "water-usage": {
+      patterns: [
+        /water consumption[:\s]*(\d+(?:[,.]\d+)?\s*(?:m3|liters|gallons))/i,
+        /water withdrawal[:\s]*(\d+(?:[,.]\d+)?\s*(?:m3|liters|gallons))/i,
+      ],
+      frameworks: ["GRI 303", "SASB"],
+    },
+    "waste-management": {
+      patterns: [
+        /waste generated[:\s]*(\d+(?:[,.]\d+)?\s*(?:tons|tonnes))/i,
+        /waste recycled[:\s]*(\d+(?:[,.]\d+)?\s*(?:%|percent|tons|tonnes))/i,
+      ],
+      frameworks: ["GRI 306", "SASB"],
+    },
+    "diversity-inclusion": {
+      patterns: [
+        /gender diversity[:\s]*(\d+(?:[,.]\d+)?\s*(?:%|percent))/i,
+        /women in leadership[:\s]*(\d+(?:[,.]\d+)?\s*(?:%|percent))/i,
+        /board diversity[:\s]*(\d+(?:[,.]\d+)?\s*(?:%|percent))/i,
+      ],
+      frameworks: ["GRI 405", "SASB"],
+    },
+    "health-safety": {
+      patterns: [
+        /lost time injury[:\s]*(\d+(?:[,.]\d+)?)/i,
+        /safety incidents[:\s]*(\d+(?:[,.]\d+)?)/i,
+        /recordable injury rate[:\s]*(\d+(?:[,.]\d+)?)/i,
+      ],
+      frameworks: ["GRI 403", "SASB"],
+    },
+  };
+
+  // Extract framework references
+  Object.entries(frameworks).forEach(([frameworkId, framework]) => {
+    const matches = resource.rawContent?.match(framework.pattern) || [];
+    matches.forEach((match) => {
+      const disclosureId = match.trim();
+      if (!esgData.mappings[frameworkId]) {
+        esgData.mappings[frameworkId] = [];
+      }
+      if (!esgData.mappings[frameworkId].includes(disclosureId)) {
+        esgData.mappings[frameworkId].push(disclosureId);
+      }
+    });
+  });
+
+  // Extract specific metrics
+  Object.entries(metrics).forEach(([metricId, metric]) => {
+    metric.patterns.forEach((pattern) => {
+      const matches = resource.rawContent?.match(pattern) || [];
+      if (matches.length > 0) {
+        // Find the context around the match
+        const matchIndex = resource.rawContent?.indexOf(matches[0]) || 0;
+        const startContext = Math.max(0, matchIndex - 100);
+        const endContext = Math.min(
+          resource.rawContent?.length || 0,
+          matchIndex + matches[0].length + 100,
+        );
+        const context =
+          resource.rawContent?.substring(startContext, endContext) || "";
+
+        // Extract the value from the match
+        const valueMatch = pattern.exec(matches[0]);
+        const value = valueMatch && valueMatch[1] ? valueMatch[1] : matches[0];
+
+        esgData.dataPoints[metricId] = {
+          value,
+          context,
+          confidence: 0.8, // Placeholder confidence score
+          source: resource.url,
+          frameworkId: metric.frameworks[0]?.split(" ")[0] || undefined,
+          disclosureId: metric.frameworks[0] || undefined,
+        };
+
+        // Add mappings for this metric
+        metric.frameworks.forEach((frameworkRef) => {
+          const [frameworkId, disclosureId] = frameworkRef.split(" ");
+          if (!esgData.mappings[frameworkId]) {
+            esgData.mappings[frameworkId] = [];
+          }
+          if (
+            disclosureId &&
+            !esgData.mappings[frameworkId].includes(disclosureId)
+          ) {
+            esgData.mappings[frameworkId].push(disclosureId);
+          }
+        });
+      }
+    });
+  });
+
+  return esgData;
+}
+
+async function storeESGResource(
+  resource: ESGResource & { esgData?: ESGExtractedData },
+) {
   // Initialize Supabase client
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_KEY") || "";
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Store the resource in the resources table
-  const { data, error } = await supabase.from("resources").insert([
-    {
-      title: resource.title,
-      description: resource.description,
-      type: resource.type,
-      category: resource.category,
-      url: resource.url,
-      file_type: resource.fileType,
-      source: resource.source,
-      date_added: new Date().toISOString(),
-      tags: resource.tags,
-    },
-  ]);
+  try {
+    // Store the resource in the resources table
+    const { data: resourceData, error: resourceError } = await supabase
+      .from("resources")
+      .insert([
+        {
+          title: resource.title,
+          description: resource.description,
+          type: resource.type,
+          category: resource.category,
+          url: resource.url,
+          file_type: resource.fileType,
+          source: resource.source,
+          date_added: new Date().toISOString(),
+          tags: resource.tags,
+        },
+      ])
+      .select()
+      .single();
 
-  if (error) {
-    console.error("Error storing resource:", error);
+    if (resourceError) {
+      console.error("Error storing resource:", resourceError);
+      throw resourceError;
+    }
+
+    // If we have ESG data and a resource ID, store the ESG data points
+    if (resource.esgData && resourceData?.id) {
+      // Store ESG data points
+      const dataPointsToInsert = Object.entries(
+        resource.esgData.dataPoints,
+      ).map(([metricId, dataPoint]) => ({
+        resource_id: resourceData.id,
+        metric_id: metricId,
+        value: dataPoint.value,
+        context: dataPoint.context,
+        confidence: dataPoint.confidence,
+        source: dataPoint.source,
+        framework_id: dataPoint.frameworkId,
+        disclosure_id: dataPoint.disclosureId,
+        created_at: new Date().toISOString(),
+      }));
+
+      if (dataPointsToInsert.length > 0) {
+        const { error: dataPointsError } = await supabase
+          .from("esg_data_points")
+          .insert(dataPointsToInsert);
+
+        if (dataPointsError) {
+          console.error("Error storing ESG data points:", dataPointsError);
+        }
+      }
+
+      // Store framework mappings
+      const mappingsToInsert = [];
+      for (const [frameworkId, disclosures] of Object.entries(
+        resource.esgData.mappings,
+      )) {
+        for (const disclosureId of disclosures) {
+          mappingsToInsert.push({
+            resource_id: resourceData.id,
+            framework_id: frameworkId,
+            disclosure_id: disclosureId,
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (mappingsToInsert.length > 0) {
+        const { error: mappingsError } = await supabase
+          .from("esg_framework_mappings")
+          .insert(mappingsToInsert);
+
+        if (mappingsError) {
+          console.error("Error storing ESG framework mappings:", mappingsError);
+        }
+      }
+    }
+
+    return resourceData;
+  } catch (error) {
+    console.error("Error in storeESGResource:", error);
     throw error;
   }
-
-  return data;
 }

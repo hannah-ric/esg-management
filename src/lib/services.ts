@@ -178,6 +178,7 @@ export const saveESGPlan = async (planData: any) => {
       frameworks: planData.frameworks,
       implementation_phases: planData.implementationPhases,
       resource_requirements: planData.resourceRequirements,
+      custom_metrics: planData.customMetrics,
     })
     .select()
     .single();
@@ -274,8 +275,104 @@ export const getResources = async (filters: any = {}) => {
     );
   }
 
+  if (filters.topics && filters.topics.length > 0) {
+    // Filter by topics that might be in the title, description, or tags
+    const topicConditions = filters.topics
+      .map(
+        (topic: string) =>
+          `title.ilike.%${topic}%,description.ilike.%${topic}%`,
+      )
+      .join(",");
+    query = query.or(topicConditions);
+  }
+
   const { data, error } = await query;
 
   if (error) throw error;
   return data;
+};
+
+export const uploadResource = async (resourceData: any) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated");
+
+  const { data, error } = await supabase
+    .from("resources")
+    .insert({
+      title: resourceData.title,
+      description: resourceData.description,
+      type: resourceData.type,
+      category: resourceData.category,
+      url: resourceData.url,
+      file_type: resourceData.fileType,
+      file_path: resourceData.filePath,
+      source: resourceData.source || "User Upload",
+      date_added: new Date().toISOString(),
+      tags: resourceData.tags,
+      user_id: user.id,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+// Custom metrics services
+export const getCustomMetrics = async (userId: string) => {
+  const { data, error } = await supabase
+    .from("custom_metrics")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (error) throw error;
+  return data || [];
+};
+
+export const saveCustomMetric = async (userId: string, metricData: any) => {
+  const { data, error } = await supabase
+    .from("custom_metrics")
+    .insert({
+      user_id: userId,
+      name: metricData.name,
+      target: metricData.target,
+      current: metricData.current,
+      unit: metricData.unit,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateCustomMetric = async (metricId: string, metricData: any) => {
+  const { data, error } = await supabase
+    .from("custom_metrics")
+    .update({
+      name: metricData.name,
+      target: metricData.target,
+      current: metricData.current,
+      unit: metricData.unit,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", metricId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deleteCustomMetric = async (userId: string, metricId: string) => {
+  const { error } = await supabase
+    .from("custom_metrics")
+    .delete()
+    .eq("id", metricId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+  return true;
 };

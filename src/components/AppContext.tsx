@@ -42,7 +42,10 @@ const defaultContext: AppContextType = {
 
 const AppContext = createContext<AppContextType>(defaultContext);
 
-export const useAppContext = () => useContext(AppContext);
+// Using a function declaration for better Fast Refresh compatibility
+export function useAppContext() {
+  return useContext(AppContext);
+}
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,

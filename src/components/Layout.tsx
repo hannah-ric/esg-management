@@ -121,6 +121,12 @@ const Layout = () => {
             >
               Resources
             </Link>
+            <Link
+              to="/benchmarking"
+              className="text-sm font-medium hover:text-primary"
+            >
+              Benchmarking
+            </Link>
           </nav>
           <div className="flex items-center space-x-4">
             {user ? (

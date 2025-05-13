@@ -5,6 +5,7 @@ import Questionnaire from "./components/Questionnaire";
 import MaterialityMatrix from "./components/MaterialityMatrix";
 import PlanGenerator from "./components/PlanGenerator";
 import ResourceLibrary from "./components/ResourceLibrary";
+import ComparativeAnalysis from "./components/ComparativeAnalysis";
 import Layout from "./components/Layout";
 import { AppProvider } from "./components/AppContext";
 import routes from "tempo-routes";
@@ -30,6 +31,7 @@ function App() {
               />
               <Route path="/plan-generator" element={<PlanGenerator />} />
               <Route path="/resources" element={<ResourceLibrary />} />
+              <Route path="/benchmarking" element={<ComparativeAnalysis />} />
             </Route>
             {tempoEnabled && (
               <Route path="/tempobook/*" element={<div>Tempo Content</div>} />

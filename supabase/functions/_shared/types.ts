@@ -34,4 +34,31 @@ export interface ESGResource {
   source: string;
   tags?: string[];
   fileType: string;
+  rawContent?: string;
+  html?: string;
+}
+
+export interface ESGDataPoint {
+  id?: string;
+  resource_id: string;
+  metric_id: string;
+  value: string;
+  context?: string;
+  confidence: number;
+  source: string;
+  framework_id?: string;
+  disclosure_id?: string;
+  created_at: string;
+  updated_at?: string;
+  user_id?: string;
+  is_edited?: boolean;
+}
+
+export interface ESGFrameworkMapping {
+  id?: string;
+  resource_id: string;
+  framework_id: string;
+  disclosure_id: string;
+  created_at: string;
+  updated_at?: string;
 }

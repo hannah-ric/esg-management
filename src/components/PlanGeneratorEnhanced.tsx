@@ -125,15 +125,16 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     try {
       // Prepare company profile data
       const companyProfile = {
-        companyName,
-        industry,
-        // Add other relevant profile data if available
+        companyName: companyName || "Your Company",
+        industry: industry || "General",
+        size: "Medium Enterprise",
+        region: "Global",
       };
 
       // Get AI-powered framework recommendations
       const recommendations = await getFrameworkRecommendations(
         companyProfile,
-        materialityTopics,
+        materialityTopics || [],
       );
 
       // Get AI-powered resource recommendations if esgPlan is available
