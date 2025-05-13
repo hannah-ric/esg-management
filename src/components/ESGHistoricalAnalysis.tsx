@@ -105,6 +105,16 @@ const ESGHistoricalAnalysis: React.FC<ESGHistoricalAnalysisProps> = ({
       "waste-management": "Waste Management",
       "diversity-inclusion": "Diversity & Inclusion",
       "health-safety": "Health & Safety",
+      "employee-turnover": "Employee Turnover",
+      "board-diversity": "Board Diversity",
+      "community-investment": "Community Investment",
+      "supply-chain-assessment": "Supply Chain Assessment",
+      "customer-privacy": "Customer Privacy",
+      "data-security": "Data Security",
+      "product-safety": "Product Safety",
+      "business-ethics": "Business Ethics",
+      "climate-risk": "Climate Risk",
+      "renewable-energy": "Renewable Energy",
     };
     return (
       labels[metricId] ||

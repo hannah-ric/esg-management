@@ -17,6 +17,7 @@ import {
   Edit,
   Trash2,
   AlertCircle,
+  TrendingUp,
 } from "lucide-react";
 import {
   Dialog,
@@ -412,6 +413,9 @@ const ESGMetricDashboard: React.FC<ESGMetricDashboardProps> = ({
             </TabsTrigger>
             <TabsTrigger value="historical-view">
               <Calendar className="h-4 w-4 mr-1" /> Historical Data
+            </TabsTrigger>
+            <TabsTrigger value="analysis-view">
+              <TrendingUp className="h-4 w-4 mr-1" /> Trend Analysis
             </TabsTrigger>
           </TabsList>
 

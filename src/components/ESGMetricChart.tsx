@@ -39,7 +39,12 @@ const ESGMetricChart: React.FC<ESGMetricChartProps> = ({
     if (!metrics || metrics.length === 0) return;
 
     // Process metrics to include both current and historical data
-    const allDataPoints: { year: string; value: string | number }[] = [];
+    const allDataPoints: {
+      year: string;
+      value: string | number;
+      source?: string;
+      isProjected?: boolean;
+    }[] = [];
 
     // Add current data points
     metrics.forEach((metric) => {
@@ -49,6 +54,8 @@ const ESGMetricChart: React.FC<ESGMetricChartProps> = ({
         allDataPoints.push({
           year: metric.reporting_year,
           value: numericValue !== null ? numericValue : metric.value,
+          source: metric.source,
+          isProjected: false,
         });
       }
 
@@ -60,6 +67,8 @@ const ESGMetricChart: React.FC<ESGMetricChartProps> = ({
             allDataPoints.push({
               year: hd.year,
               value: numericValue !== null ? numericValue : hd.value,
+              source: hd.source,
+              isProjected: hd.source === "Forecast",
             });
           }
         });
@@ -76,10 +85,18 @@ const ESGMetricChart: React.FC<ESGMetricChartProps> = ({
 
     // Prepare chart data
     const labels = allDataPoints.map((dp) => dp.year);
-    const values = allDataPoints.map((dp) => dp.value);
+
+    // Split data into actual and projected datasets
+    const actualValues = allDataPoints
+      .filter((dp) => !dp.isProjected)
+      .map((dp) => dp.value);
+
+    const projectedValues = allDataPoints.map((dp) =>
+      dp.isProjected ? dp.value : null,
+    );
 
     // Store original values for tooltip display
-    const originalValues = allDataPoints.map((dp) => dp.originalValue);
+    const originalValues = allDataPoints.map((dp) => dp.value);
 
     const data = {
       labels,
@@ -87,21 +104,39 @@ const ESGMetricChart: React.FC<ESGMetricChartProps> = ({
         {
           label: metrics[0]?.metric_id
             ? getMetricLabel(metrics[0].metric_id)
-            : "Value",
-          data: values,
+            : "Actual Values",
+          data: actualValues,
           borderColor: "rgb(53, 162, 235)",
           backgroundColor: "rgba(53, 162, 235, 0.5)",
           tension: 0.3,
-          originalValues: originalValues, // Store original values for tooltip
+          originalValues: originalValues,
+        },
+        {
+          label: "Projected Values",
+          data: projectedValues,
+          borderColor: "rgba(255, 99, 132, 0.8)",
+          backgroundColor: "rgba(255, 99, 132, 0.5)",
+          borderDash: [5, 5],
+          tension: 0.3,
+          pointStyle: "circle",
+          pointRadius: 4,
+          pointHoverRadius: 6,
         },
       ],
     };
+
+    // If there are no projected values, remove that dataset
+    if (!allDataPoints.some((dp) => dp.isProjected)) {
+      data.datasets.pop();
+    }
 
     setChartData(data);
   }, [metrics, chartType]);
 
   // Helper function to parse numeric values from strings
-  const parseNumericValue = (value: string): number | null => {
+  const parseNumericValue = (value: string | number): number | null => {
+    if (typeof value !== "string") return value as number;
+
     // Remove any non-numeric characters except decimal point
     const numericString = value.replace(/[^0-9.]/g, "");
     const parsed = parseFloat(numericString);

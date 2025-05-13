@@ -306,10 +306,7 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
       )}
 
       {exportSuccess && (
-        <Alert
-          variant="success"
-          className="mt-2 bg-green-50 text-green-800 border border-green-200"
-        >
+        <Alert variant="success" className="mt-2">
           <AlertDescription>{exportSuccess}</AlertDescription>
         </Alert>
       )}
