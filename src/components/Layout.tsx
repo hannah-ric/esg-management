@@ -290,12 +290,22 @@ const Layout = () => {
                     <TabsContent value="signup" className="space-y-4 pt-4">
                       <form onSubmit={handleSignUp} className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="fullName">Full Name</Label>
+                          <Label htmlFor="firstName">First Name</Label>
                           <Input
-                            id="fullName"
-                            placeholder="John Doe"
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
+                            id="firstName"
+                            placeholder="John"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="lastName">Last Name</Label>
+                          <Input
+                            id="lastName"
+                            placeholder="Doe"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
                             required
                           />
                         </div>

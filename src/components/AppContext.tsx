@@ -5,11 +5,16 @@ import {
   getMaterialityTopics,
   getESGPlan,
 } from "@/lib/services";
+import { ClerkProvider, useUser, useClerk } from "@clerk/clerk-react";
+import { createClerkUser, getClerkUser, SignUpData } from "@/lib/clerk-service";
 
 interface User {
   id: string;
   email?: string;
-  user_metadata?: Record<string, any>;
+  firstName?: string;
+  lastName?: string;
+  imageUrl?: string;
+  publicMetadata?: Record<string, any>;
 }
 
 interface AppContextType {
@@ -23,7 +28,7 @@ interface AppContextType {
   setMaterialityTopics: (topics: any[]) => void;
   setEsgPlan: (plan: any) => void;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, userData: any) => Promise<void>;
+  signUp: (userData: SignUpData) => Promise<void>;
   signOut: () => Promise<void>;
   checkAdminStatus: () => Promise<boolean>;
 }
@@ -51,9 +56,13 @@ export function useAppContext() {
   return useContext(AppContext);
 }
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
+// Inner provider that uses Clerk hooks
+const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { user: clerkUser, isLoaded: clerkIsLoaded } = useUser();
+  const { signIn: clerkSignIn, signOut: clerkSignOut } = useClerk();
+
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [questionnaireData, setQuestionnaireData] = useState<
@@ -63,125 +72,104 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [esgPlan, setEsgPlan] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
+  // Effect to sync Clerk user with our app state
   useEffect(() => {
-    // Check for existing session
-    const checkUser = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
+    if (clerkIsLoaded) {
+      if (clerkUser) {
+        // Map Clerk user to our User format
+        setUser({
+          id: clerkUser.id,
+          email: clerkUser.primaryEmailAddress?.emailAddress,
+          firstName: clerkUser.firstName || undefined,
+          lastName: clerkUser.lastName || undefined,
+          imageUrl: clerkUser.imageUrl,
+          publicMetadata: clerkUser.publicMetadata as Record<string, any>,
+        });
+      } else {
+        setUser(null);
+        setQuestionnaireData({});
+        setMaterialityTopics([]);
+        setEsgPlan(null);
+      }
+      setLoading(false);
+    }
+  }, [clerkUser, clerkIsLoaded]);
 
-          // Load user data from Supabase
-          try {
-            const profile = await getCompanyProfile(session.user.id);
-            if (profile) {
-              setQuestionnaireData({
-                "company-profile": {
-                  companyName: profile.company_name,
-                  employeeCount: profile.employee_count,
-                  companyType: profile.company_type,
-                  annualRevenue: profile.annual_revenue,
-                },
-                "industry-selection": {
-                  industry: profile.industry,
-                },
-                "regulatory-requirements": {
-                  primaryRegion: profile.primary_region,
-                  currentReporting: profile.current_reporting,
-                  applicableRegulations: profile.applicable_regulations,
-                },
-              });
-            }
-
-            const topics = await getMaterialityTopics(session.user.id);
-            if (topics && topics.length > 0) {
-              setMaterialityTopics(topics);
-            }
-
-            const plan = await getESGPlan(session.user.id);
-            if (plan) {
-              setEsgPlan(plan);
-            }
-          } catch (error) {
-            console.error("Error loading user data:", error);
+  // Load user data from Supabase when user changes
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (user?.id) {
+        try {
+          const profile = await getCompanyProfile(user.id);
+          if (profile) {
+            setQuestionnaireData({
+              "company-profile": {
+                companyName: profile.company_name,
+                employeeCount: profile.employee_count,
+                companyType: profile.company_type,
+                annualRevenue: profile.annual_revenue,
+              },
+              "industry-selection": {
+                industry: profile.industry,
+              },
+              "regulatory-requirements": {
+                primaryRegion: profile.primary_region,
+                currentReporting: profile.current_reporting,
+                applicableRegulations: profile.applicable_regulations,
+              },
+            });
           }
+
+          const topics = await getMaterialityTopics(user.id);
+          if (topics && topics.length > 0) {
+            setMaterialityTopics(topics);
+          }
+
+          const plan = await getESGPlan(user.id);
+          if (plan) {
+            setEsgPlan(plan);
+          }
+        } catch (error) {
+          console.error("Error loading user data:", error);
         }
-      } catch (error) {
-        console.error("Error checking auth status:", error);
-      } finally {
-        setLoading(false);
       }
     };
 
-    checkUser();
-
-    // Set up auth state listener
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_IN" && session?.user) {
-          setUser(session.user);
-        } else if (event === "SIGNED_OUT") {
-          setUser(null);
-          setQuestionnaireData({});
-          setMaterialityTopics([]);
-          setEsgPlan(null);
-        }
-      },
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+    loadUserData();
+  }, [user?.id]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
+    try {
+      await clerkSignIn.create({
+        identifier: email,
+        password,
+      });
+    } catch (error) {
+      console.error("Error signing in:", error);
+      throw error;
+    }
   };
 
-  const signUp = async (email: string, password: string, userData: any) => {
-    const { error, data } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: userData.fullName,
-          company_name: userData.companyName,
-        },
-      },
-    });
+  const signUp = async (userData: SignUpData) => {
+    try {
+      // Create user in Clerk via our edge function
+      await createClerkUser(userData);
 
-    if (error) throw error;
-
-    // Create user profile in public.users table
-    if (data.user) {
-      try {
-        const { error: profileError } = await supabase.from("users").insert({
-          id: data.user.id,
-          email: email,
-          full_name: userData.fullName,
-          company_name: userData.companyName,
-          created_at: new Date().toISOString(),
-          is_admin: false,
-        });
-
-        if (profileError) throw profileError;
-      } catch (err) {
-        console.error("Error creating user profile:", err);
-        // If profile creation fails, we should still allow the user to continue
-        // as the auth record was created successfully
-      }
+      // After successful signup, sign in the user
+      await signIn(userData.email, userData.password);
+    } catch (error) {
+      console.error("Error signing up:", error);
+      throw error;
     }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      await clerkSignOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+      throw error;
+    }
   };
 
   const checkAdminStatus = async () => {
@@ -234,5 +222,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     >
       {children}
     </AppContext.Provider>
+  );
+};
+
+// Outer provider that wraps with ClerkProvider
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+  if (!clerkPubKey) {
+    console.error("Missing VITE_CLERK_PUBLISHABLE_KEY environment variable");
+    return <div>Error: Missing Clerk configuration</div>;
+  }
+
+  return (
+    <ClerkProvider publishableKey={clerkPubKey}>
+      <AppContextProvider>{children}</AppContextProvider>
+    </ClerkProvider>
   );
 };
