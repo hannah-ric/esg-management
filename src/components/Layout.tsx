@@ -99,7 +99,7 @@ const Layout = () => {
           <div className="flex items-center space-x-2">
             <Globe className="h-6 w-6 text-primary" />
             <Link to="/" className="font-bold text-xl">
-              ESG Plan Generator
+              Impactly
             </Link>
           </div>
           <nav className="hidden md:flex space-x-6">
