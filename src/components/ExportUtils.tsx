@@ -130,13 +130,7 @@ export const prepareExcelData = (
 };
 
 export const exportToMultipleSheets = (
-  data: {
-    companyProfile: any[];
-    materialTopics: any[];
-    frameworkRecommendations: any[];
-    implementationRoadmap: any[];
-    resources: any[];
-  },
+  data: Record<string, any[]>,
   filename: string = "esg-plan.xlsx",
 ) => {
   try {
@@ -144,21 +138,10 @@ export const exportToMultipleSheets = (
     const wb = XLSX.utils.book_new();
 
     // Add each dataset as a separate sheet
-    const sheets = [
-      { name: "Company Profile", data: data.companyProfile },
-      { name: "Material Topics", data: data.materialTopics },
-      {
-        name: "Framework Recommendations",
-        data: data.frameworkRecommendations,
-      },
-      { name: "Implementation Roadmap", data: data.implementationRoadmap },
-      { name: "Resource Requirements", data: data.resources },
-    ];
-
-    sheets.forEach((sheet) => {
-      if (sheet.data && sheet.data.length > 0) {
-        const ws = XLSX.utils.json_to_sheet(sheet.data);
-        XLSX.utils.book_append_sheet(wb, ws, sheet.name);
+    Object.entries(data).forEach(([sheetName, sheetData]) => {
+      if (sheetData && sheetData.length > 0) {
+        const ws = XLSX.utils.json_to_sheet(sheetData);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
       }
     });
 

@@ -10,6 +10,7 @@ const Questionnaire = lazy(() => import("./components/Questionnaire"));
 const MaterialityMatrix = lazy(() => import("./components/MaterialityMatrix"));
 const PlanGenerator = lazy(() => import("./components/PlanGenerator"));
 const ResourceLibrary = lazy(() => import("./components/ResourceLibrary"));
+const ResourceAdmin = lazy(() => import("./components/ResourceAdmin"));
 const ComparativeAnalysis = lazy(
   () => import("./components/ComparativeAnalysis"),
 );
@@ -42,6 +43,7 @@ function App() {
               />
               <Route path="/plan-generator" element={<PlanGenerator />} />
               <Route path="/resources" element={<ResourceLibrary />} />
+              <Route path="/resources/admin" element={<ResourceAdmin />} />
               <Route path="/benchmarking" element={<ComparativeAnalysis />} />
               <Route path="/esg-data" element={<ESGDataDashboard />} />
             </Route>

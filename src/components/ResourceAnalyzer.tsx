@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import ResourceExporter from "./ResourceExporter";
 import {
   Accordion,
   AccordionContent,
@@ -379,220 +380,223 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
                 </div>
               )}
 
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className="mt-4"
-              >
-                <TabsList className="mb-2">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="esg-data">
-                    ESG Data
+              <div className="flex justify-between items-center mt-4 mb-2">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="mb-2">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="esg-data">
+                      ESG Data
+                      {result.esgData?.dataPoints &&
+                        Object.keys(result.esgData.dataPoints).length > 0 && (
+                          <Badge variant="secondary" className="ml-2">
+                            {Object.keys(result.esgData.dataPoints).length}
+                          </Badge>
+                        )}
+                    </TabsTrigger>
+                    <TabsTrigger value="frameworks">
+                      Frameworks
+                      {result.esgData?.mappings &&
+                        Object.keys(result.esgData.mappings).length > 0 && (
+                          <Badge variant="secondary" className="ml-2">
+                            {Object.keys(result.esgData.mappings).length}
+                          </Badge>
+                        )}
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="overview">
+                    <Alert>
+                      <Check className="h-4 w-4" />
+                      <AlertTitle>Analysis Complete</AlertTitle>
+                      <AlertDescription>
+                        This content has been analyzed and categorized as{" "}
+                        {result.category} content.
+                        {result.type === "framework" &&
+                          " It appears to be a reporting framework or standard."}
+                        {result.type === "guide" &&
+                          " It appears to be a guide or instructional content."}
+                        {result.type === "template" &&
+                          " It appears to be a template or example document."}
+                      </AlertDescription>
+                    </Alert>
+                  </TabsContent>
+
+                  <TabsContent value="esg-data">
                     {result.esgData?.dataPoints &&
-                      Object.keys(result.esgData.dataPoints).length > 0 && (
-                        <Badge variant="secondary" className="ml-2">
-                          {Object.keys(result.esgData.dataPoints).length}
-                        </Badge>
-                      )}
-                  </TabsTrigger>
-                  <TabsTrigger value="frameworks">
-                    Frameworks
-                    {result.esgData?.mappings &&
-                      Object.keys(result.esgData.mappings).length > 0 && (
-                        <Badge variant="secondary" className="ml-2">
-                          {Object.keys(result.esgData.mappings).length}
-                        </Badge>
-                      )}
-                  </TabsTrigger>
-                </TabsList>
+                    Object.keys(result.esgData.dataPoints).length > 0 ? (
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-medium">
+                          Extracted ESG Data Points
+                        </h4>
+                        <div className="space-y-3">
+                          {Object.entries(result.esgData.dataPoints).map(
+                            ([metricId, dataPoint]: [string, any]) => (
+                              <div
+                                key={metricId}
+                                className="border rounded-md p-3"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h5 className="font-medium">
+                                      {getMetricLabel(metricId)}
+                                    </h5>
+                                    {dataPoint.framework_id &&
+                                      dataPoint.disclosure_id && (
+                                        <Badge
+                                          variant="outline"
+                                          className="mt-1"
+                                        >
+                                          {dataPoint.framework_id}{" "}
+                                          {dataPoint.disclosure_id}
+                                        </Badge>
+                                      )}
+                                  </div>
+                                  <div>
+                                    {editingDataPoint === metricId ? (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() =>
+                                          handleSaveDataPoint(metricId)
+                                        }
+                                      >
+                                        <Save className="h-4 w-4 mr-1" /> Save
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() =>
+                                          handleEditDataPoint(metricId)
+                                        }
+                                      >
+                                        <Edit className="h-4 w-4 mr-1" /> Edit
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
 
-                <TabsContent value="overview">
-                  <Alert>
-                    <Check className="h-4 w-4" />
-                    <AlertTitle>Analysis Complete</AlertTitle>
-                    <AlertDescription>
-                      This content has been analyzed and categorized as{" "}
-                      {result.category} content.
-                      {result.type === "framework" &&
-                        " It appears to be a reporting framework or standard."}
-                      {result.type === "guide" &&
-                        " It appears to be a guide or instructional content."}
-                      {result.type === "template" &&
-                        " It appears to be a template or example document."}
-                    </AlertDescription>
-                  </Alert>
-                </TabsContent>
-
-                <TabsContent value="esg-data">
-                  {result.esgData?.dataPoints &&
-                  Object.keys(result.esgData.dataPoints).length > 0 ? (
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-medium">
-                        Extracted ESG Data Points
-                      </h4>
-                      <div className="space-y-3">
-                        {Object.entries(result.esgData.dataPoints).map(
-                          ([metricId, dataPoint]: [string, any]) => (
-                            <div
-                              key={metricId}
-                              className="border rounded-md p-3"
-                            >
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h5 className="font-medium">
-                                    {getMetricLabel(metricId)}
-                                  </h5>
-                                  {dataPoint.framework_id &&
-                                    dataPoint.disclosure_id && (
-                                      <Badge variant="outline" className="mt-1">
-                                        {dataPoint.framework_id}{" "}
-                                        {dataPoint.disclosure_id}
+                                {editingDataPoint === metricId ? (
+                                  <div className="mt-2">
+                                    <Label htmlFor={`edit-${metricId}`}>
+                                      Value
+                                    </Label>
+                                    <Input
+                                      id={`edit-${metricId}`}
+                                      value={
+                                        editedValues[metricId] ||
+                                        dataPoint.value
+                                      }
+                                      onChange={(e) =>
+                                        setEditedValues({
+                                          ...editedValues,
+                                          [metricId]: e.target.value,
+                                        })
+                                      }
+                                      className="mt-1"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="mt-2">
+                                    <div className="text-sm font-medium">
+                                      Value:
+                                    </div>
+                                    <div className="text-lg">
+                                      {dataPoint.value}
+                                    </div>
+                                    {dataPoint.is_edited && (
+                                      <Badge
+                                        variant="outline"
+                                        className="mt-1 text-xs"
+                                      >
+                                        Edited
                                       </Badge>
                                     )}
-                                </div>
-                                <div>
-                                  {editingDataPoint === metricId ? (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() =>
-                                        handleSaveDataPoint(metricId)
-                                      }
-                                    >
-                                      <Save className="h-4 w-4 mr-1" /> Save
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() =>
-                                        handleEditDataPoint(metricId)
-                                      }
-                                    >
-                                      <Edit className="h-4 w-4 mr-1" /> Edit
-                                    </Button>
-                                  )}
-                                </div>
+                                  </div>
+                                )}
+
+                                <Accordion
+                                  type="single"
+                                  collapsible
+                                  className="mt-2"
+                                >
+                                  <AccordionItem value="context">
+                                    <AccordionTrigger className="text-xs py-1">
+                                      Show Context
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                      <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                                        {dataPoint.context}
+                                      </div>
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                </Accordion>
                               </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-muted-foreground">
+                          No ESG data points were extracted from this content.
+                        </p>
+                      </div>
+                    )}
+                  </TabsContent>
 
-                              {editingDataPoint === metricId ? (
-                                <div className="mt-2">
-                                  <Label htmlFor={`edit-${metricId}`}>
-                                    Value
-                                  </Label>
-                                  <Input
-                                    id={`edit-${metricId}`}
-                                    value={
-                                      editedValues[metricId] || dataPoint.value
-                                    }
-                                    onChange={(e) =>
-                                      setEditedValues({
-                                        ...editedValues,
-                                        [metricId]: e.target.value,
-                                      })
-                                    }
-                                    className="mt-1"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="mt-2">
-                                  <div className="text-sm font-medium">
-                                    Value:
-                                  </div>
-                                  <div className="text-lg">
-                                    {dataPoint.value}
-                                  </div>
-                                  {dataPoint.is_edited && (
-                                    <Badge
-                                      variant="outline"
-                                      className="mt-1 text-xs"
-                                    >
-                                      Edited
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
-
-                              <Accordion
-                                type="single"
-                                collapsible
-                                className="mt-2"
+                  <TabsContent value="frameworks">
+                    {result.esgData?.mappings &&
+                    Object.keys(result.esgData.mappings).length > 0 ? (
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-medium">
+                          Detected Framework References
+                        </h4>
+                        <div className="space-y-3">
+                          {Object.entries(result.esgData.mappings).map(
+                            ([frameworkId, disclosures]: [string, any]) => (
+                              <div
+                                key={frameworkId}
+                                className="border rounded-md p-3"
                               >
-                                <AccordionItem value="context">
-                                  <AccordionTrigger className="text-xs py-1">
-                                    Show Context
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                                      {dataPoint.context}
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <Badge
+                                      className={getFrameworkColor(frameworkId)}
+                                    >
+                                      {frameworkId}
+                                    </Badge>
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                      {disclosures.map(
+                                        (disclosure: string, i: number) => (
+                                          <Badge
+                                            key={i}
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            {disclosure}
+                                          </Badge>
+                                        ),
+                                      )}
                                     </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              </Accordion>
-                            </div>
-                          ),
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-muted-foreground">
-                        No ESG data points were extracted from this content.
-                      </p>
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="frameworks">
-                  {result.esgData?.mappings &&
-                  Object.keys(result.esgData.mappings).length > 0 ? (
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-medium">
-                        Detected Framework References
-                      </h4>
-                      <div className="space-y-3">
-                        {Object.entries(result.esgData.mappings).map(
-                          ([frameworkId, disclosures]: [string, any]) => (
-                            <div
-                              key={frameworkId}
-                              className="border rounded-md p-3"
-                            >
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <Badge
-                                    className={getFrameworkColor(frameworkId)}
-                                  >
-                                    {frameworkId}
-                                  </Badge>
-                                  <div className="mt-2 flex flex-wrap gap-1">
-                                    {disclosures.map(
-                                      (disclosure: string, i: number) => (
-                                        <Badge
-                                          key={i}
-                                          variant="outline"
-                                          className="text-xs"
-                                        >
-                                          {disclosure}
-                                        </Badge>
-                                      ),
-                                    )}
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ),
-                        )}
+                            ),
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-muted-foreground">
-                        No framework references were detected in this content.
-                      </p>
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-muted-foreground">
+                          No framework references were detected in this content.
+                        </p>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+                <ResourceExporter resource={result} />
+              </div>
             </motion.div>
           )}
         </div>

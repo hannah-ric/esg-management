@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 import {
@@ -10,51 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { ArrowRight, BarChart3, FileText, Globe, Shield } from "lucide-react";
+import { ArrowRight, BarChart3, FileText, Shield } from "lucide-react";
 
 const Home = () => {
   const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b sticky top-0 z-10 bg-background">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <Globe className="h-6 w-6 text-primary" />
-            <span className="font-bold text-xl">ESG Plan Generator</span>
-          </div>
-          <nav className="hidden md:flex space-x-6">
-            <Link to="/" className="text-sm font-medium hover:text-primary">
-              Home
-            </Link>
-            <Link
-              to="/about"
-              className="text-sm font-medium hover:text-primary"
-            >
-              About
-            </Link>
-            <Link
-              to="/features"
-              className="text-sm font-medium hover:text-primary"
-            >
-              Features
-            </Link>
-            <Link
-              to="/resources"
-              className="text-sm font-medium hover:text-primary"
-            >
-              Resources
-            </Link>
-          </nav>
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm">
-              Log In
-            </Button>
-            <Button size="sm">Sign Up</Button>
-          </div>
-        </div>
-      </header>
-
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto max-w-6xl">
@@ -194,141 +155,6 @@ const Home = () => {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-muted py-12 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Globe className="h-5 w-5 text-primary" />
-                <span className="font-bold">ESG Plan Generator</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Simplifying ESG reporting and management for organizations of
-                all sizes.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-4">Product</h3>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link
-                    to="/features"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Features
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/pricing"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/integrations"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Integrations
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-4">Resources</h3>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link
-                    to="/blog"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Blog
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/guides"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Guides
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/webinars"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Webinars
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-4">Company</h3>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link
-                    to="/about"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/contact"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Contact
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/careers"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Careers
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-muted-foreground mb-4 md:mb-0">
-              © {new Date().getFullYear()} ESG Plan Generator. All rights
-              reserved.
-            </p>
-            <div className="flex space-x-6">
-              <Link
-                to="/terms"
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
-                Terms
-              </Link>
-              <Link
-                to="/privacy"
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
-                Privacy
-              </Link>
-              <Link
-                to="/cookies"
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
-                Cookies
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

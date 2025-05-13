@@ -18,12 +18,14 @@ interface AppContextType {
   questionnaireData: Record<string, any>;
   materialityTopics: any[];
   esgPlan: any;
+  isAdmin: boolean;
   setQuestionnaireData: (data: Record<string, any>) => void;
   setMaterialityTopics: (topics: any[]) => void;
   setEsgPlan: (plan: any) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, userData: any) => Promise<void>;
   signOut: () => Promise<void>;
+  checkAdminStatus: () => Promise<boolean>;
 }
 
 const defaultContext: AppContextType = {
@@ -32,12 +34,14 @@ const defaultContext: AppContextType = {
   questionnaireData: {},
   materialityTopics: [],
   esgPlan: null,
+  isAdmin: false,
   setQuestionnaireData: () => {},
   setMaterialityTopics: () => {},
   setEsgPlan: () => {},
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
+  checkAdminStatus: async () => false,
 };
 
 const AppContext = createContext<AppContextType>(defaultContext);
@@ -57,6 +61,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   >({});
   const [materialityTopics, setMaterialityTopics] = useState<any[]>([]);
   const [esgPlan, setEsgPlan] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   useEffect(() => {
     // Check for existing session
@@ -171,6 +176,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     if (error) throw error;
   };
 
+  const checkAdminStatus = async () => {
+    if (!user) return false;
+
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("is_admin")
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+
+      const adminStatus = data?.is_admin || false;
+      setIsAdmin(adminStatus);
+      return adminStatus;
+    } catch (err) {
+      console.error("Error checking admin status:", err);
+      return false;
+    }
+  };
+
+  // Check admin status whenever user changes
+  useEffect(() => {
+    if (user) {
+      checkAdminStatus();
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
+
   return (
     <AppContext.Provider
       value={{
@@ -179,12 +214,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         questionnaireData,
         materialityTopics,
         esgPlan,
+        isAdmin,
         setQuestionnaireData,
         setMaterialityTopics,
         setEsgPlan,
         signIn,
         signUp,
         signOut,
+        checkAdminStatus,
       }}
     >
       {children}

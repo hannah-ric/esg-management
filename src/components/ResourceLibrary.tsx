@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Card,
@@ -25,6 +26,8 @@ import {
   AlertCircle,
   Upload,
   Target,
+  FileDown,
+  Edit,
 } from "lucide-react";
 import {
   Select,
@@ -37,6 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import ResourceAnalyzer from "./ResourceAnalyzer";
 import ResourceUploader from "./ResourceUploader";
+import ResourceExporter from "./ResourceExporter";
 import { supabase } from "@/lib/supabase";
 import {
   getResourceRecommendations,
@@ -109,7 +113,9 @@ const getTypeLabel = (type: string) => {
 };
 
 const ResourceLibrary: React.FC = () => {
-  const { questionnaireData, esgPlan, materialityTopics } = useAppContext();
+  const navigate = useNavigate();
+  const { questionnaireData, esgPlan, materialityTopics, user } =
+    useAppContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -485,6 +491,29 @@ const ResourceLibrary: React.FC = () => {
               )}
             </Button>
 
+            <Button
+              variant="outline"
+              className="mt-4 md:mt-0"
+              onClick={() => {
+                window.open("/resource-library/bulk-export", "_blank");
+              }}
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              Bulk Export
+            </Button>
+
+            {/* Admin button - only shown to admin users */}
+            {user && (
+              <Button
+                variant="outline"
+                className="mt-4 md:mt-0"
+                onClick={() => navigate("/resources/admin")}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Manage Resources
+              </Button>
+            )}
+
             <Dialog open={isAnalyzerOpen} onOpenChange={setIsAnalyzerOpen}>
               <DialogTrigger asChild>
                 <Button className="mt-4 md:mt-0" variant="outline">
@@ -733,16 +762,19 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
             </div>
           </div>
           <p className="mt-2 text-muted-foreground">{resource.description}</p>
-          <div className="mt-4 flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              Preview
-            </Button>
-            <Button size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              {resource.fileType === "url"
-                ? "Open Link"
-                : `Download ${resource.fileType.toUpperCase()}`}
-            </Button>
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm">
+                Preview
+              </Button>
+              <Button size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                {resource.fileType === "url"
+                  ? "Open Link"
+                  : `Download ${resource.fileType.toUpperCase()}`}
+              </Button>
+            </div>
+            <ResourceExporter resource={resource} />
           </div>
         </div>
       </div>
