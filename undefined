@@ -1,0 +1,9 @@
+import ResourceLibrary from "@/components/ResourceLibrary";
+
+export default function ResourceLibraryStoryboard() {
+  return (
+    <div className="bg-background">
+      <ResourceLibrary />
+    </div>
+  );
+}
