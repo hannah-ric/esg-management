@@ -1,14 +1,19 @@
-import { Suspense } from "react";
+import { Suspense, lazy } from "react";
 import { Routes, Route, useRoutes } from "react-router-dom";
-import Home from "./components/home";
-import Questionnaire from "./components/Questionnaire";
-import MaterialityMatrix from "./components/MaterialityMatrix";
-import PlanGenerator from "./components/PlanGenerator";
-import ResourceLibrary from "./components/ResourceLibrary";
-import ComparativeAnalysis from "./components/ComparativeAnalysis";
 import Layout from "./components/Layout";
 import { AppProvider } from "./components/AppContext";
 import routes from "tempo-routes";
+
+// Lazy load components for better performance
+const Home = lazy(() => import("./components/home"));
+const Questionnaire = lazy(() => import("./components/Questionnaire"));
+const MaterialityMatrix = lazy(() => import("./components/MaterialityMatrix"));
+const PlanGenerator = lazy(() => import("./components/PlanGenerator"));
+const ResourceLibrary = lazy(() => import("./components/ResourceLibrary"));
+const ComparativeAnalysis = lazy(
+  () => import("./components/ComparativeAnalysis"),
+);
+const ESGDataDashboard = lazy(() => import("./components/ESGDataDashboard"));
 
 function App() {
   // Define tempoEnabled based on environment variable
@@ -19,7 +24,13 @@ function App() {
 
   return (
     <AppProvider>
-      <Suspense fallback={<p>Loading...</p>}>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-screen">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+          </div>
+        }
+      >
         <>
           <Routes>
             <Route element={<Layout />}>
@@ -32,6 +43,7 @@ function App() {
               <Route path="/plan-generator" element={<PlanGenerator />} />
               <Route path="/resources" element={<ResourceLibrary />} />
               <Route path="/benchmarking" element={<ComparativeAnalysis />} />
+              <Route path="/esg-data" element={<ESGDataDashboard />} />
             </Route>
             {tempoEnabled && (
               <Route path="/tempobook/*" element={<div>Tempo Content</div>} />

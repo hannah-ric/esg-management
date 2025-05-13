@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Search, AlertCircle, Sparkles } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TailoredRecommendations from "@/components/TailoredRecommendations";
 
 interface PlanGeneratorEnhancedProps {
   onEnhancementComplete?: (data: any) => void;
@@ -183,6 +184,7 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
             <TabsTrigger value="url">Analyze External Content</TabsTrigger>
             <TabsTrigger value="search">Search Resource Library</TabsTrigger>
             <TabsTrigger value="ai">AI Recommendations</TabsTrigger>
+            <TabsTrigger value="tailored">Tailored Recommendations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="url" className="space-y-4">
@@ -375,6 +377,20 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+          </TabsContent>
+
+          <TabsContent value="tailored">
+            <TailoredRecommendations
+              onApplyRecommendations={(recommendations) => {
+                if (onEnhancementComplete) {
+                  onEnhancementComplete({
+                    source: "tailored",
+                    data: recommendations,
+                    type: "tailored_recommendations",
+                  });
+                }
+              }}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>

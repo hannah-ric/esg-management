@@ -22,6 +22,7 @@ export interface DiffbotAnalyzeResponse {
 export interface AnalyzeUrlRequest {
   url: string;
   mode?: string;
+  extractText?: boolean;
 }
 
 export interface ESGResource {

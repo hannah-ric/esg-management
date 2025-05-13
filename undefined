@@ -1,48 +1,13 @@
-import React, { useState } from "react";
-import ResourceAnalyzer from "@/components/ResourceAnalyzer";
-import ESGDataEditor from "@/components/ESGDataEditor";
-import ESGDataDashboard from "@/components/ESGDataDashboard";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import TailoredRecommendations from "@/components/TailoredRecommendations";
 
-export default function ESGDataExtractionStoryboard() {
-  const [activeTab, setActiveTab] = useState("analyzer");
-  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
-  
+export default function TailoredRecommendationsStoryboard() {
   return (
-    <div className="bg-white p-6 min-h-screen">
-      <h1 className="text-2xl font-bold mb-6">ESG Data Extraction & Management</h1>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="analyzer">URL Analyzer</TabsTrigger>
-          <TabsTrigger value="editor">Data Editor</TabsTrigger>
-          <TabsTrigger value="dashboard">Data Dashboard</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="analyzer">
-          <ResourceAnalyzer />
-        </TabsContent>
-        
-        <TabsContent value="editor">
-          {selectedResourceId ? (
-            <ESGDataEditor 
-              resourceId={selectedResourceId} 
-              resourceTitle="Sample Resource"
-              onDataChange={() => console.log("Data changed")}
-            />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>ESG Data Editor</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Select a resource from the dashboard to edit its ESG data points and framework mappings.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="
+    <div className="bg-white p-6">
+      <TailoredRecommendations 
+        onApplyRecommendations={(recommendations) => {
+          console.log("Applied recommendations:", recommendations);
+        }}
+      />
+    </div>
+  );
+}

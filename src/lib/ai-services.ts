@@ -181,3 +181,30 @@ export async function getPeerBenchmarking(
     };
   }
 }
+
+export async function getESGDataInsights(
+  userId: string,
+  resourceId?: string,
+  metricId?: string,
+  timeframe: string = "month",
+): Promise<any> {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-esg-data-insights",
+      {
+        body: {
+          userId,
+          resourceId,
+          metricId,
+          timeframe,
+        },
+      },
+    );
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error getting ESG data insights:", error);
+    throw error;
+  }
+}

@@ -5,7 +5,21 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Search, Download, Filter } from "lucide-react";
+import {
+  Loader2,
+  Search,
+  Download,
+  Filter,
+  Plus,
+  FileText,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Table,
@@ -26,8 +40,13 @@ import {
   getUserESGDataPoints,
   searchESGDataPoints,
   getFrameworkMappings,
+  saveESGDataPoint,
+  ESGDataPoint,
 } from "@/lib/esg-data-services";
-import { exportToExcel } from "./ExportUtils";
+import ResourceAnalyzer from "./ResourceAnalyzer";
+import { exportToExcel } from "@/components/ExportUtils";
+import ESGDataVisualization from "./ESGDataVisualization";
+import ESGDataInsights from "./ESGDataInsights";
 
 interface ESGDataDashboardProps {
   onSelectResource?: (resourceId: string) => void;
@@ -45,6 +64,10 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("by-resource");
+  const [extractedDataPoints, setExtractedDataPoints] = useState<
+    Record<string, any>
+  >({});
+  const [isExtractDialogOpen, setIsExtractDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [frameworkFilter, setFrameworkFilter] = useState("all");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -52,6 +75,62 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleDataExtracted = (dataPoints: Record<string, any>) => {
+    setExtractedDataPoints(dataPoints);
+    setIsExtractDialogOpen(false);
+    setActiveTab("extracted-data");
+  };
+
+  const handleAddExtractedDataPoint = async (
+    metricId: string,
+    dataPoint: any,
+  ) => {
+    try {
+      // Get the first resource ID (this is a simplification - in a real app you'd select the right resource)
+      const resourceKeys = Object.keys(dataByResource);
+      if (resourceKeys.length === 0) {
+        setError(
+          "No resources available to add data to. Please add a resource first.",
+        );
+        return;
+      }
+
+      const resourceName = resourceKeys[0];
+      const resourceDataPoints = dataByResource[resourceName];
+      if (!resourceDataPoints || resourceDataPoints.length === 0) {
+        setError("No data points available for the selected resource.");
+        return;
+      }
+
+      const resourceId = resourceDataPoints[0].resource_id;
+
+      // Create a new data point
+      const newDataPoint: ESGDataPoint = {
+        resource_id: resourceId,
+        metric_id: metricId,
+        value: dataPoint.value,
+        context: dataPoint.context || "",
+        confidence: dataPoint.confidence || 0.8,
+        source: dataPoint.source || "Extracted data",
+        framework_id: dataPoint.frameworkId,
+        disclosure_id: dataPoint.disclosureId,
+      };
+
+      await saveESGDataPoint(newDataPoint);
+
+      // Remove from extracted data points
+      const updatedExtractedDataPoints = { ...extractedDataPoints };
+      delete updatedExtractedDataPoints[metricId];
+      setExtractedDataPoints(updatedExtractedDataPoints);
+
+      // Reload data to show the newly added data point
+      await loadData();
+    } catch (err) {
+      console.error("Error adding extracted data point:", err);
+      setError("Failed to add extracted data point. Please try again.");
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -164,6 +243,22 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
         <CardTitle className="flex justify-between items-center">
           <span>ESG Data Dashboard</span>
           <div className="flex gap-2">
+            <Dialog
+              open={isExtractDialogOpen}
+              onOpenChange={setIsExtractDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <FileText className="h-4 w-4 mr-1" /> Extract Data
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Extract ESG Data</DialogTitle>
+                </DialogHeader>
+                <ResourceAnalyzer onDataExtracted={handleDataExtracted} />
+              </DialogContent>
+            </Dialog>
             <Button size="sm" variant="outline" onClick={handleExportData}>
               <Download className="h-4 w-4 mr-1" /> Export Data
             </Button>
@@ -221,6 +316,15 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="extracted-data">
+              Extracted Data
+              {Object.keys(extractedDataPoints).length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {Object.keys(extractedDataPoints).length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="visualization">Visualization</TabsTrigger>
           </TabsList>
 
           <TabsContent value="by-resource">
@@ -430,6 +534,71 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
                 </p>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="extracted-data">
+            {Object.keys(extractedDataPoints).length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">
+                    Recently Extracted ESG Data
+                  </h3>
+                  <div className="text-sm text-muted-foreground">
+                    Click "Add to Dashboard" to incorporate data points into
+                    your ESG dashboard
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {Object.entries(extractedDataPoints).map(
+                    ([metricId, dataPoint]: [string, any]) => (
+                      <div
+                        key={metricId}
+                        className="border rounded-md p-4 flex justify-between items-start"
+                      >
+                        <div>
+                          <h4 className="font-medium">
+                            {getMetricLabel(metricId)}
+                          </h4>
+                          <div className="mt-1 text-lg">{dataPoint.value}</div>
+                          {dataPoint.frameworkId && dataPoint.disclosureId && (
+                            <Badge variant="outline" className="mt-2">
+                              {dataPoint.frameworkId} {dataPoint.disclosureId}
+                            </Badge>
+                          )}
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            Source: {dataPoint.source || "Extracted data"}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleAddExtractedDataPoint(metricId, dataPoint)
+                          }
+                        >
+                          <Plus className="h-4 w-4 mr-1" /> Add to Dashboard
+                        </Button>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">
+                  No extracted data points available. Click "Extract Data" to
+                  analyze a document or URL.
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="visualization">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ESGDataVisualization />
+              <ESGDataInsights className="h-full" />
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

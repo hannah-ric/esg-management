@@ -28,7 +28,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { url, mode = "article" } = (await req.json()) as AnalyzeUrlRequest;
+    const {
+      url,
+      mode = "article",
+      extractText = true, // Default to true for better ESG data extraction
+    } = (await req.json()) as AnalyzeUrlRequest;
 
     if (!url) {
       return new Response(JSON.stringify({ error: "URL is required" }), {
@@ -38,7 +42,7 @@ Deno.serve(async (req) => {
     }
 
     // Call Diffbot API through Pica passthrough
-    const diffbotResponse = await callDiffbotAnalyze(url, mode);
+    const diffbotResponse = await callDiffbotAnalyze(url, mode, extractText);
 
     // Process the response into a format suitable for our application
     const processedData = processDiffbotResponse(diffbotResponse, url);
@@ -73,6 +77,7 @@ Deno.serve(async (req) => {
 async function callDiffbotAnalyze(
   url: string,
   mode: string,
+  extractText: boolean = false,
 ): Promise<DiffbotAnalyzeResponse> {
   const endpoint = "https://api.picaos.com/v1/passthrough/v3/analyze";
 
@@ -80,8 +85,10 @@ async function callDiffbotAnalyze(
   const params = new URLSearchParams({
     url: encodeURIComponent(url),
     mode,
-    timeout: "10000",
-    fields: "title,text,html,meta,tags",
+    timeout: "30000", // Further increased timeout for more reliable text extraction
+    fields: extractText
+      ? "title,text,html,meta,tags,sentiment,links"
+      : "title,text,html,meta,tags",
   });
 
   const requestUrl = `${endpoint}?${params.toString()}`;

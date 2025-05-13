@@ -210,6 +210,35 @@ const MaterialityMatrix = ({
         questionnaireData?.["regulatory-requirements"]?.primaryRegion ||
         "Global";
 
+      // First try to use the tailored recommendations if available
+      try {
+        const { getTailoredRecommendations, parseRecommendations } =
+          await import("@/lib/tailored-recommendations");
+
+        const response = await getTailoredRecommendations({
+          surveyAnswers: questionnaireData || {},
+          materialityTopics: matrixTopics || [],
+        });
+
+        if (response.success && !response.error) {
+          const parsed = parseRecommendations(response.recommendations.content);
+
+          if (parsed.materialityTopics && parsed.materialityTopics.length > 0) {
+            // Update the topics
+            setMatrixTopics(parsed.materialityTopics);
+            if (onTopicUpdate) {
+              onTopicUpdate(parsed.materialityTopics);
+            }
+            setIsGeneratingTopics(false);
+            return;
+          }
+        }
+      } catch (tailoredError) {
+        console.error("Error using tailored recommendations:", tailoredError);
+        // Fall back to the original method if tailored recommendations fail
+      }
+
+      // Fall back to the original method
       const result = await analyzeMaterialityTopics(industry, size, region);
 
       if (result.error) {

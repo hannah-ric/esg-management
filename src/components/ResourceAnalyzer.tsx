@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import {
   AlertCircle,
   Edit,
   Save,
+  FileText,
+  Upload,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +34,7 @@ import {
 
 interface ResourceAnalyzerProps {
   onResourceAdded?: (resource: any) => void;
+  onDataExtracted?: (dataPoints: Record<string, ESGDataPoint>) => void;
 }
 
 interface ESGDataPoint {
@@ -53,6 +56,7 @@ interface ESGFrameworkMapping {
 
 const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
   onResourceAdded,
+  onDataExtracted,
 }) => {
   const [url, setUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -61,19 +65,44 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
   const [activeTab, setActiveTab] = useState("overview");
   const [editingDataPoint, setEditingDataPoint] = useState<string | null>(null);
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
+  const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const analyzeUrl = async () => {
-    if (!url) return;
+    if (!url && !file) return;
 
     setIsAnalyzing(true);
     setError(null);
     setResult(null);
 
     try {
+      let sourceUrl = url;
+
+      // If we have a file, upload it first to get a URL
+      if (file) {
+        setIsUploading(true);
+        const fileName = `${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+        const filePath = `temp/${fileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("resources")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: publicUrlData } = supabase.storage
+          .from("resources")
+          .getPublicUrl(filePath);
+
+        sourceUrl = publicUrlData.publicUrl;
+        setIsUploading(false);
+      }
+
       const { data, error } = await supabase.functions.invoke(
         "supabase-functions-analyze-esg-content",
         {
-          body: { url },
+          body: { url: sourceUrl, extractText: true },
         },
       );
 
@@ -83,11 +112,20 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
       if (onResourceAdded && data) {
         onResourceAdded(data);
       }
+
+      // If we have extracted ESG data points, notify parent component
+      if (onDataExtracted && data?.esgData?.dataPoints) {
+        onDataExtracted(data.esgData.dataPoints);
+      }
     } catch (err) {
-      console.error("Error analyzing URL:", err);
-      setError(err.message || "Failed to analyze the URL. Please try again.");
+      console.error("Error analyzing content:", err);
+      setError(
+        err.message || "Failed to analyze the content. Please try again.",
+      );
     } finally {
       setIsAnalyzing(false);
+      setIsUploading(false);
+      setFile(null);
     }
   };
 
@@ -239,24 +277,51 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              type="url"
-              placeholder="Enter URL of ESG report, article, or resource"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              className="flex-1"
-            />
-            <Button onClick={analyzeUrl} disabled={isAnalyzing || !url}>
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing
-                </>
-              ) : (
-                "Analyze"
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                placeholder="Enter URL of ESG report, article, or resource"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className="flex-1"
+                disabled={isAnalyzing || isUploading}
+              />
+              <Button
+                onClick={analyzeUrl}
+                disabled={isAnalyzing || isUploading || (!url && !file)}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analyzing
+                  </>
+                ) : (
+                  "Analyze"
+                )}
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="text-sm text-muted-foreground">
+                Or upload a document:
+              </div>
+              <Input
+                type="file"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                accept=".pdf,.doc,.docx,.xlsx,.xls"
+                className="flex-1"
+                disabled={isAnalyzing || isUploading}
+              />
+              {file && (
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm truncate max-w-[150px]">
+                    {file.name}
+                  </span>
+                </div>
               )}
-            </Button>
+            </div>
           </div>
 
           {error && (
