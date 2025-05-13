@@ -31,6 +31,7 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
 
   const handleExportToPDF = async () => {
     setIsExportingPDF(true);
@@ -132,10 +133,11 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
 
       document.body.appendChild(tempDiv);
 
-      // Export to PDF
+      // Export to PDF with improved quality and margins
       const success = await exportToPDF(
         "temp-pdf-export",
         `${resource.title.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+        { margin: 20, quality: 3 },
       );
 
       // Remove the temporary div
@@ -144,6 +146,14 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
       if (onExportComplete) {
         onExportComplete("pdf", success);
       }
+
+      // Show success message
+      setExportSuccess("PDF exported successfully!");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setExportSuccess(null);
+      }, 3000);
     } catch (error) {
       console.error("Error exporting to PDF:", error);
       setExportError("Failed to export to PDF. Please try again.");
@@ -228,6 +238,14 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
       if (onExportComplete) {
         onExportComplete("excel", success);
       }
+
+      // Show success message
+      setExportSuccess("Excel file exported successfully!");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setExportSuccess(null);
+      }, 3000);
     } catch (error) {
       console.error("Error exporting to Excel:", error);
       setExportError("Failed to export to Excel. Please try again.");
@@ -284,6 +302,15 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
       {exportError && (
         <Alert variant="destructive" className="mt-2">
           <AlertDescription>{exportError}</AlertDescription>
+        </Alert>
+      )}
+
+      {exportSuccess && (
+        <Alert
+          variant="success"
+          className="mt-2 bg-green-50 text-green-800 border border-green-200"
+        >
+          <AlertDescription>{exportSuccess}</AlertDescription>
         </Alert>
       )}
     </div>

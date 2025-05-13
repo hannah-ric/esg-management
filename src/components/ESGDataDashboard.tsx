@@ -47,6 +47,7 @@ import ResourceAnalyzer from "./ResourceAnalyzer";
 import { exportToExcel } from "@/components/ExportUtils";
 import ESGDataVisualization from "./ESGDataVisualization";
 import ESGDataInsights from "./ESGDataInsights";
+import ESGMetricDashboard from "./ESGMetricDashboard";
 
 interface ESGDataDashboardProps {
   onSelectResource?: (resourceId: string) => void;
@@ -105,7 +106,8 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
 
       const resourceId = resourceDataPoints[0].resource_id;
 
-      // Create a new data point
+      // Create a new data point with current year as reporting year
+      const currentYear = new Date().getFullYear().toString();
       const newDataPoint: ESGDataPoint = {
         resource_id: resourceId,
         metric_id: metricId,
@@ -115,6 +117,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
         source: dataPoint.source || "Extracted data",
         framework_id: dataPoint.frameworkId,
         disclosure_id: dataPoint.disclosureId,
+        reporting_year: currentYear,
       };
 
       await saveESGDataPoint(newDataPoint);
@@ -123,6 +126,10 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
       const updatedExtractedDataPoints = { ...extractedDataPoints };
       delete updatedExtractedDataPoints[metricId];
       setExtractedDataPoints(updatedExtractedDataPoints);
+
+      // Show success message
+      const successMessage = `Successfully added ${metricId.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} metric to your dashboard`;
+      alert(successMessage);
 
       // Reload data to show the newly added data point
       await loadData();
@@ -323,6 +330,9 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
                   {Object.keys(extractedDataPoints).length}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="metrics-dashboard">
+              Metrics Dashboard
             </TabsTrigger>
             <TabsTrigger value="visualization">Visualization</TabsTrigger>
           </TabsList>
@@ -592,6 +602,10 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
                 </p>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="metrics-dashboard">
+            <ESGMetricDashboard />
           </TabsContent>
 
           <TabsContent value="visualization">

@@ -1,5 +1,11 @@
 import { supabase } from "./supabase";
 
+export interface ESGHistoricalDataPoint {
+  year: string;
+  value: string;
+  source: string;
+}
+
 export interface ESGDataPoint {
   id?: string;
   resource_id: string;
@@ -14,6 +20,8 @@ export interface ESGDataPoint {
   updated_at?: string;
   user_id?: string;
   is_edited?: boolean;
+  reporting_year?: string;
+  historical_data?: ESGHistoricalDataPoint[];
 }
 
 export interface ESGFrameworkMapping {
@@ -230,6 +238,125 @@ export async function searchESGDataPoints(
 }
 
 // Get all framework mappings for a specific framework
+// Get framework recommendations based on metric data
+export async function getFrameworkRecommendations(metricData: {
+  metricId: string;
+  value: string;
+  context?: string;
+}): Promise<any[]> {
+  try {
+    // This is a simplified version - in a real app, you might call an AI service
+    // or have a more sophisticated recommendation engine
+
+    // For now, return some mock recommendations based on the metric ID
+    const recommendations = [];
+
+    switch (metricData.metricId) {
+      case "carbon-emissions":
+        recommendations.push(
+          {
+            framework: "GRI",
+            disclosure: "305-1",
+            description: "Direct (Scope 1) GHG emissions",
+          },
+          {
+            framework: "SASB",
+            disclosure: "EM-MM-110a.1",
+            description: "Gross global Scope 1 emissions",
+          },
+          {
+            framework: "TCFD",
+            disclosure: "Metrics & Targets",
+            description:
+              "Disclose Scope 1, Scope 2, and Scope 3 greenhouse gas emissions",
+          },
+        );
+        break;
+      case "energy-consumption":
+        recommendations.push(
+          {
+            framework: "GRI",
+            disclosure: "302-1",
+            description: "Energy consumption within the organization",
+          },
+          {
+            framework: "SASB",
+            disclosure: "IF-EU-000.B",
+            description: "Total electricity delivered to customers",
+          },
+        );
+        break;
+      case "water-usage":
+        recommendations.push(
+          {
+            framework: "GRI",
+            disclosure: "303-3",
+            description: "Water withdrawal",
+          },
+          {
+            framework: "SASB",
+            disclosure: "FB-AG-140a.1",
+            description: "Total water withdrawn",
+          },
+        );
+        break;
+      case "waste-management":
+        recommendations.push(
+          {
+            framework: "GRI",
+            disclosure: "306-3",
+            description: "Waste generated",
+          },
+          {
+            framework: "SASB",
+            disclosure: "RR-ST-150a.1",
+            description: "Amount of hazardous waste generated",
+          },
+        );
+        break;
+      case "diversity-inclusion":
+        recommendations.push(
+          {
+            framework: "GRI",
+            disclosure: "405-1",
+            description: "Diversity of governance bodies and employees",
+          },
+          {
+            framework: "SASB",
+            disclosure: "SV-PS-330a.1",
+            description:
+              "Percentage of gender and racial/ethnic group representation",
+          },
+        );
+        break;
+      default:
+        // For other metrics, provide some generic recommendations
+        recommendations.push(
+          {
+            framework: "GRI",
+            disclosure: "General",
+            description: "Consider relevant GRI topic-specific disclosures",
+          },
+          {
+            framework: "SASB",
+            disclosure: "Industry-specific",
+            description: "Check SASB standards for your industry",
+          },
+          {
+            framework: "SDG",
+            disclosure: "Goals 1-17",
+            description: "Align with relevant Sustainable Development Goals",
+          },
+        );
+    }
+
+    return recommendations;
+  } catch (error) {
+    console.error("Error getting framework recommendations:", error);
+    return [];
+  }
+}
+
 export async function getFrameworkMappings(
   frameworkId: string,
 ): Promise<ESGFrameworkMapping[]> {

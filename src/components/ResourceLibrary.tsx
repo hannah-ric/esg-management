@@ -495,7 +495,7 @@ const ResourceLibrary: React.FC = () => {
               variant="outline"
               className="mt-4 md:mt-0"
               onClick={() => {
-                window.open("/resource-library/bulk-export", "_blank");
+                navigate("/resources/bulk-export");
               }}
             >
               <FileDown className="mr-2 h-4 w-4" />

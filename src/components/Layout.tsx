@@ -43,8 +43,10 @@ const Layout = () => {
       setIsAuthDialogOpen(false);
       setEmail("");
       setPassword("");
-    } catch (err) {
-      setError("Invalid email or password. Please try again.");
+      navigate("/"); // Redirect to home page after successful login
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError(err.message || "Invalid email or password. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -61,8 +63,15 @@ const Layout = () => {
       setPassword("");
       setFullName("");
       setCompanyName("");
-    } catch (err) {
-      setError("Failed to create account. Please try again.");
+
+      // Show success message and switch to login tab
+      alert(
+        "Account created successfully! Please check your email to confirm your account before logging in.",
+      );
+      setAuthTab("login");
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      setError(err.message || "Failed to create account. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -126,6 +135,18 @@ const Layout = () => {
               className="text-sm font-medium hover:text-primary"
             >
               Benchmarking
+            </Link>
+            <Link
+              to="/esg-data"
+              className="text-sm font-medium hover:text-primary"
+            >
+              ESG Data
+            </Link>
+            <Link
+              to="/esg-metrics"
+              className="text-sm font-medium hover:text-primary"
+            >
+              ESG Metrics
             </Link>
           </nav>
           <div className="flex items-center space-x-4">
@@ -246,13 +267,24 @@ const Layout = () => {
                         {error && (
                           <p className="text-sm text-destructive">{error}</p>
                         )}
-                        <Button
-                          type="submit"
-                          className="w-full"
-                          disabled={isLoading}
-                        >
-                          {isLoading ? "Logging in..." : "Log In"}
-                        </Button>
+                        <div className="space-y-2">
+                          <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? "Logging in..." : "Log In"}
+                          </Button>
+                          <div className="text-sm text-center">
+                            <button
+                              type="button"
+                              onClick={() => setAuthTab("signup")}
+                              className="text-primary hover:underline"
+                            >
+                              Don't have an account? Sign up
+                            </button>
+                          </div>
+                        </div>
                       </form>
                     </TabsContent>
                     <TabsContent value="signup" className="space-y-4 pt-4">
@@ -301,13 +333,24 @@ const Layout = () => {
                         {error && (
                           <p className="text-sm text-destructive">{error}</p>
                         )}
-                        <Button
-                          type="submit"
-                          className="w-full"
-                          disabled={isLoading}
-                        >
-                          {isLoading ? "Creating account..." : "Sign Up"}
-                        </Button>
+                        <div className="space-y-2">
+                          <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? "Creating account..." : "Sign Up"}
+                          </Button>
+                          <div className="text-sm text-center">
+                            <button
+                              type="button"
+                              onClick={() => setAuthTab("login")}
+                              className="text-primary hover:underline"
+                            >
+                              Already have an account? Log in
+                            </button>
+                          </div>
+                        </div>
                       </form>
                     </TabsContent>
                   </Tabs>

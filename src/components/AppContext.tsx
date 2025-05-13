@@ -160,14 +160,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Create user profile in public.users table
     if (data.user) {
-      const { error: profileError } = await supabase.from("users").insert({
-        id: data.user.id,
-        email: email,
-        full_name: userData.fullName,
-        company_name: userData.companyName,
-      });
+      try {
+        const { error: profileError } = await supabase.from("users").insert({
+          id: data.user.id,
+          email: email,
+          full_name: userData.fullName,
+          company_name: userData.companyName,
+          created_at: new Date().toISOString(),
+          is_admin: false,
+        });
 
-      if (profileError) throw profileError;
+        if (profileError) throw profileError;
+      } catch (err) {
+        console.error("Error creating user profile:", err);
+        // If profile creation fails, we should still allow the user to continue
+        // as the auth record was created successfully
+      }
     }
   };
 

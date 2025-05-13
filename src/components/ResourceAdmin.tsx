@@ -63,6 +63,8 @@ import {
   FileUp,
   ExternalLink,
   Filter,
+  FileDown,
+  ArrowLeft,
 } from "lucide-react";
 
 interface ResourceItem {

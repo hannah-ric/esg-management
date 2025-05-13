@@ -11,6 +11,9 @@ const MaterialityMatrix = lazy(() => import("./components/MaterialityMatrix"));
 const PlanGenerator = lazy(() => import("./components/PlanGenerator"));
 const ResourceLibrary = lazy(() => import("./components/ResourceLibrary"));
 const ResourceAdmin = lazy(() => import("./components/ResourceAdmin"));
+const BulkResourceExporter = lazy(
+  () => import("./components/BulkResourceExporter"),
+);
 const ComparativeAnalysis = lazy(
   () => import("./components/ComparativeAnalysis"),
 );

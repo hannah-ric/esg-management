@@ -5,24 +5,31 @@ import * as XLSX from "xlsx";
 export const exportToPDF = async (
   elementId: string,
   filename: string = "esg-plan.pdf",
+  options: { margin?: number; quality?: number } = {},
 ) => {
   const element = document.getElementById(elementId);
   if (!element) {
     console.error(`Element with ID ${elementId} not found`);
-    return;
+    return false;
   }
 
   try {
+    // Apply default options
+    const margin = options.margin ?? 15; // Default 15mm margin
+    const quality = options.quality ?? 2; // Default scale factor of 2
+
     // Create a canvas from the element
     const canvas = await html2canvas(element, {
-      scale: 2, // Higher scale for better quality
+      scale: quality, // Higher scale for better quality
       useCORS: true, // Allow loading of images from other domains
       logging: false,
+      allowTaint: true, // Allow cross-origin images
+      backgroundColor: "#ffffff", // Ensure white background
     });
 
     // Calculate dimensions to maintain aspect ratio
-    const imgWidth = 210; // A4 width in mm
-    const pageHeight = 297; // A4 height in mm
+    const imgWidth = 210 - margin * 2; // A4 width in mm minus margins
+    const pageHeight = 297 - margin * 2; // A4 height in mm minus margins
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     let heightLeft = imgHeight;
     let position = 0;
@@ -30,14 +37,36 @@ export const exportToPDF = async (
     const pdf = new jsPDF("p", "mm", "a4");
     let pageData = canvas.toDataURL("image/png", 1.0);
 
-    pdf.addImage(pageData, "PNG", 0, position, imgWidth, imgHeight);
+    // Add metadata
+    pdf.setProperties({
+      title: filename.replace(".pdf", ""),
+      creator: "ESG Plan Generator",
+      creationDate: new Date(),
+    });
+
+    // Add first page
+    pdf.addImage(
+      pageData,
+      "PNG",
+      margin,
+      margin + position,
+      imgWidth,
+      imgHeight,
+    );
     heightLeft -= pageHeight;
 
     // Add new pages if content overflows
     while (heightLeft >= 0) {
       position = heightLeft - imgHeight;
       pdf.addPage();
-      pdf.addImage(pageData, "PNG", 0, position, imgWidth, imgHeight);
+      pdf.addImage(
+        pageData,
+        "PNG",
+        margin,
+        margin + position,
+        imgWidth,
+        imgHeight,
+      );
       heightLeft -= pageHeight;
     }
 
