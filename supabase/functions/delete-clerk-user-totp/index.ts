@@ -1,11 +1,7 @@
 import { corsHeaders } from "@shared/cors.ts";
 
-interface UpdateUserRequest {
+interface DeleteUserTotpRequest {
   userId: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  companyName?: string;
 }
 
 Deno.serve(async (req) => {
@@ -15,8 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { userId, firstName, lastName, email, companyName } =
-      (await req.json()) as UpdateUserRequest;
+    const { userId } = (await req.json()) as DeleteUserTotpRequest;
 
     if (!userId) {
       return new Response(JSON.stringify({ error: "User ID is required" }), {
@@ -25,31 +20,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prepare update data
-    const updateData: Record<string, any> = {};
-
-    if (firstName !== undefined) updateData.first_name = firstName;
-    if (lastName !== undefined) updateData.last_name = lastName;
-
-    // Handle public metadata updates
-    if (companyName !== undefined) {
-      updateData.public_metadata = { company_name: companyName };
-    }
-
-    // Update user in Clerk via Pica passthrough
+    // Delete user TOTP in Clerk via Pica passthrough
     const response = await fetch(
-      `https://api.picaos.com/v1/passthrough/users/${userId}`,
+      `https://api.picaos.com/v1/passthrough/users/${userId}/totp`,
       {
-        method: "PATCH",
+        method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           "x-pica-secret": Deno.env.get("PICA_SECRET_KEY") || "",
           "x-pica-connection-key":
             Deno.env.get("PICA_CLERK_CONNECTION_KEY") || "",
           "x-pica-action-id":
-            "conn_mod_def::GCT_4OlUshg::VU_wKTJ7RbCaeYvjHd4Izw",
+            "conn_mod_def::GCT_3LL_OUE::0LRH_VdWTHeSy4wSp95VXA",
         },
-        body: JSON.stringify(updateData),
       },
     );
 
@@ -58,14 +41,14 @@ Deno.serve(async (req) => {
       throw new Error(`Clerk API error: ${JSON.stringify(errorData)}`);
     }
 
-    const updatedUser = await response.json();
+    const result = await response.json();
 
-    return new Response(JSON.stringify({ user: updatedUser }), {
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    console.error("Error updating user:", error);
+    console.error("Error deleting user TOTP:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

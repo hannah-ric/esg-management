@@ -34,11 +34,21 @@ export async function createClerkUser(
       },
     );
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error from edge function:", error);
+      throw new Error(error.message || "Failed to create user");
+    }
+
+    if (!data || !data.user) {
+      throw new Error("Invalid response from server");
+    }
+
     return mapClerkUser(data.user);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating Clerk user:", error);
-    throw error;
+    throw new Error(
+      error.message || "An unexpected error occurred during signup",
+    );
   }
 }
 
@@ -63,7 +73,12 @@ export async function getClerkUser(userId: string): Promise<ClerkUser> {
 // Update a user in Clerk
 export async function updateClerkUser(
   userId: string,
-  userData: Partial<SignUpData>,
+  userData: Partial<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    companyName: string;
+  }>,
 ): Promise<ClerkUser> {
   try {
     const { data, error } = await supabase.functions.invoke(
@@ -162,5 +177,18 @@ function mapClerkUser(clerkUser: any): ClerkUser {
     email: clerkUser.email_addresses?.[0]?.email_address,
     imageUrl: clerkUser.image_url || clerkUser.profile_image_url,
     publicMetadata: clerkUser.public_metadata,
+  };
+}
+
+interface OrganizationMembership {
+  id: string;
+  role: string;
+  roleName: string;
+  permissions: string[];
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    membersCount: number;
   };
 }

@@ -1,5 +1,9 @@
 import { corsHeaders } from "@shared/cors.ts";
 
+interface GetUserRequest {
+  userId: string;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -7,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { userId } = await req.json();
+    const { userId } = (await req.json()) as GetUserRequest;
 
     if (!userId) {
       return new Response(JSON.stringify({ error: "User ID is required" }), {

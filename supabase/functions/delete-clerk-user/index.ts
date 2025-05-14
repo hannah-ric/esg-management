@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
           "x-pica-connection-key":
             Deno.env.get("PICA_CLERK_CONNECTION_KEY") || "",
           "x-pica-action-id":
-            "conn_mod_def::GCT_31Q-7fo::pym2V-IETdaZ-7BJwSQTSA",
+            "conn_mod_def::GCT_2MCfw90::5K6AKQYLTxmxeXWnt_gZYg",
         },
       },
     );

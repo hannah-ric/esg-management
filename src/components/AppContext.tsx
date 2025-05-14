@@ -44,7 +44,7 @@ const defaultContext: AppContextType = {
   setMaterialityTopics: () => {},
   setEsgPlan: () => {},
   signIn: async () => {},
-  signUp: async () => {},
+  signUp: async (userData: SignUpData) => {},
   signOut: async () => {},
   checkAdminStatus: async () => false,
 };

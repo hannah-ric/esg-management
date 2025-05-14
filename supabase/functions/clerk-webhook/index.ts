@@ -1,25 +1,9 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { corsHeaders } from "@shared/cors.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
+import { handleError } from "@shared/error-handler.ts";
 
-interface ClerkWebhookEvent {
-  data: {
-    id: string;
-    first_name?: string;
-    last_name?: string;
-    email_addresses?: Array<{
-      email_address: string;
-      id: string;
-      verification: {
-        status: string;
-      };
-    }>;
-    public_metadata?: Record<string, any>;
-    private_metadata?: Record<string, any>;
-    created_at: number;
-  };
-  object: string;
-  type: string;
-}
+// Import crypto for signature verification
+import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -28,51 +12,165 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify the webhook signature
+    // Verify webhook signature
     const svix_id = req.headers.get("svix-id") || "";
     const svix_timestamp = req.headers.get("svix-timestamp") || "";
     const svix_signature = req.headers.get("svix-signature") || "";
-    const webhook_secret = Deno.env.get("CLERK_WEBHOOK_SECRET") || "";
 
-    // Verify the webhook signature
-    if (!svix_id || !svix_timestamp || !svix_signature || !webhook_secret) {
+    if (!svix_id || !svix_timestamp || !svix_signature) {
+      return new Response(JSON.stringify({ error: "Missing Svix headers" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // Get the webhook secret
+    const webhookSecret = Deno.env.get("CLERK_WEBHOOK_SECRET");
+    if (!webhookSecret) {
+      console.error("Missing CLERK_WEBHOOK_SECRET environment variable");
       return new Response(
-        JSON.stringify({ error: "Missing webhook verification headers" }),
+        JSON.stringify({ error: "Server configuration error" }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
+          status: 500,
         },
       );
     }
 
-    // Get the body as text for signature verification
+    // Get the webhook payload as text for verification
     const body = await req.text();
 
-    // Verify signature (in a production environment)
-    // This is a placeholder for the actual verification logic
-    // You would use a library like svix-webhooks for proper verification
+    // Verify the signature
+    const isValid = await verifySignature({
+      payload: body,
+      secret: webhookSecret,
+      svixId: svix_id,
+      svixTimestamp: svix_timestamp,
+      svixSignature: svix_signature,
+    });
 
-    // Parse the event after verification
-    const event = JSON.parse(body) as ClerkWebhookEvent;
+    if (!isValid) {
+      console.error("Invalid webhook signature");
+      return new Response(
+        JSON.stringify({ error: "Invalid webhook signature" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        },
+      );
+    }
+
+    // Parse the payload
+    const payload = JSON.parse(body);
+    const { type, data } = payload;
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_KEY") || "";
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_KEY") || "";
 
-    // Process the webhook event based on its type
-    switch (event.type) {
-      case "user.created":
-        await handleUserCreated(supabase, event.data);
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Missing Supabase environment variables");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Handle different webhook events
+    switch (type) {
+      case "user.created": {
+        // Create a new user record in the database
+        const { id, email_addresses, first_name, last_name, public_metadata } =
+          data;
+        const email = email_addresses?.[0]?.email_address;
+        const companyName = public_metadata?.company_name || "";
+
+        // Check if user already exists to avoid duplicates
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("id")
+          .eq("id", id)
+          .single();
+
+        if (existingUser) {
+          console.log(`User ${id} already exists, skipping creation`);
+          break;
+        }
+
+        const { error } = await supabase.from("users").insert({
+          id,
+          email,
+          first_name,
+          last_name,
+          company_name: companyName,
+          created_at: new Date().toISOString(),
+        });
+
+        if (error) {
+          console.error("Error creating user in database:", error);
+          throw error;
+        }
+
+        console.log(`User ${id} created successfully`);
         break;
-      case "user.updated":
-        await handleUserUpdated(supabase, event.data);
+      }
+
+      case "user.updated": {
+        // Update the user record in the database
+        const { id, email_addresses, first_name, last_name, public_metadata } =
+          data;
+        const email = email_addresses?.[0]?.email_address;
+        const companyName = public_metadata?.company_name || "";
+
+        const { error } = await supabase
+          .from("users")
+          .update({
+            email,
+            first_name,
+            last_name,
+            company_name: companyName,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Error updating user in database:", error);
+          throw error;
+        }
+
+        console.log(`User ${id} updated successfully`);
         break;
-      case "user.deleted":
-        await handleUserDeleted(supabase, event.data);
+      }
+
+      case "user.deleted": {
+        // Delete the user record from the database
+        const { id } = data;
+
+        // First, check if the user exists
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("id")
+          .eq("id", id)
+          .single();
+
+        if (!existingUser) {
+          console.log(`User ${id} not found, skipping deletion`);
+          break;
+        }
+
+        const { error } = await supabase.from("users").delete().eq("id", id);
+
+        if (error) {
+          console.error("Error deleting user from database:", error);
+          throw error;
+        }
+
+        console.log(`User ${id} deleted successfully`);
         break;
+      }
+
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        // Log other webhook events
+        console.log(`Received webhook event: ${type}`);
+        break;
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -81,85 +179,69 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Error processing webhook:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return handleError(error);
   }
 });
 
-async function handleUserCreated(
-  supabase: any,
-  userData: ClerkWebhookEvent["data"],
-) {
-  // Extract primary email
-  const primaryEmail = userData.email_addresses?.find(
-    (email) => email.verification.status === "verified",
-  )?.email_address;
+// Helper function to verify webhook signature
+async function verifySignature({
+  payload,
+  secret,
+  svixId,
+  svixTimestamp,
+  svixSignature,
+}: {
+  payload: string;
+  secret: string;
+  svixId: string;
+  svixTimestamp: string;
+  svixSignature: string;
+}): Promise<boolean> {
+  try {
+    // Convert the secret to a Uint8Array
+    const secretBytes = new TextEncoder().encode(secret);
+    const secretKey = await crypto.subtle.importKey(
+      "raw",
+      secretBytes,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
 
-  if (!primaryEmail) {
-    console.error("No verified email found for user");
-    return;
-  }
+    // Create the message to verify
+    const message = `${svixId}.${svixTimestamp}.${payload}`;
+    const messageBytes = new TextEncoder().encode(message);
 
-  // Create user in Supabase users table
-  const { error } = await supabase.from("users").insert({
-    id: userData.id,
-    email: primaryEmail,
-    full_name:
-      `${userData.first_name || ""} ${userData.last_name || ""}`.trim(),
-    company_name: userData.public_metadata?.company_name || null,
-    created_at: new Date().toISOString(),
-    is_admin: false,
-  });
+    // Parse the signature
+    const signatures = svixSignature.split(" ");
+    for (const signature of signatures) {
+      const [version, signatureHex] = signature.split(",");
+      if (version !== "v1") continue;
 
-  if (error) {
-    console.error("Error creating user in Supabase:", error);
-    throw error;
-  }
-}
+      // Convert the signature from hex to Uint8Array
+      const signatureBytes = hexToUint8Array(signatureHex);
 
-async function handleUserUpdated(
-  supabase: any,
-  userData: ClerkWebhookEvent["data"],
-) {
-  // Extract primary email
-  const primaryEmail = userData.email_addresses?.find(
-    (email) => email.verification.status === "verified",
-  )?.email_address;
+      // Verify the signature
+      const isValid = await crypto.subtle.verify(
+        "HMAC",
+        secretKey,
+        signatureBytes,
+        messageBytes,
+      );
 
-  if (!primaryEmail) {
-    console.error("No verified email found for user");
-    return;
-  }
+      if (isValid) return true;
+    }
 
-  // Update user in Supabase users table
-  const { error } = await supabase
-    .from("users")
-    .update({
-      email: primaryEmail,
-      full_name:
-        `${userData.first_name || ""} ${userData.last_name || ""}`.trim(),
-      company_name: userData.public_metadata?.company_name || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userData.id);
-
-  if (error) {
-    console.error("Error updating user in Supabase:", error);
-    throw error;
+    return false;
+  } catch (error) {
+    console.error("Error verifying signature:", error);
+    return false;
   }
 }
 
-async function handleUserDeleted(
-  supabase: any,
-  userData: ClerkWebhookEvent["data"],
-) {
-  // Delete user from Supabase users table
-  const { error } = await supabase.from("users").delete().eq("id", userData.id);
-
-  if (error) {
-    console.error("Error deleting user from Supabase:", error);
-    throw error;
-  }
+// Helper function to convert hex string to Uint8Array
+function hexToUint8Array(hex: string): Uint8Array {
+  const pairs = hex.match(/[\da-f]{2}/gi) || [];
+  const bytes = pairs.map((pair) => parseInt(pair, 16));
+  return new Uint8Array(bytes);
 }

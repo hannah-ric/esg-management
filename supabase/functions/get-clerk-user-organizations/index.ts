@@ -1,5 +1,11 @@
 import { corsHeaders } from "@shared/cors.ts";
 
+interface GetUserOrganizationsRequest {
+  userId: string;
+  limit?: number;
+  offset?: number;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -7,7 +13,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { userId, limit = 10, offset = 0 } = await req.json();
+    const {
+      userId,
+      limit = 10,
+      offset = 0,
+    } = (await req.json()) as GetUserOrganizationsRequest;
 
     if (!userId) {
       return new Response(JSON.stringify({ error: "User ID is required" }), {
@@ -37,9 +47,9 @@ Deno.serve(async (req) => {
       throw new Error(`Clerk API error: ${JSON.stringify(errorData)}`);
     }
 
-    const organizations = await response.json();
+    const organizationsData = await response.json();
 
-    return new Response(JSON.stringify(organizations), {
+    return new Response(JSON.stringify(organizationsData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

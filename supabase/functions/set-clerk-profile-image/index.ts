@@ -24,31 +24,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create FormData with the image URL
-    const formData = new FormData();
-
-    // Fetch the image from the URL
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
-    }
-
-    const imageBlob = await imageResponse.blob();
-    formData.append("file", imageBlob);
-
     // Set profile image in Clerk via Pica passthrough
     const response = await fetch(
       `https://api.picaos.com/v1/passthrough/users/${userId}/profile_image`,
       {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           "x-pica-secret": Deno.env.get("PICA_SECRET_KEY") || "",
           "x-pica-connection-key":
             Deno.env.get("PICA_CLERK_CONNECTION_KEY") || "",
           "x-pica-action-id":
             "conn_mod_def::GCT_4EsnqcI::JakOn2mXRP-GrV1MikK9Fg",
         },
-        body: formData,
+        body: JSON.stringify({ imageUrl }),
       },
     );
 
@@ -57,9 +46,9 @@ Deno.serve(async (req) => {
       throw new Error(`Clerk API error: ${JSON.stringify(errorData)}`);
     }
 
-    const clerkUser = await response.json();
+    const updatedUser = await response.json();
 
-    return new Response(JSON.stringify({ user: clerkUser }), {
+    return new Response(JSON.stringify({ user: updatedUser }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

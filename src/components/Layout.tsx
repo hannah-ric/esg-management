@@ -29,7 +29,8 @@ const Layout = () => {
   const [authTab, setAuthTab] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,11 +58,22 @@ const Layout = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await signUp(email, password, { fullName, companyName });
+      if (!email || !password || !firstName || !lastName) {
+        throw new Error("Please fill in all required fields");
+      }
+
+      await signUp({
+        email,
+        password,
+        firstName,
+        lastName,
+        companyName,
+      });
       setIsAuthDialogOpen(false);
       setEmail("");
       setPassword("");
-      setFullName("");
+      setFirstName("");
+      setLastName("");
       setCompanyName("");
 
       // Show success message and switch to login tab
@@ -83,12 +95,8 @@ const Layout = () => {
   };
 
   const getUserInitials = () => {
-    if (!user?.user_metadata?.full_name) return "U";
-    return user.user_metadata.full_name
-      .split(" ")
-      .map((n: string) => n[0])
-      .join("")
-      .toUpperCase();
+    if (!user?.firstName && !user?.lastName) return "U";
+    return `${user.firstName?.[0] || ""}${user.lastName?.[0] || ""}`.toUpperCase();
   };
 
   return (
@@ -177,9 +185,9 @@ const Layout = () => {
                 <DropdownMenuContent align="end">
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      {user.user_metadata?.full_name && (
+                      {user.firstName && user.lastName && (
                         <p className="font-medium">
-                          {user.user_metadata.full_name}
+                          {user.firstName} {user.lastName}
                         </p>
                       )}
                       <p className="w-[200px] truncate text-sm text-muted-foreground">

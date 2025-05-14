@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       web3_wallet: [],
       username: null,
       password_digest: "",
-      password_hasher: "",
+      password_hasher: "bcrypt", // Required field with valid value
       totp_secret: "",
       backup_codes: [],
       private_metadata: {},
