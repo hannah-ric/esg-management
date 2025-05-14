@@ -148,6 +148,18 @@ const Layout = () => {
             >
               ESG Metrics
             </Link>
+            <Link
+              to="/advisory-services"
+              className="text-sm font-medium hover:text-primary"
+            >
+              Advisory Services
+            </Link>
+            <Link
+              to="/implementation-support"
+              className="text-sm font-medium hover:text-primary"
+            >
+              Implementation Support
+            </Link>
           </nav>
           <div className="flex items-center space-x-4">
             {user ? (

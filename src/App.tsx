@@ -18,6 +18,10 @@ const ComparativeAnalysis = lazy(
   () => import("./components/ComparativeAnalysis"),
 );
 const ESGDataDashboard = lazy(() => import("./components/ESGDataDashboard"));
+const AdvisoryServices = lazy(() => import("./components/AdvisoryServices"));
+const ImplementationSupport = lazy(
+  () => import("./components/ImplementationSupport"),
+);
 
 function App() {
   // Define tempoEnabled based on environment variable
@@ -49,6 +53,11 @@ function App() {
               <Route path="/resources/admin" element={<ResourceAdmin />} />
               <Route path="/benchmarking" element={<ComparativeAnalysis />} />
               <Route path="/esg-data" element={<ESGDataDashboard />} />
+              <Route path="/advisory-services" element={<AdvisoryServices />} />
+              <Route
+                path="/implementation-support"
+                element={<ImplementationSupport />}
+              />
             </Route>
             {tempoEnabled && (
               <Route path="/tempobook/*" element={<div>Tempo Content</div>} />

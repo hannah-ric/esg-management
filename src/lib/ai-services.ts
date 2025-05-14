@@ -12,7 +12,7 @@ export interface AIAssistantResponse {
 
 export async function getFrameworkRecommendations(
   companyProfile: any,
-  materialityTopics: any[],
+  materialityTopics: any[] = [],
 ): Promise<AIAssistantResponse> {
   try {
     const { data, error } = await supabase.functions.invoke(
