@@ -39,6 +39,22 @@ Deno.serve(async (req) => {
       },
       skip_password_checks: false,
       skip_password_requirement: false,
+      created_at: new Date().toISOString(),
+      external_id: null,
+      phone_number: [],
+      web3_wallet: [],
+      username: null,
+      password_digest: "",
+      password_hasher: "",
+      totp_secret: "",
+      backup_codes: [],
+      private_metadata: {},
+      unsafe_metadata: {},
+      delete_self_enabled: null,
+      legal_accepted_at: null,
+      skip_legal_checks: null,
+      create_organization_enabled: null,
+      create_organizations_limit: null,
     };
 
     const response = await fetch(

@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { userId } = await req.json();
+    const { userId, limit = 10, offset = 0 } = await req.json();
 
     if (!userId) {
       return new Response(JSON.stringify({ error: "User ID is required" }), {
@@ -16,9 +16,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get user from Clerk via Pica passthrough
+    // Get user organizations from Clerk via Pica passthrough
     const response = await fetch(
-      `https://api.picaos.com/v1/passthrough/users/${userId}`,
+      `https://api.picaos.com/v1/passthrough/v1/users/${userId}/organization_memberships?limit=${limit}&offset=${offset}`,
       {
         method: "GET",
         headers: {
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
           "x-pica-connection-key":
             Deno.env.get("PICA_CLERK_CONNECTION_KEY") || "",
           "x-pica-action-id":
-            "conn_mod_def::GCT_31Q-7fo::pym2V-IETdaZ-7BJwSQTSA",
+            "conn_mod_def::GCT_3sOGV5Q::soU7hp17QSCSn7k5vIgHVQ",
         },
       },
     );
@@ -37,14 +37,14 @@ Deno.serve(async (req) => {
       throw new Error(`Clerk API error: ${JSON.stringify(errorData)}`);
     }
 
-    const clerkUser = await response.json();
+    const organizations = await response.json();
 
-    return new Response(JSON.stringify({ user: clerkUser }), {
+    return new Response(JSON.stringify(organizations), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    console.error("Error getting user:", error);
+    console.error("Error getting user organizations:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

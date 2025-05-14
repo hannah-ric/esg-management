@@ -60,6 +60,99 @@ export async function getClerkUser(userId: string): Promise<ClerkUser> {
   }
 }
 
+// Update a user in Clerk
+export async function updateClerkUser(
+  userId: string,
+  userData: Partial<SignUpData>,
+): Promise<ClerkUser> {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-update-clerk-user",
+      {
+        body: { userId, ...userData },
+      },
+    );
+
+    if (error) throw error;
+    return mapClerkUser(data.user);
+  } catch (error) {
+    console.error("Error updating Clerk user:", error);
+    throw error;
+  }
+}
+
+// Delete a user in Clerk
+export async function deleteClerkUser(userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-delete-clerk-user",
+      {
+        body: { userId },
+      },
+    );
+
+    if (error) throw error;
+    return data.success;
+  } catch (error) {
+    console.error("Error deleting Clerk user:", error);
+    throw error;
+  }
+}
+
+// Set profile image for a user in Clerk
+export async function setClerkProfileImage(
+  userId: string,
+  imageUrl: string,
+): Promise<ClerkUser> {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-set-clerk-profile-image",
+      {
+        body: { userId, imageUrl },
+      },
+    );
+
+    if (error) throw error;
+    return mapClerkUser(data.user);
+  } catch (error) {
+    console.error("Error setting profile image:", error);
+    throw error;
+  }
+}
+
+// Get user organization memberships
+export async function getClerkUserOrganizations(
+  userId: string,
+  limit = 10,
+  offset = 0,
+): Promise<OrganizationMembership[]> {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-get-clerk-user-organizations",
+      {
+        body: { userId, limit, offset },
+      },
+    );
+
+    if (error) throw error;
+    return data.data.map((membership: any) => ({
+      id: membership.id,
+      role: membership.role,
+      roleName: membership.role_name,
+      permissions: membership.permissions,
+      organization: {
+        id: membership.organization.id,
+        name: membership.organization.name,
+        slug: membership.organization.slug,
+        membersCount: membership.organization.members_count,
+      },
+    }));
+  } catch (error) {
+    console.error("Error getting user organizations:", error);
+    throw error;
+  }
+}
+
 // Helper function to map Clerk user data to our format
 function mapClerkUser(clerkUser: any): ClerkUser {
   return {

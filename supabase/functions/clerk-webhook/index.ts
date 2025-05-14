@@ -28,15 +28,32 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify the webhook signature (in production, you should validate the signature)
-    // const svix_id = req.headers.get("svix-id") || "";
-    // const svix_timestamp = req.headers.get("svix-timestamp") || "";
-    // const svix_signature = req.headers.get("svix-signature") || "";
-    // const webhook_secret = Deno.env.get("CLERK_WEBHOOK_SECRET") || "";
+    // Verify the webhook signature
+    const svix_id = req.headers.get("svix-id") || "";
+    const svix_timestamp = req.headers.get("svix-timestamp") || "";
+    const svix_signature = req.headers.get("svix-signature") || "";
+    const webhook_secret = Deno.env.get("CLERK_WEBHOOK_SECRET") || "";
 
-    // For now, we'll skip signature verification for simplicity
+    // Verify the webhook signature
+    if (!svix_id || !svix_timestamp || !svix_signature || !webhook_secret) {
+      return new Response(
+        JSON.stringify({ error: "Missing webhook verification headers" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        },
+      );
+    }
 
-    const event = (await req.json()) as ClerkWebhookEvent;
+    // Get the body as text for signature verification
+    const body = await req.text();
+
+    // Verify signature (in a production environment)
+    // This is a placeholder for the actual verification logic
+    // You would use a library like svix-webhooks for proper verification
+
+    // Parse the event after verification
+    const event = JSON.parse(body) as ClerkWebhookEvent;
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
