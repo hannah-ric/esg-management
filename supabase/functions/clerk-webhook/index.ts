@@ -1,6 +1,7 @@
 import { corsHeaders } from "@shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { handleError } from "@shared/error-handler.ts";
+import { validateClerkConfig } from "@shared/clerk-config.ts";
 
 // Import crypto for signature verification
 import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
@@ -11,6 +12,11 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders, status: 200 });
   }
 
+  // Validate Clerk configuration
+  if (!validateClerkConfig()) {
+    return handleError("Clerk API configuration is incomplete", 500);
+  }
+
   try {
     // Verify webhook signature
     const svix_id = req.headers.get("svix-id") || "";
@@ -18,6 +24,11 @@ Deno.serve(async (req) => {
     const svix_signature = req.headers.get("svix-signature") || "";
 
     if (!svix_id || !svix_timestamp || !svix_signature) {
+      console.error("Missing Svix headers:", {
+        svix_id,
+        svix_timestamp,
+        svix_signature,
+      });
       return new Response(JSON.stringify({ error: "Missing Svix headers" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
@@ -78,17 +89,29 @@ Deno.serve(async (req) => {
     switch (type) {
       case "user.created": {
         // Create a new user record in the database
-        const { id, email_addresses, first_name, last_name, public_metadata } =
-          data;
+        const {
+          id,
+          email_addresses,
+          first_name,
+          last_name,
+          image_url,
+          public_metadata,
+        } = data;
         const email = email_addresses?.[0]?.email_address;
         const companyName = public_metadata?.company_name || "";
 
         // Check if user already exists to avoid duplicates
-        const { data: existingUser } = await supabase
+        const { data: existingUser, error: checkError } = await supabase
           .from("users")
           .select("id")
           .eq("id", id)
           .single();
+
+        if (checkError && checkError.code !== "PGRST116") {
+          // PGRST116 is the error code for no rows returned
+          console.error("Error checking for existing user:", checkError);
+          throw checkError;
+        }
 
         if (existingUser) {
           console.log(`User ${id} already exists, skipping creation`);
@@ -100,8 +123,11 @@ Deno.serve(async (req) => {
           email,
           first_name,
           last_name,
+          avatar_url: image_url || "",
           company_name: companyName,
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          is_admin: false, // Default to non-admin
         });
 
         if (error) {
@@ -115,8 +141,14 @@ Deno.serve(async (req) => {
 
       case "user.updated": {
         // Update the user record in the database
-        const { id, email_addresses, first_name, last_name, public_metadata } =
-          data;
+        const {
+          id,
+          email_addresses,
+          first_name,
+          last_name,
+          image_url,
+          public_metadata,
+        } = data;
         const email = email_addresses?.[0]?.email_address;
         const companyName = public_metadata?.company_name || "";
 
@@ -126,6 +158,7 @@ Deno.serve(async (req) => {
             email,
             first_name,
             last_name,
+            avatar_url: image_url || "",
             company_name: companyName,
             updated_at: new Date().toISOString(),
           })

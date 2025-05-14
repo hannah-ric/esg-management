@@ -2,8 +2,9 @@ import { corsHeaders } from "@shared/cors.ts";
 import { handleError, handleValidationError } from "@shared/error-handler.ts";
 import { getClerkHeaders, validateClerkConfig } from "@shared/clerk-config.ts";
 
-interface GetUserRequest {
+interface VerifyPasswordRequest {
   userId: string;
+  password: string;
 }
 
 Deno.serve(async (req) => {
@@ -18,25 +19,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { userId } = (await req.json()) as GetUserRequest;
+    const { userId, password } = (await req.json()) as VerifyPasswordRequest;
 
     if (!userId) {
       return handleValidationError("User ID is required");
     }
 
-    // Validate that userId is a non-empty string
-    if (typeof userId !== "string" || userId.trim() === "") {
-      return handleValidationError("Invalid user ID format");
+    if (!password) {
+      return handleValidationError("Password is required");
     }
 
-    // Get user from Clerk via Pica passthrough
+    // Verify password with Clerk via Pica passthrough
     const response = await fetch(
-      `https://api.picaos.com/v1/passthrough/users/${userId}`,
+      `https://api.picaos.com/v1/passthrough/users/${userId}/verify_password`,
       {
-        method: "GET",
+        method: "POST",
         headers: getClerkHeaders(
-          "conn_mod_def::GCT_31Q-7fo::pym2V-IETdaZ-7BJwSQTSA",
+          "conn_mod_def::GCT_3JaML5I::xhcjHY6_QxeFSeGNHBABOw",
         ),
+        body: JSON.stringify({ password }),
       },
     );
 
@@ -45,14 +46,14 @@ Deno.serve(async (req) => {
       throw new Error(`Clerk API error: ${JSON.stringify(errorData)}`);
     }
 
-    const clerkUser = await response.json();
+    const result = await response.json();
 
-    return new Response(JSON.stringify({ user: clerkUser }), {
+    return new Response(JSON.stringify({ verified: result.verified }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    console.error("Error getting user:", error);
+    console.error("Error verifying password:", error);
     return handleError(error);
   }
 });

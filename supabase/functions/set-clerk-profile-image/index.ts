@@ -1,4 +1,6 @@
 import { corsHeaders } from "@shared/cors.ts";
+import { handleError, handleValidationError } from "@shared/error-handler.ts";
+import { getClerkHeaders, validateClerkConfig } from "@shared/clerk-config.ts";
 
 interface SetProfileImageRequest {
   userId: string;
@@ -11,17 +13,20 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders, status: 200 });
   }
 
+  // Validate Clerk configuration
+  if (!validateClerkConfig()) {
+    return handleError("Clerk API configuration is incomplete", 500);
+  }
+
   try {
     const { userId, imageUrl } = (await req.json()) as SetProfileImageRequest;
 
-    if (!userId || !imageUrl) {
-      return new Response(
-        JSON.stringify({ error: "User ID and image URL are required" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        },
-      );
+    if (!userId) {
+      return handleValidationError("User ID is required");
+    }
+
+    if (!imageUrl) {
+      return handleValidationError("Image URL is required");
     }
 
     // Set profile image in Clerk via Pica passthrough
@@ -29,14 +34,9 @@ Deno.serve(async (req) => {
       `https://api.picaos.com/v1/passthrough/users/${userId}/profile_image`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-pica-secret": Deno.env.get("PICA_SECRET_KEY") || "",
-          "x-pica-connection-key":
-            Deno.env.get("PICA_CLERK_CONNECTION_KEY") || "",
-          "x-pica-action-id":
-            "conn_mod_def::GCT_4EsnqcI::JakOn2mXRP-GrV1MikK9Fg",
-        },
+        headers: getClerkHeaders(
+          "conn_mod_def::GCT_39g3xkY::qJjHu06yS1STMhrPvxC80Q",
+        ),
         body: JSON.stringify({ imageUrl }),
       },
     );
@@ -54,9 +54,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Error setting profile image:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return handleError(error);
   }
 });

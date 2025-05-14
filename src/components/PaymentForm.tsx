@@ -32,9 +32,10 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { confirmPaymentIntent } from "@/lib/stripe-service";
+import { useStripeKey } from "@/lib/stripe-key-provider";
 
-// Initialize Stripe with your publishable key
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+// Stripe will be initialized in the PaymentFormContent component
+// after we get the key from the StripeKeyProvider
 
 const formSchema = z.object({
   amount: z.coerce
@@ -85,6 +86,8 @@ const PaymentFormContent = () => {
       });
       return;
     }
+
+    // We already check for publishable key in the parent component
 
     setIsLoading(true);
     setPaymentStatus({});
@@ -258,6 +261,8 @@ const PaymentFormContent = () => {
 };
 
 export default function PaymentForm() {
+  const { publishableKey, loading, error } = useStripeKey();
+
   return (
     <Card className="w-full max-w-md mx-auto bg-white">
       <CardHeader>
@@ -267,9 +272,22 @@ export default function PaymentForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Elements stripe={stripePromise}>
-          <PaymentFormContent />
-        </Elements>
+        {loading && (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">Loading payment system...</span>
+          </div>
+        )}
+
+        {error && !publishableKey && (
+          <div className="p-4 rounded-md bg-red-50 text-red-700">{error}</div>
+        )}
+
+        {publishableKey && (
+          <Elements stripe={loadStripe(publishableKey)}>
+            <PaymentFormContent />
+          </Elements>
+        )}
       </CardContent>
       <CardFooter className="flex justify-between text-sm text-muted-foreground">
         <p>Secure payment processing by Stripe</p>

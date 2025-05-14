@@ -1,4 +1,6 @@
 import { corsHeaders } from "@shared/cors.ts";
+import { handleError } from "@shared/error-handler.ts";
+import { getClerkHeaders, validateClerkConfig } from "@shared/clerk-config.ts";
 
 interface ListUsersRequest {
   limit?: number;
@@ -18,6 +20,11 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders, status: 200 });
   }
 
+  // Validate Clerk configuration
+  if (!validateClerkConfig()) {
+    return handleError("Clerk API configuration is incomplete", 500);
+  }
+
   try {
     const {
       limit = 10,
@@ -31,10 +38,17 @@ Deno.serve(async (req) => {
       orderBy,
     } = (await req.json()) as ListUsersRequest;
 
-    // Build query parameters
+    // Build query parameters with validation
     const queryParams = new URLSearchParams();
-    if (limit) queryParams.append("limit", limit.toString());
-    if (offset) queryParams.append("offset", offset.toString());
+
+    // Ensure limit is within allowed range (1-500)
+    const validLimit = Math.min(Math.max(Number(limit) || 10, 1), 500);
+    queryParams.append("limit", validLimit.toString());
+
+    // Ensure offset is non-negative
+    const validOffset = Math.max(Number(offset) || 0, 0);
+    queryParams.append("offset", validOffset.toString());
+
     if (query) queryParams.append("query", query);
     if (emailAddressQuery)
       queryParams.append("email_address_query", emailAddressQuery);
@@ -50,14 +64,9 @@ Deno.serve(async (req) => {
       `https://api.picaos.com/v1/passthrough/users?${queryParams.toString()}`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-pica-secret": Deno.env.get("PICA_SECRET_KEY") || "",
-          "x-pica-connection-key":
-            Deno.env.get("PICA_CLERK_CONNECTION_KEY") || "",
-          "x-pica-action-id":
-            "conn_mod_def::GCT_3jssiuE::29aDwR0jRu6v1GwufLSEUg",
-        },
+        headers: getClerkHeaders(
+          "conn_mod_def::GCT_3jssiuE::29aDwR0jRu6v1GwufLSEUg",
+        ),
       },
     );
 
@@ -74,9 +83,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Error listing users:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return handleError(error);
   }
 });

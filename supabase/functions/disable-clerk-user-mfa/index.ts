@@ -1,4 +1,6 @@
 import { corsHeaders } from "@shared/cors.ts";
+import { handleError, handleValidationError } from "@shared/error-handler.ts";
+import { getClerkHeaders, validateClerkConfig } from "@shared/clerk-config.ts";
 
 interface DisableUserMfaRequest {
   userId: string;
@@ -10,14 +12,16 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders, status: 200 });
   }
 
+  // Validate Clerk configuration
+  if (!validateClerkConfig()) {
+    return handleError("Clerk API configuration is incomplete", 500);
+  }
+
   try {
     const { userId } = (await req.json()) as DisableUserMfaRequest;
 
     if (!userId) {
-      return new Response(JSON.stringify({ error: "User ID is required" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return handleValidationError("User ID is required");
     }
 
     // Disable user MFA in Clerk via Pica passthrough
@@ -25,14 +29,9 @@ Deno.serve(async (req) => {
       `https://api.picaos.com/v1/passthrough/users/${userId}/mfa`,
       {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-pica-secret": Deno.env.get("PICA_SECRET_KEY") || "",
-          "x-pica-connection-key":
-            Deno.env.get("PICA_CLERK_CONNECTION_KEY") || "",
-          "x-pica-action-id":
-            "conn_mod_def::GCT_3HyZMsU::zsfjMjV_TWySxjDzsfkV5A",
-        },
+        headers: getClerkHeaders(
+          "conn_mod_def::GCT_3HyZMsU::zsfjMjV_TWySxjDzsfkV5A",
+        ),
       },
     );
 
@@ -49,9 +48,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Error disabling user MFA:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return handleError(error);
   }
 });

@@ -7,6 +7,7 @@ export interface ClerkUser {
   email?: string;
   imageUrl?: string;
   publicMetadata?: Record<string, any>;
+  privateMetadata?: Record<string, any>;
 }
 
 export interface SignUpData {
@@ -27,10 +28,26 @@ export async function createClerkUser(
   userData: SignUpData,
 ): Promise<ClerkUser> {
   try {
+    // Validate required fields
+    if (!userData.email) {
+      throw new Error("Email is required");
+    }
+
+    if (!userData.password) {
+      throw new Error("Password is required");
+    }
+
+    // Ensure firstName and lastName are at least empty strings
+    const sanitizedUserData = {
+      ...userData,
+      firstName: userData.firstName || "",
+      lastName: userData.lastName || "",
+    };
+
     const { data, error } = await supabase.functions.invoke(
       "supabase-functions-create-clerk-user",
       {
-        body: userData,
+        body: sanitizedUserData,
       },
     );
 
@@ -55,6 +72,10 @@ export async function createClerkUser(
 // Get a user from Clerk by ID
 export async function getClerkUser(userId: string): Promise<ClerkUser> {
   try {
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
+
     const { data, error } = await supabase.functions.invoke(
       "supabase-functions-get-clerk-user",
       {
@@ -63,6 +84,9 @@ export async function getClerkUser(userId: string): Promise<ClerkUser> {
     );
 
     if (error) throw error;
+    if (!data || !data.user) {
+      throw new Error("User not found");
+    }
     return mapClerkUser(data.user);
   } catch (error) {
     console.error("Error getting Clerk user:", error);
@@ -78,17 +102,41 @@ export async function updateClerkUser(
     lastName: string;
     email: string;
     companyName: string;
+    publicMetadata: Record<string, any>;
+    privateMetadata: Record<string, any>;
   }>,
 ): Promise<ClerkUser> {
   try {
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
+
+    // Prepare the update data
+    const updateData: Record<string, any> = { userId };
+
+    if (userData.firstName !== undefined)
+      updateData.firstName = userData.firstName;
+    if (userData.lastName !== undefined)
+      updateData.lastName = userData.lastName;
+    if (userData.email !== undefined) updateData.email = userData.email;
+    if (userData.companyName !== undefined)
+      updateData.companyName = userData.companyName;
+    if (userData.publicMetadata !== undefined)
+      updateData.publicMetadata = userData.publicMetadata;
+    if (userData.privateMetadata !== undefined)
+      updateData.privateMetadata = userData.privateMetadata;
+
     const { data, error } = await supabase.functions.invoke(
       "supabase-functions-update-clerk-user",
       {
-        body: { userId, ...userData },
+        body: updateData,
       },
     );
 
     if (error) throw error;
+    if (!data || !data.user) {
+      throw new Error("Failed to update user");
+    }
     return mapClerkUser(data.user);
   } catch (error) {
     console.error("Error updating Clerk user:", error);
@@ -168,15 +216,42 @@ export async function getClerkUserOrganizations(
   }
 }
 
+// Verify a user's password
+export async function verifyClerkUserPassword(
+  userId: string,
+  password: string,
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-verify-clerk-user-password",
+      {
+        body: { userId, password },
+      },
+    );
+
+    if (error) throw error;
+    return data.verified === true;
+  } catch (error) {
+    console.error("Error verifying user password:", error);
+    throw error;
+  }
+}
+
 // Helper function to map Clerk user data to our format
 function mapClerkUser(clerkUser: any): ClerkUser {
+  if (!clerkUser) {
+    throw new Error("Invalid user data received from Clerk");
+  }
+
   return {
     id: clerkUser.id,
-    firstName: clerkUser.first_name,
-    lastName: clerkUser.last_name,
-    email: clerkUser.email_addresses?.[0]?.email_address,
-    imageUrl: clerkUser.image_url || clerkUser.profile_image_url,
-    publicMetadata: clerkUser.public_metadata,
+    firstName: clerkUser.first_name || "",
+    lastName: clerkUser.last_name || "",
+    email: clerkUser.email_addresses?.[0]?.email_address || "",
+    // Prefer image_url as profile_image_url is deprecated
+    imageUrl: clerkUser.image_url || clerkUser.profile_image_url || "",
+    publicMetadata: clerkUser.public_metadata || {},
+    privateMetadata: clerkUser.private_metadata || {},
   };
 }
 

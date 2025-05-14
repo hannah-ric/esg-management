@@ -1,4 +1,6 @@
 import { corsHeaders } from "@shared/cors.ts";
+import { getClerkHeaders, validateClerkConfig } from "@shared/clerk-config.ts";
+import { handleError, handleValidationError } from "@shared/error-handler.ts";
 
 interface CreateUserRequest {
   firstName: string;
@@ -14,26 +16,25 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders, status: 200 });
   }
 
+  // Validate Clerk configuration
+  if (!validateClerkConfig()) {
+    return handleError("Clerk API configuration is incomplete", 500);
+  }
+
   try {
     const { firstName, lastName, email, password, companyName } =
       (await req.json()) as CreateUserRequest;
 
     if (!email || !password) {
-      return new Response(
-        JSON.stringify({ error: "Email and password are required" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        },
-      );
+      return handleValidationError("Email and password are required");
     }
 
     // Create user in Clerk via Pica passthrough
     const userData = {
       email_address: [email],
       password,
-      first_name: firstName,
-      last_name: lastName,
+      first_name: firstName || "",
+      last_name: lastName || "",
       public_metadata: {
         company_name: companyName || "",
       },
@@ -61,14 +62,9 @@ Deno.serve(async (req) => {
       "https://api.picaos.com/v1/passthrough/users",
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-pica-secret": Deno.env.get("PICA_SECRET_KEY") || "",
-          "x-pica-connection-key":
-            Deno.env.get("PICA_CLERK_CONNECTION_KEY") || "",
-          "x-pica-action-id":
-            "conn_mod_def::GCT_4OlUshg::VU_wKTJ7RbCaeYvjHd4Izw",
-        },
+        headers: getClerkHeaders(
+          "conn_mod_def::GCT_4OlUshg::VU_wKTJ7RbCaeYvjHd4Izw",
+        ),
         body: JSON.stringify(userData),
       },
     );
@@ -86,9 +82,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Error creating user:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return handleError(error);
   }
 });

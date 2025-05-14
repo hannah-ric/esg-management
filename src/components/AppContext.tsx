@@ -1,14 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import {
-  getCompanyProfile,
-  getMaterialityTopics,
-  getESGPlan,
-} from "@/lib/services";
-import { ClerkProvider, useUser, useClerk } from "@clerk/clerk-react";
-import { createClerkUser, getClerkUser, SignUpData } from "@/lib/clerk-service";
+import { supabase } from "../lib/supabase";
+import { isMockAuth, mockUser } from "../lib/mock-auth";
+import { User, Session } from "@supabase/supabase-js";
 
-interface User {
+// Define types
+export interface User {
   id: string;
   email?: string;
   firstName?: string;
@@ -17,228 +13,390 @@ interface User {
   publicMetadata?: Record<string, any>;
 }
 
+export interface MaterialityTopic {
+  id: string;
+  name: string;
+  category: string;
+  stakeholderImportance: number;
+  businessImpact: number;
+}
+
+export interface ESGPlan {
+  id: string;
+  title: string;
+  description: string;
+  recommendations: ESGRecommendation[];
+  implementationPhases: ImplementationPhase[];
+}
+
+export interface ESGRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  framework: string;
+  indicator: string;
+  priority: "high" | "medium" | "low";
+  effort: "high" | "medium" | "low";
+  impact: "high" | "medium" | "low";
+}
+
+export interface ImplementationPhase {
+  id: string;
+  title: string;
+  description: string;
+  duration: string;
+  tasks: ImplementationTask[];
+}
+
+export interface ImplementationTask {
+  id: string;
+  title: string;
+  description: string;
+  status: "not_started" | "in_progress" | "completed";
+}
+
+export interface QuestionnaireData {
+  [key: string]: any;
+}
+
+// Define context type
 interface AppContextType {
   user: User | null;
   loading: boolean;
-  questionnaireData: Record<string, any>;
-  materialityTopics: any[];
-  esgPlan: any;
-  isAdmin: boolean;
-  setQuestionnaireData: (data: Record<string, any>) => void;
-  setMaterialityTopics: (topics: any[]) => void;
-  setEsgPlan: (plan: any) => void;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (userData: SignUpData) => Promise<void>;
-  signOut: () => Promise<void>;
-  checkAdminStatus: () => Promise<boolean>;
+  questionnaireData: QuestionnaireData;
+  materialityTopics: MaterialityTopic[];
+  esgPlan: ESGPlan | null;
+  updateQuestionnaireData: (data: QuestionnaireData) => void;
+  updateMaterialityTopics: (topics: MaterialityTopic[]) => void;
+  updateESGPlan: (plan: ESGPlan | null) => void;
+  saveQuestionnaireData: () => Promise<void>;
+  saveMaterialityTopics: () => Promise<void>;
+  saveESGPlan: () => Promise<void>;
+  loadUserData: () => Promise<void>;
 }
 
-const defaultContext: AppContextType = {
-  user: null,
-  loading: true,
-  questionnaireData: {},
-  materialityTopics: [],
-  esgPlan: null,
-  isAdmin: false,
-  setQuestionnaireData: () => {},
-  setMaterialityTopics: () => {},
-  setEsgPlan: () => {},
-  signIn: async () => {},
-  signUp: async (userData: SignUpData) => {},
-  signOut: async () => {},
-  checkAdminStatus: async () => false,
-};
+// Create context
+const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const AppContext = createContext<AppContextType>(defaultContext);
-
-// Using a function declaration for better Fast Refresh compatibility
-export function useAppContext() {
-  return useContext(AppContext);
-}
-
-// Inner provider that uses Clerk hooks
-const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const { user: clerkUser, isLoaded: clerkIsLoaded } = useUser();
-  const { signIn: clerkSignIn, signOut: clerkSignOut } = useClerk();
-
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [questionnaireData, setQuestionnaireData] = useState<
-    Record<string, any>
-  >({});
-  const [materialityTopics, setMaterialityTopics] = useState<any[]>([]);
-  const [esgPlan, setEsgPlan] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-
-  // Effect to sync Clerk user with our app state
-  useEffect(() => {
-    if (clerkIsLoaded) {
-      if (clerkUser) {
-        // Map Clerk user to our User format
-        setUser({
-          id: clerkUser.id,
-          email: clerkUser.primaryEmailAddress?.emailAddress,
-          firstName: clerkUser.firstName || undefined,
-          lastName: clerkUser.lastName || undefined,
-          imageUrl: clerkUser.imageUrl,
-          publicMetadata: clerkUser.publicMetadata as Record<string, any>,
-        });
-      } else {
-        setUser(null);
-        setQuestionnaireData({});
-        setMaterialityTopics([]);
-        setEsgPlan(null);
-      }
-      setLoading(false);
-    }
-  }, [clerkUser, clerkIsLoaded]);
-
-  // Load user data from Supabase when user changes
-  useEffect(() => {
-    const loadUserData = async () => {
-      if (user?.id) {
-        try {
-          const profile = await getCompanyProfile(user.id);
-          if (profile) {
-            setQuestionnaireData({
-              "company-profile": {
-                companyName: profile.company_name,
-                employeeCount: profile.employee_count,
-                companyType: profile.company_type,
-                annualRevenue: profile.annual_revenue,
-              },
-              "industry-selection": {
-                industry: profile.industry,
-              },
-              "regulatory-requirements": {
-                primaryRegion: profile.primary_region,
-                currentReporting: profile.current_reporting,
-                applicableRegulations: profile.applicable_regulations,
-              },
-            });
-          }
-
-          const topics = await getMaterialityTopics(user.id);
-          if (topics && topics.length > 0) {
-            setMaterialityTopics(topics);
-          }
-
-          const plan = await getESGPlan(user.id);
-          if (plan) {
-            setEsgPlan(plan);
-          }
-        } catch (error) {
-          console.error("Error loading user data:", error);
-        }
-      }
-    };
-
-    loadUserData();
-  }, [user?.id]);
-
-  const signIn = async (email: string, password: string) => {
-    try {
-      await clerkSignIn.create({
-        identifier: email,
-        password,
-      });
-    } catch (error) {
-      console.error("Error signing in:", error);
-      throw error;
-    }
-  };
-
-  const signUp = async (userData: SignUpData) => {
-    try {
-      // Create user in Clerk via our edge function
-      await createClerkUser(userData);
-
-      // After successful signup, sign in the user
-      await signIn(userData.email, userData.password);
-    } catch (error) {
-      console.error("Error signing up:", error);
-      throw error;
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      await clerkSignOut();
-    } catch (error) {
-      console.error("Error signing out:", error);
-      throw error;
-    }
-  };
-
-  const checkAdminStatus = async () => {
-    if (!user) return false;
-
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("is_admin")
-        .eq("id", user.id)
-        .single();
-
-      if (error) throw error;
-
-      const adminStatus = data?.is_admin || false;
-      setIsAdmin(adminStatus);
-      return adminStatus;
-    } catch (err) {
-      console.error("Error checking admin status:", err);
-      return false;
-    }
-  };
-
-  // Check admin status whenever user changes
-  useEffect(() => {
-    if (user) {
-      checkAdminStatus();
-    } else {
-      setIsAdmin(false);
-    }
-  }, [user]);
-
-  return (
-    <AppContext.Provider
-      value={{
-        user,
-        loading,
-        questionnaireData,
-        materialityTopics,
-        esgPlan,
-        isAdmin,
-        setQuestionnaireData,
-        setMaterialityTopics,
-        setEsgPlan,
-        signIn,
-        signUp,
-        signOut,
-        checkAdminStatus,
-      }}
-    >
-      {children}
-    </AppContext.Provider>
-  );
-};
-
-// Outer provider that wraps with ClerkProvider
+// Create provider component
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+  const [authState, setAuthState] = useState<{
+    user: User | null;
+    session: Session | null;
+    loading: boolean;
+  }>({
+    user: null,
+    session: null,
+    loading: true,
+  });
 
-  if (!clerkPubKey) {
-    console.error("Missing VITE_CLERK_PUBLISHABLE_KEY environment variable");
-    return <div>Error: Missing Clerk configuration</div>;
-  }
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>(
+    {},
+  );
+  const [materialityTopics, setMaterialityTopics] = useState<
+    MaterialityTopic[]
+  >([]);
+  const [esgPlan, setESGPlan] = useState<ESGPlan | null>(null);
+
+  // Effect to sync Supabase user with our app state
+  useEffect(() => {
+    // Use mock user in development
+    if (isMockAuth()) {
+      setUser({
+        id: mockUser.id,
+        email: mockUser.email,
+        firstName: mockUser.user_metadata?.first_name,
+        lastName: mockUser.user_metadata?.last_name,
+        imageUrl: "",
+        publicMetadata: mockUser.user_metadata,
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Get initial session
+    const getInitialSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            firstName: session.user.user_metadata?.first_name,
+            lastName: session.user.user_metadata?.last_name,
+            imageUrl: "",
+            publicMetadata: session.user.user_metadata,
+          });
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error("Error getting initial session:", error);
+        setLoading(false);
+      }
+    };
+
+    getInitialSession();
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email,
+          firstName: session.user.user_metadata?.first_name,
+          lastName: session.user.user_metadata?.last_name,
+          imageUrl: "",
+          publicMetadata: session.user.user_metadata,
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    // Cleanup subscription
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Load user data from Supabase when user changes
+  useEffect(() => {
+    if (user) {
+      loadUserData();
+    }
+  }, [user?.id]);
+
+  // Function to load user data from Supabase
+  const loadUserData = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+
+      // Load questionnaire data
+      const { data: questionnaireData, error: questionnaireError } =
+        await supabase
+          .from("questionnaire_data")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+      if (questionnaireError && questionnaireError.code !== "PGRST116") {
+        console.error("Error loading questionnaire data:", questionnaireError);
+      } else if (questionnaireData) {
+        setQuestionnaireData(questionnaireData.data || {});
+      }
+
+      // Load materiality topics
+      const { data: topicsData, error: topicsError } = await supabase
+        .from("materiality_topics")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (topicsError) {
+        console.error("Error loading materiality topics:", topicsError);
+      } else if (topicsData) {
+        setMaterialityTopics(topicsData);
+      }
+
+      // Load ESG plan
+      const { data: planData, error: planError } = await supabase
+        .from("esg_plans")
+        .select(
+          "*, recommendations:esg_recommendations(*), implementation_phases:implementation_phases(*, tasks:implementation_tasks(*))",
+        )
+        .eq("user_id", user.id)
+        .single();
+
+      if (planError && planError.code !== "PGRST116") {
+        console.error("Error loading ESG plan:", planError);
+      } else if (planData) {
+        setESGPlan({
+          id: planData.id,
+          title: planData.title,
+          description: planData.description,
+          recommendations: planData.recommendations.map((rec: any) => ({
+            id: rec.id,
+            title: rec.title,
+            description: rec.description,
+            framework: rec.framework,
+            indicator: rec.indicator,
+            priority: rec.priority,
+            effort: rec.effort,
+            impact: rec.impact,
+          })),
+          implementationPhases: planData.implementation_phases.map(
+            (phase: any) => ({
+              id: phase.id,
+              title: phase.title,
+              description: phase.description,
+              duration: phase.duration,
+              tasks: phase.tasks.map((task: any) => ({
+                id: task.id,
+                title: task.title,
+                description: task.description,
+                status: task.status,
+              })),
+            }),
+          ),
+        });
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to update questionnaire data
+  const updateQuestionnaireData = (data: QuestionnaireData) => {
+    setQuestionnaireData((prev) => ({ ...prev, ...data }));
+  };
+
+  // Function to update materiality topics
+  const updateMaterialityTopics = (topics: MaterialityTopic[]) => {
+    setMaterialityTopics(topics);
+  };
+
+  // Function to update ESG plan
+  const updateESGPlan = (plan: ESGPlan | null) => {
+    setESGPlan(plan);
+  };
+
+  // Function to save questionnaire data to Supabase
+  const saveQuestionnaireData = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("questionnaire_data")
+        .upsert(
+          {
+            user_id: user.id,
+            data: questionnaireData,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" },
+        )
+        .select();
+
+      if (error) {
+        console.error("Error saving questionnaire data:", error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error saving questionnaire data:", error);
+      throw error;
+    }
+  };
+
+  // Function to save materiality topics to Supabase
+  const saveMaterialityTopics = async () => {
+    if (!user) return;
+
+    try {
+      // First delete existing topics for this user
+      const { error: deleteError } = await supabase
+        .from("materiality_topics")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (deleteError) {
+        console.error("Error deleting existing topics:", deleteError);
+        throw deleteError;
+      }
+
+      // Then insert new topics
+      if (materialityTopics.length > 0) {
+        const topicsWithUserId = materialityTopics.map((topic) => ({
+          ...topic,
+          user_id: user.id,
+        }));
+
+        const { data, error } = await supabase
+          .from("materiality_topics")
+          .insert(topicsWithUserId)
+          .select();
+
+        if (error) {
+          console.error("Error saving materiality topics:", error);
+          throw error;
+        }
+
+        return data;
+      }
+    } catch (error) {
+      console.error("Error saving materiality topics:", error);
+      throw error;
+    }
+  };
+
+  // Function to save ESG plan to Supabase
+  const saveESGPlan = async () => {
+    if (!user || !esgPlan) return;
+
+    try {
+      // Start a transaction
+      const { error: transactionError } = await supabase.rpc(
+        "save_esg_plan_transaction",
+        {
+          p_user_id: user.id,
+          p_plan_id: esgPlan.id,
+          p_title: esgPlan.title,
+          p_description: esgPlan.description,
+          p_recommendations: JSON.stringify(esgPlan.recommendations),
+          p_implementation_phases: JSON.stringify(esgPlan.implementationPhases),
+        },
+      );
+
+      if (transactionError) {
+        console.error("Error saving ESG plan:", transactionError);
+        throw transactionError;
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error saving ESG plan:", error);
+      throw error;
+    }
+  };
+
+  const contextValue: AppContextType = {
+    user,
+    loading,
+    questionnaireData,
+    materialityTopics,
+    esgPlan,
+    updateQuestionnaireData,
+    updateMaterialityTopics,
+    updateESGPlan,
+    saveQuestionnaireData,
+    saveMaterialityTopics,
+    saveESGPlan,
+    loadUserData,
+  };
 
   return (
-    <ClerkProvider publishableKey={clerkPubKey}>
-      <AppContextProvider>{children}</AppContextProvider>
-    </ClerkProvider>
+    <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>
   );
+};
+
+// Create hook for using the context
+export const useAppContext = function useAppContext() {
+  const context = useContext(AppContext);
+  if (context === undefined) {
+    throw new Error("useAppContext must be used within an AppProvider");
+  }
+  return context;
 };

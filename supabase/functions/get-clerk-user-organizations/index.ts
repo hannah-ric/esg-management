@@ -1,4 +1,6 @@
 import { corsHeaders } from "@shared/cors.ts";
+import { handleError, handleValidationError } from "@shared/error-handler.ts";
+import { getClerkHeaders, validateClerkConfig } from "@shared/clerk-config.ts";
 
 interface GetUserOrganizationsRequest {
   userId: string;
@@ -12,6 +14,11 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders, status: 200 });
   }
 
+  // Validate Clerk configuration
+  if (!validateClerkConfig()) {
+    return handleError("Clerk API configuration is incomplete", 500);
+  }
+
   try {
     const {
       userId,
@@ -20,25 +27,21 @@ Deno.serve(async (req) => {
     } = (await req.json()) as GetUserOrganizationsRequest;
 
     if (!userId) {
-      return new Response(JSON.stringify({ error: "User ID is required" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return handleValidationError("User ID is required");
     }
+
+    // Validate limit and offset
+    const validLimit = Math.min(Math.max(Number(limit) || 10, 1), 500);
+    const validOffset = Math.max(Number(offset) || 0, 0);
 
     // Get user organizations from Clerk via Pica passthrough
     const response = await fetch(
-      `https://api.picaos.com/v1/passthrough/v1/users/${userId}/organization_memberships?limit=${limit}&offset=${offset}`,
+      `https://api.picaos.com/v1/passthrough/users/${userId}/organization_memberships?limit=${validLimit}&offset=${validOffset}`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-pica-secret": Deno.env.get("PICA_SECRET_KEY") || "",
-          "x-pica-connection-key":
-            Deno.env.get("PICA_CLERK_CONNECTION_KEY") || "",
-          "x-pica-action-id":
-            "conn_mod_def::GCT_3sOGV5Q::soU7hp17QSCSn7k5vIgHVQ",
-        },
+        headers: getClerkHeaders(
+          "conn_mod_def::GCT_3sOGV5Q::soU7hp17QSCSn7k5vIgHVQ",
+        ),
       },
     );
 
@@ -55,9 +58,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Error getting user organizations:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return handleError(error);
   }
 });
