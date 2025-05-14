@@ -19,6 +19,7 @@ interface Payment {
   status: string;
   description: string;
   created_at: string;
+  error_message?: string;
 }
 
 export default function PaymentHistory() {
@@ -68,6 +69,8 @@ export default function PaymentHistory() {
       year: "numeric",
       month: "long",
       day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -149,6 +152,7 @@ export default function PaymentHistory() {
                 <th className="text-left py-3 px-4 font-medium">Description</th>
                 <th className="text-left py-3 px-4 font-medium">Amount</th>
                 <th className="text-left py-3 px-4 font-medium">Status</th>
+                <th className="text-left py-3 px-4 font-medium">ID</th>
               </tr>
             </thead>
             <tbody>
@@ -159,12 +163,20 @@ export default function PaymentHistory() {
                   </td>
                   <td className="py-3 px-4">
                     {payment.description || "Payment"}
+                    {payment.error_message && (
+                      <div className="text-xs text-red-500 mt-1">
+                        Error: {payment.error_message}
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     {formatCurrency(payment.amount, payment.currency)}
                   </td>
                   <td className="py-3 px-4">
                     {getStatusBadge(payment.status)}
+                  </td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground">
+                    {payment.payment_intent_id.substring(0, 10)}...
                   </td>
                 </tr>
               ))}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -24,6 +24,17 @@ import {
   CardTitle,
 } from "./ui/card";
 import { Loader2 } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+import { confirmPaymentIntent } from "@/lib/stripe-service";
+
+// Initialize Stripe with your publishable key
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const formSchema = z.object({
   amount: z.coerce
@@ -36,7 +47,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function PaymentForm() {
+const PaymentFormContent = () => {
   const { user } = useAppContext();
   const [isLoading, setIsLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<{
@@ -44,6 +55,10 @@ export default function PaymentForm() {
     message?: string;
     clientSecret?: string;
   }>({});
+
+  // Stripe hooks
+  const stripe = useStripe();
+  const elements = useElements();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -63,6 +78,14 @@ export default function PaymentForm() {
       return;
     }
 
+    if (!stripe || !elements) {
+      setPaymentStatus({
+        success: false,
+        message: "Stripe has not initialized yet. Please try again.",
+      });
+      return;
+    }
+
     setIsLoading(true);
     setPaymentStatus({});
 
@@ -70,6 +93,7 @@ export default function PaymentForm() {
       // Convert dollars to cents for Stripe
       const amountInCents = Math.round(values.amount);
 
+      // Step 1: Create a payment intent
       const paymentIntent = await createPaymentIntent({
         amount: amountInCents,
         currency: values.currency,
@@ -80,23 +104,51 @@ export default function PaymentForm() {
         },
       });
 
-      setPaymentStatus({
-        success: true,
-        message: "Payment intent created successfully",
-        clientSecret: paymentIntent.client_secret,
-      });
+      // Step 2: Confirm the payment with the card element
+      const cardElement = elements.getElement(CardElement);
 
-      // In a real implementation, you would now use the client secret with Stripe.js
-      // to collect payment method details and confirm the payment
-      console.log("Payment intent created:", paymentIntent);
+      if (!cardElement) {
+        throw new Error("Card element not found");
+      }
 
-      // For demo purposes, we'll just show a success message
-      setTimeout(() => {
+      const { error, paymentIntent: confirmedIntent } =
+        await stripe.confirmCardPayment(paymentIntent.client_secret, {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              email: user.email,
+              name:
+                user.firstName && user.lastName
+                  ? `${user.firstName} ${user.lastName}`
+                  : undefined,
+            },
+          },
+        });
+
+      if (error) {
+        // Show error to your customer
+        throw new Error(error.message || "Payment failed");
+      }
+
+      if (confirmedIntent.status === "succeeded") {
         setPaymentStatus({
           success: true,
           message: "Payment processed successfully!",
         });
-      }, 2000);
+
+        // You can also call your backend to confirm the payment was successful
+        try {
+          await confirmPaymentIntent(confirmedIntent.id);
+        } catch (confirmError) {
+          console.error("Error confirming payment on backend:", confirmError);
+          // This is not critical as the payment already succeeded on Stripe's end
+        }
+      } else {
+        setPaymentStatus({
+          success: false,
+          message: `Payment status: ${confirmedIntent.status}. Please try again.`,
+        });
+      }
     } catch (error) {
       console.error("Payment error:", error);
       setPaymentStatus({
@@ -110,6 +162,103 @@ export default function PaymentForm() {
   }
 
   return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Amount ($)</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  placeholder="10.00"
+                  {...field}
+                  disabled={isLoading}
+                />
+              </FormControl>
+              <FormDescription>
+                Enter the amount in dollars (minimum $0.50).
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="Payment description"
+                  {...field}
+                  disabled={isLoading}
+                />
+              </FormControl>
+              <FormDescription>
+                A brief description of what this payment is for.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="space-y-2">
+          <FormLabel>Card Details</FormLabel>
+          <div className="p-3 border rounded-md">
+            <CardElement
+              options={{
+                style: {
+                  base: {
+                    fontSize: "16px",
+                    color: "#424770",
+                    "::placeholder": {
+                      color: "#aab7c4",
+                    },
+                  },
+                  invalid: {
+                    color: "#9e2146",
+                  },
+                },
+              }}
+            />
+          </div>
+          <FormDescription>Enter your card details securely.</FormDescription>
+        </div>
+
+        {paymentStatus.message && (
+          <div
+            className={`p-4 rounded-md ${paymentStatus.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
+          >
+            {paymentStatus.message}
+          </div>
+        )}
+
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={isLoading || !stripe}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            "Pay Now"
+          )}
+        </Button>
+      </form>
+    </Form>
+  );
+};
+
+export default function PaymentForm() {
+  return (
     <Card className="w-full max-w-md mx-auto bg-white">
       <CardHeader>
         <CardTitle>Payment</CardTitle>
@@ -118,71 +267,9 @@ export default function PaymentForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Amount ($)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="10.00"
-                      {...field}
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Enter the amount in dollars (minimum $0.50).
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Payment description"
-                      {...field}
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    A brief description of what this payment is for.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {paymentStatus.message && (
-              <div
-                className={`p-4 rounded-md ${paymentStatus.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
-              >
-                {paymentStatus.message}
-              </div>
-            )}
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Pay Now"
-              )}
-            </Button>
-          </form>
-        </Form>
+        <Elements stripe={stripePromise}>
+          <PaymentFormContent />
+        </Elements>
       </CardContent>
       <CardFooter className="flex justify-between text-sm text-muted-foreground">
         <p>Secure payment processing by Stripe</p>

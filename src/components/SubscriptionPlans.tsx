@@ -12,6 +12,9 @@ import {
 } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Check, Loader2 } from "lucide-react";
+import { createSubscription } from "@/lib/stripe-service";
+import { useNavigate } from "react-router-dom";
+import { toast } from "./ui/use-toast";
 
 interface SubscriptionPlan {
   id: string;
@@ -91,10 +94,12 @@ const defaultPlans: SubscriptionPlan[] = [
 
 export default function SubscriptionPlans() {
   const { user } = useAppContext();
+  const navigate = useNavigate();
   const [plans, setPlans] = useState<SubscriptionPlan[]>(defaultPlans);
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
+  const [customerId, setCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchPlans() {
@@ -123,6 +128,20 @@ export default function SubscriptionPlans() {
       if (!user) return;
 
       try {
+        // First, check if the user has a customer ID
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("stripe_customer_id")
+          .eq("id", user.id)
+          .single();
+
+        if (userError && userError.code !== "PGRST116") throw userError;
+
+        if (userData?.stripe_customer_id) {
+          setCustomerId(userData.stripe_customer_id);
+        }
+
+        // Then fetch the subscription
         const { data, error } = await supabase
           .from("subscriptions")
           .select("*, subscription_plans(*)")
@@ -147,7 +166,11 @@ export default function SubscriptionPlans() {
 
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     if (!user) {
-      alert("Please log in to subscribe");
+      toast({
+        title: "Authentication required",
+        description: "Please log in to subscribe to a plan",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -155,22 +178,49 @@ export default function SubscriptionPlans() {
     setSelectedPlan(plan.id);
 
     try {
-      // In a real implementation, you would redirect to Stripe Checkout or show a payment form
-      // For demo purposes, we'll just show a success message after a delay
-      setTimeout(() => {
-        alert(`Successfully subscribed to ${plan.name} plan!`);
-        setCurrentSubscription({
-          plan_id: plan.id,
-          status: "active",
-          current_period_end: new Date(
-            Date.now() + 30 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-        });
-        setLoading(false);
-      }, 2000);
+      // If we don't have a customer ID, we need to redirect to the payment form
+      if (!customerId) {
+        // Store the selected plan in session storage
+        sessionStorage.setItem("selectedPlanId", plan.stripe_price_id);
+        navigate("/payment");
+        return;
+      }
+
+      // Create subscription with existing customer
+      const subscription = await createSubscription({
+        customerId: customerId,
+        priceId: plan.stripe_price_id,
+        metadata: {
+          user_id: user.id,
+          plan_name: plan.name,
+        },
+        trialPeriodDays: plan.trial_period_days || undefined,
+      });
+
+      toast({
+        title: "Subscription created",
+        description: `You are now subscribed to the ${plan.name} plan!`,
+      });
+
+      // Update the current subscription state
+      setCurrentSubscription({
+        plan_id: plan.id,
+        status: subscription.status,
+        current_period_end: new Date(
+          subscription.current_period_end * 1000,
+        ).toISOString(),
+      });
     } catch (error) {
       console.error("Error subscribing to plan:", error);
-      alert("Failed to subscribe. Please try again.");
+      toast({
+        title: "Subscription failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to subscribe. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
     }
   };

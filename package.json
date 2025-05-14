@@ -42,6 +42,8 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@radix-ui/react-toggle": "^1.0.3",
     "@radix-ui/react-tooltip": "^1.0.7",
+    "@stripe/react-stripe-js": "^3.7.0",
+    "@stripe/stripe-js": "^7.3.0",
     "@supabase/supabase-js": "^2.45.6",
     "chart.js": "^4.4.9",
     "class-variance-authority": "^0.7.0",
