@@ -1,13 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAppContext } from "./AppContext";
-import {
-  getImplementationPhases,
-  saveImplementationPhases,
-  saveESGPlan,
-  getCustomMetrics,
-  saveCustomMetric,
-  deleteCustomMetric,
-} from "@/lib/services";
+import { supabase } from "@/lib/supabase";
+import { logger } from "@/lib/logger";
 import { motion } from "framer-motion";
 import {
   Download,
@@ -25,6 +19,7 @@ import {
   PlusCircle,
   Trash2,
   BarChart3,
+  Loader2,
 } from "lucide-react";
 import {
   exportToPDF,
@@ -202,36 +197,58 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
     },
   ]);
 
-  // Load implementation phases from Supabase if available
+  // Add loading states
+  const [isLoadingPhases, setIsLoadingPhases] = useState(false);
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Enhance useEffect for loading phases
   useEffect(() => {
     const loadImplementationPhases = async () => {
+      setIsLoadingPhases(true);
       try {
         if (user) {
-          const savedPhases = await getImplementationPhases(user.id);
-          if (savedPhases && savedPhases.length > 0) {
-            setImplementationPhases(savedPhases);
+          const { data, error } = await supabase
+            .from("implementation_phases")
+            .select("*")
+            .eq("user_id", user.id)
+            .single();
+
+          if (error && error.code !== "PGRST116") throw error;
+          if (data?.phases && data.phases.length > 0) {
+            setImplementationPhases(data.phases);
           }
         }
       } catch (error) {
-        console.error("Error loading implementation phases:", error);
+        logger.error("Error loading implementation phases", error);
+      } finally {
+        setIsLoadingPhases(false);
       }
     };
 
     loadImplementationPhases();
   }, [user]);
 
-  // Load custom metrics from Supabase if available
+  // Enhance useEffect for loading metrics
   useEffect(() => {
     const loadCustomMetrics = async () => {
+      setIsLoadingMetrics(true);
       try {
         if (user) {
-          const savedMetrics = await getCustomMetrics(user.id);
-          if (savedMetrics && savedMetrics.length > 0) {
-            setCustomMetrics(savedMetrics);
+          const { data, error } = await supabase
+            .from("custom_metrics")
+            .select("*")
+            .eq("user_id", user.id);
+
+          if (error) throw error;
+          if (data && data.length > 0) {
+            setCustomMetrics(data);
           }
         }
       } catch (error) {
-        console.error("Error loading custom metrics:", error);
+        logger.error("Error loading custom metrics", error);
+      } finally {
+        setIsLoadingMetrics(false);
       }
     };
 
@@ -273,17 +290,37 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
   const planRef = useRef<HTMLDivElement>(null);
 
   const handleDownload = async () => {
+    setIsExporting(true);
     try {
       // Save the plan before downloading
       if (user) {
-        await saveESGPlan({
-          title: `ESG Management Plan for ${questionnaireData.companyName}`,
-          description: `Generated ESG management plan based on ${questionnaireData.industry} industry requirements`,
-          frameworks: frameworks,
-          implementationPhases: implementationPhases,
-          resourceRequirements: resourceRequirements,
-          customMetrics: customMetrics,
-        });
+        // Get user's profile and save plan in one operation
+        const { data, error } = await supabase
+          .from("company_profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .then(async (profileResult) => {
+            if (profileResult.error) throw profileResult.error;
+            
+            // Use the company profile ID if available, or null if not
+            const companyProfileId = profileResult.data?.[0]?.id || null;
+            
+            // Insert the ESG plan
+            return supabase.from("esg_plans").insert({
+              user_id: user.id,
+              company_profile_id: companyProfileId,
+              title: `ESG Management Plan for ${questionnaireData.companyName}`,
+              description: `Generated ESG management plan based on ${questionnaireData.industry} industry requirements`,
+              frameworks: frameworks,
+              implementation_phases: implementationPhases,
+              resource_requirements: resourceRequirements,
+              custom_metrics: customMetrics,
+            });
+          });
+
+        if (error) throw error;
       }
 
       if (selectedFormat === "pdf") {
@@ -313,8 +350,10 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
         onDownload(selectedFormat);
       }
     } catch (error) {
-      console.error("Error during export:", error);
+      logger.error("Error during export", error);
       alert("There was an error exporting your plan. Please try again.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -375,29 +414,25 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
                     resourceRequirements,
                   }}
                   onEnhancementComplete={(data) => {
-                    console.log("Enhancement data:", data);
+                    logger.info("Enhancement data received", data);
 
                     // Process AI recommendations
                     if (data.source === "ai" && data.data.frameworks) {
                       // Here we could update the frameworks based on AI recommendations
                       // This would require parsing the AI response and mapping it to our framework structure
-                      // For now, we'll just log it
-                      console.log(
-                        "AI framework recommendations:",
-                        data.data.frameworks,
-                      );
+                      logger.info("AI framework recommendations received", data.data.frameworks);
                     }
 
                     // Process URL analysis
                     if (data.source === "diffbot") {
                       // Process the analyzed content
-                      console.log("Analyzed content:", data.data);
+                      logger.info("Analyzed content received", data.data);
                     }
 
                     // Process resource selections
                     if (data.source === "resource_library") {
                       // Add selected resources to the plan
-                      console.log("Selected resources:", data.data);
+                      logger.info("Selected resources received", data.data);
                     }
                   }}
                 />
@@ -408,8 +443,17 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
               Customize
             </Button>
 
-            <Button onClick={handleDownload}>
-              <Download className="mr-2 h-4 w-4" /> Download
+            <Button onClick={handleDownload} disabled={isExporting}>
+              {isExporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" /> Download
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -721,232 +765,253 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-8">
-                  {implementationPhases.map((phase, index) => (
-                    <div key={index} className="relative">
-                      {index < implementationPhases.length - 1 && (
-                        <div className="absolute left-[19px] top-[40px] bottom-0 w-0.5 bg-border h-[calc(100%-16px)]"></div>
-                      )}
-                      <div className="flex items-start">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary mr-4">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
-                            <h3 className="text-lg font-medium">
-                              {phase.name}
-                            </h3>
-                            <div className="flex items-center mt-1 md:mt-0">
-                              <Clock className="h-4 w-4 text-muted-foreground mr-1" />
-                              <span className="text-sm text-muted-foreground">
-                                {phase.duration}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className={`ml-2 ${
-                                    phase.status === "Completed"
-                                      ? "bg-green-100 text-green-800"
-                                      : phase.status === "In Progress"
-                                        ? "bg-blue-100 text-blue-800"
-                                        : phase.status === "Delayed"
-                                          ? "bg-amber-100 text-amber-800"
-                                          : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {phase.status}
-                                </Badge>
-                                <Select
-                                  value={phase.status}
-                                  onValueChange={(value) => {
-                                    const updatedPhases = [
-                                      ...implementationPhases,
-                                    ];
-                                    const phaseIndex = updatedPhases.findIndex(
-                                      (p) => p.name === phase.name,
-                                    );
-                                    if (phaseIndex !== -1) {
-                                      updatedPhases[phaseIndex].status = value;
-                                      // Update progress based on status
-                                      if (value === "Completed") {
-                                        updatedPhases[phaseIndex].progress =
-                                          100;
-                                      } else if (value === "In Progress") {
-                                        updatedPhases[phaseIndex].progress = 50;
-                                      } else if (value === "Delayed") {
-                                        updatedPhases[phaseIndex].progress = 25;
-                                      } else {
-                                        updatedPhases[phaseIndex].progress = 0;
-                                      }
-                                      setImplementationPhases(updatedPhases);
-                                      if (user) {
-                                        saveImplementationPhases(
-                                          user.id,
-                                          updatedPhases,
-                                        );
-                                      }
-                                    }
-                                  }}
-                                >
-                                  <SelectTrigger className="w-[130px] h-7 text-xs">
-                                    <SelectValue placeholder="Status" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Not Started">
-                                      Not Started
-                                    </SelectItem>
-                                    <SelectItem value="In Progress">
-                                      In Progress
-                                    </SelectItem>
-                                    <SelectItem value="Completed">
-                                      Completed
-                                    </SelectItem>
-                                    <SelectItem value="Delayed">
-                                      Delayed
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
+                {isLoadingPhases ? (
+                  <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-2">Loading implementation phases...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {implementationPhases.map((phase, index) => (
+                      <div key={index} className="relative">
+                        {index < implementationPhases.length - 1 && (
+                          <div className="absolute left-[19px] top-[40px] bottom-0 w-0.5 bg-border h-[calc(100%-16px)]"></div>
+                        )}
+                        <div className="flex items-start">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary mr-4">
+                            {index + 1}
                           </div>
-                          <div className="bg-card border rounded-lg p-4 mt-2">
-                            <div className="mb-2">
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="text-sm font-medium">
-                                  Progress
+                          <div className="flex-1">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
+                              <h3 className="text-lg font-medium">
+                                {phase.name}
+                              </h3>
+                              <div className="flex items-center mt-1 md:mt-0">
+                                <Clock className="h-4 w-4 text-muted-foreground mr-1" />
+                                <span className="text-sm text-muted-foreground">
+                                  {phase.duration}
                                 </span>
-                                <div className="flex items-center">
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    step="5"
-                                    value={phase.progress}
-                                    onChange={(e) => {
-                                      const newProgress = parseInt(
-                                        e.target.value,
-                                      );
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant="outline"
+                                    className={`ml-2 ${
+                                      phase.status === "Completed"
+                                        ? "bg-green-100 text-green-800"
+                                        : phase.status === "In Progress"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : phase.status === "Delayed"
+                                            ? "bg-amber-100 text-amber-800"
+                                            : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {phase.status}
+                                  </Badge>
+                                  <Select
+                                    value={phase.status}
+                                    onValueChange={(value) => {
                                       const updatedPhases = [
                                         ...implementationPhases,
                                       ];
-                                      const phaseIndex =
-                                        updatedPhases.findIndex(
-                                          (p) => p.name === phase.name,
-                                        );
+                                      const phaseIndex = updatedPhases.findIndex(
+                                        (p) => p.name === phase.name,
+                                      );
                                       if (phaseIndex !== -1) {
-                                        updatedPhases[phaseIndex].progress =
-                                          newProgress;
-
-                                        // Update status based on progress
-                                        if (newProgress === 100) {
-                                          updatedPhases[phaseIndex].status =
-                                            "Completed";
-                                        } else if (
-                                          newProgress > 0 &&
-                                          newProgress < 100
-                                        ) {
-                                          if (
-                                            updatedPhases[phaseIndex].status !==
-                                            "Delayed"
-                                          ) {
-                                            updatedPhases[phaseIndex].status =
-                                              "In Progress";
-                                          }
+                                        updatedPhases[phaseIndex].status = value;
+                                        // Update progress based on status
+                                        if (value === "Completed") {
+                                          updatedPhases[phaseIndex].progress =
+                                            100;
+                                        } else if (value === "In Progress") {
+                                          updatedPhases[phaseIndex].progress = 50;
+                                        } else if (value === "Delayed") {
+                                          updatedPhases[phaseIndex].progress = 25;
                                         } else {
-                                          updatedPhases[phaseIndex].status =
-                                            "Not Started";
+                                          updatedPhases[phaseIndex].progress = 0;
                                         }
-
                                         setImplementationPhases(updatedPhases);
                                         if (user) {
-                                          saveImplementationPhases(
-                                            user.id,
-                                            updatedPhases,
-                                          );
+                                          supabase
+                                            .from("implementation_phases")
+                                            .upsert({
+                                              user_id: user.id,
+                                              phases: updatedPhases
+                                            }, { onConflict: "user_id" })
+                                            .then((response) => {
+                                              if (response.error) {
+                                                logger.error("Failed to update implementation phases", response.error);
+                                              }
+                                            });
                                         }
                                       }
                                     }}
-                                    className="w-20 h-2 mr-2"
-                                  />
-                                  <span className="text-sm">
-                                    {phase.progress}%
-                                  </span>
+                                  >
+                                    <SelectTrigger className="w-[130px] h-7 text-xs">
+                                      <SelectValue placeholder="Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Not Started">
+                                        Not Started
+                                      </SelectItem>
+                                      <SelectItem value="In Progress">
+                                        In Progress
+                                      </SelectItem>
+                                      <SelectItem value="Completed">
+                                        Completed
+                                      </SelectItem>
+                                      <SelectItem value="Delayed">
+                                        Delayed
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               </div>
-                              <Progress
-                                value={phase.progress}
-                                className="h-2"
-                                style={{
-                                  backgroundColor:
-                                    phase.status === "Delayed"
-                                      ? "rgba(245, 158, 11, 0.2)"
-                                      : undefined,
-                                }}
-                              />
                             </div>
-                            <h4 className="font-medium mb-2">
-                              Key Activities:
-                            </h4>
-                            <ul className="space-y-1 text-sm">
-                              {index === 0 && (
-                                <>
-                                  <li>• Establish ESG steering committee</li>
-                                  <li>• Conduct baseline assessment</li>
-                                  <li>• Define key performance indicators</li>
-                                  <li>• Set initial targets and objectives</li>
-                                </>
-                              )}
-                              {index === 1 && (
-                                <>
-                                  <li>
-                                    • Implement ESG data management system
-                                  </li>
-                                  <li>• Develop data collection protocols</li>
-                                  <li>• Train relevant personnel</li>
-                                  <li>• Establish data validation processes</li>
-                                </>
-                              )}
-                              {index === 2 && (
-                                <>
-                                  <li>• Develop key ESG policies</li>
-                                  <li>• Create governance structure</li>
-                                  <li>• Establish reporting procedures</li>
-                                  <li>
-                                    • Integrate with existing management systems
-                                  </li>
-                                </>
-                              )}
-                              {index === 3 && (
-                                <>
-                                  <li>• Compile first ESG report</li>
-                                  <li>• Conduct internal review</li>
-                                  <li>• Consider external assurance needs</li>
-                                  <li>• Publish report to stakeholders</li>
-                                </>
-                              )}
-                              {index === 4 && (
-                                <>
-                                  <li>• Identify key stakeholder groups</li>
-                                  <li>• Develop engagement strategy</li>
-                                  <li>• Conduct materiality reassessment</li>
-                                  <li>• Incorporate stakeholder feedback</li>
-                                </>
-                              )}
-                              {index === 5 && (
-                                <>
-                                  <li>• Regular performance reviews</li>
-                                  <li>• Update targets and objectives</li>
-                                  <li>• Benchmark against industry peers</li>
-                                  <li>• Expand scope of ESG program</li>
-                                </>
-                              )}
-                            </ul>
+                            <div className="bg-card border rounded-lg p-4 mt-2">
+                              <div className="mb-2">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-sm font-medium">
+                                    Progress
+                                  </span>
+                                  <div className="flex items-center">
+                                    <input
+                                      type="range"
+                                      min="0"
+                                      max="100"
+                                      step="5"
+                                      value={phase.progress}
+                                      onChange={(e) => {
+                                        const newProgress = parseInt(
+                                          e.target.value,
+                                        );
+                                        const updatedPhases = [
+                                          ...implementationPhases,
+                                        ];
+                                        const phaseIndex =
+                                          updatedPhases.findIndex(
+                                            (p) => p.name === phase.name,
+                                          );
+                                        if (phaseIndex !== -1) {
+                                          updatedPhases[phaseIndex].progress =
+                                            newProgress;
+
+                                          // Update status based on progress
+                                          if (newProgress === 100) {
+                                            updatedPhases[phaseIndex].status =
+                                              "Completed";
+                                          } else if (
+                                            newProgress > 0 &&
+                                            newProgress < 100
+                                          ) {
+                                            if (
+                                              updatedPhases[phaseIndex].status !==
+                                              "Delayed"
+                                            ) {
+                                              updatedPhases[phaseIndex].status =
+                                                "In Progress";
+                                            }
+                                          } else {
+                                            updatedPhases[phaseIndex].status =
+                                              "Not Started";
+                                          }
+
+                                          setImplementationPhases(updatedPhases);
+                                          if (user) {
+                                            supabase
+                                              .from("implementation_phases")
+                                              .upsert({
+                                                user_id: user.id,
+                                                phases: updatedPhases
+                                              }, { onConflict: "user_id" })
+                                              .then((response) => {
+                                                if (response.error) {
+                                                  logger.error("Failed to update implementation phases", response.error);
+                                                }
+                                              });
+                                          }
+                                        }
+                                      }}
+                                      className="w-20 h-2 mr-2"
+                                    />
+                                    <span className="text-sm">
+                                      {phase.progress}%
+                                    </span>
+                                  </div>
+                                </div>
+                                <Progress
+                                  value={phase.progress}
+                                  className="h-2"
+                                  style={{
+                                    backgroundColor:
+                                      phase.status === "Delayed"
+                                        ? "rgba(245, 158, 11, 0.2)"
+                                        : undefined,
+                                  }}
+                                />
+                              </div>
+                              <h4 className="font-medium mb-2">
+                                Key Activities:
+                              </h4>
+                              <ul className="space-y-1 text-sm">
+                                {index === 0 && (
+                                  <>
+                                    <li>• Establish ESG steering committee</li>
+                                    <li>• Conduct baseline assessment</li>
+                                    <li>• Define key performance indicators</li>
+                                    <li>• Set initial targets and objectives</li>
+                                  </>
+                                )}
+                                {index === 1 && (
+                                  <>
+                                    <li>
+                                      • Implement ESG data management system
+                                    </li>
+                                    <li>• Develop data collection protocols</li>
+                                    <li>• Train relevant personnel</li>
+                                    <li>• Establish data validation processes</li>
+                                  </>
+                                )}
+                                {index === 2 && (
+                                  <>
+                                    <li>• Develop key ESG policies</li>
+                                    <li>• Create governance structure</li>
+                                    <li>• Establish reporting procedures</li>
+                                    <li>
+                                      • Integrate with existing management systems
+                                    </li>
+                                  </>
+                                )}
+                                {index === 3 && (
+                                  <>
+                                    <li>• Compile first ESG report</li>
+                                    <li>• Conduct internal review</li>
+                                    <li>• Consider external assurance needs</li>
+                                    <li>• Publish report to stakeholders</li>
+                                  </>
+                                )}
+                                {index === 4 && (
+                                  <>
+                                    <li>• Identify key stakeholder groups</li>
+                                    <li>• Develop engagement strategy</li>
+                                    <li>• Conduct materiality reassessment</li>
+                                    <li>• Incorporate stakeholder feedback</li>
+                                  </>
+                                )}
+                                {index === 5 && (
+                                  <>
+                                    <li>• Regular performance reviews</li>
+                                    <li>• Update targets and objectives</li>
+                                    <li>• Benchmark against industry peers</li>
+                                    <li>• Expand scope of ESG program</li>
+                                  </>
+                                )}
+                              </ul>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1085,233 +1150,251 @@ const PlanGenerator: React.FC<PlanGeneratorProps> = ({
                       ESG goals
                     </CardDescription>
                   </div>
-                  <Button
-                    onClick={() => setShowMetricForm(!showMetricForm)}
-                    variant="outline"
-                    className="flex items-center gap-1"
-                  >
-                    {showMetricForm ? (
-                      "Cancel"
-                    ) : (
-                      <>
-                        <PlusCircle className="h-4 w-4" />
-                        Add Metric
-                      </>
-                    )}
-                  </Button>
+                  {!isLoadingMetrics && (
+                    <Button
+                      onClick={() => setShowMetricForm(!showMetricForm)}
+                      variant="outline"
+                      className="flex items-center gap-1"
+                    >
+                      {showMetricForm ? (
+                        "Cancel"
+                      ) : (
+                        <>
+                          <PlusCircle className="h-4 w-4" />
+                          Add Metric
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
-                {showMetricForm && (
-                  <div className="bg-muted/50 p-4 rounded-lg mb-6">
-                    <h3 className="text-lg font-medium mb-4">Add New Metric</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">
-                          Metric Name
-                        </label>
-                        <Input
-                          placeholder="e.g., Water Usage"
-                          value={newMetric.name}
-                          onChange={(e) =>
-                            setNewMetric({ ...newMetric, name: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">
-                          Unit
-                        </label>
-                        <Input
-                          placeholder="e.g., m³, kWh, tons"
-                          value={newMetric.unit}
-                          onChange={(e) =>
-                            setNewMetric({ ...newMetric, unit: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">
-                          Current Value
-                        </label>
-                        <Input
-                          placeholder="e.g., 1500"
-                          value={newMetric.current}
-                          onChange={(e) =>
-                            setNewMetric({
-                              ...newMetric,
-                              current: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">
-                          Target Value
-                        </label>
-                        <Input
-                          placeholder="e.g., 1200"
-                          value={newMetric.target}
-                          onChange={(e) =>
-                            setNewMetric({
-                              ...newMetric,
-                              target: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button
-                        onClick={async () => {
-                          if (!newMetric.name || !newMetric.unit) return;
-
-                          try {
-                            if (user) {
-                              const savedMetric = await saveCustomMetric(
-                                user.id,
-                                newMetric,
-                              );
-                              setCustomMetrics([...customMetrics, savedMetric]);
-                              setNewMetric({
-                                name: "",
-                                target: "",
-                                current: "",
-                                unit: "",
-                              });
-                              setShowMetricForm(false);
-                            }
-                          } catch (error) {
-                            console.error("Error saving custom metric:", error);
-                          }
-                        }}
-                      >
-                        Save Metric
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {customMetrics.length === 0 && !showMetricForm ? (
-                  <div className="text-center py-8">
-                    <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                    <h3 className="text-lg font-medium mb-1">
-                      No Custom Metrics
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      Add custom metrics to track specific ESG indicators
-                      relevant to your company
-                    </p>
-                    <Button
-                      onClick={() => setShowMetricForm(true)}
-                      variant="outline"
-                      className="mx-auto"
-                    >
-                      <PlusCircle className="h-4 w-4 mr-2" />
-                      Add Your First Metric
-                    </Button>
+                {isLoadingMetrics ? (
+                  <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-2">Loading custom metrics...</span>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {customMetrics.map((metric, index) => (
-                      <div
-                        key={metric.id || index}
-                        className="border rounded-lg p-4"
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-medium">{metric.name}</h4>
+                  <>
+                    {showMetricForm && (
+                      <div className="bg-muted/50 p-4 rounded-lg mb-6">
+                        <h3 className="text-lg font-medium mb-4">Add New Metric</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="text-sm font-medium mb-1 block">
+                              Metric Name
+                            </label>
+                            <Input
+                              placeholder="e.g., Water Usage"
+                              value={newMetric.name}
+                              onChange={(e) =>
+                                setNewMetric({ ...newMetric, name: e.target.value })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-1 block">
+                              Unit
+                            </label>
+                            <Input
+                              placeholder="e.g., m³, kWh, tons"
+                              value={newMetric.unit}
+                              onChange={(e) =>
+                                setNewMetric({ ...newMetric, unit: e.target.value })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-1 block">
+                              Current Value
+                            </label>
+                            <Input
+                              placeholder="e.g., 1500"
+                              value={newMetric.current}
+                              onChange={(e) =>
+                                setNewMetric({
+                                  ...newMetric,
+                                  current: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-1 block">
+                              Target Value
+                            </label>
+                            <Input
+                              placeholder="e.g., 1200"
+                              value={newMetric.target}
+                              onChange={(e) =>
+                                setNewMetric({
+                                  ...newMetric,
+                                  target: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
                           <Button
-                            variant="ghost"
-                            size="icon"
                             onClick={async () => {
+                              if (!newMetric.name || !newMetric.unit) return;
+
                               try {
-                                if (user && metric.id) {
-                                  await deleteCustomMetric(user.id, metric.id);
-                                  setCustomMetrics(
-                                    customMetrics.filter(
-                                      (m) => m.id !== metric.id,
-                                    ),
-                                  );
+                                if (user) {
+                                  const { data: savedMetric } = await supabase
+                                    .from("custom_metrics")
+                                    .insert({
+                                      user_id: user.id,
+                                      name: newMetric.name,
+                                      unit: newMetric.unit,
+                                      current: newMetric.current,
+                                      target: newMetric.target,
+                                    })
+                                    .select()
+                                    .single();
+                                  setCustomMetrics([...customMetrics, savedMetric]);
+                                  setNewMetric({
+                                    name: "",
+                                    target: "",
+                                    current: "",
+                                    unit: "",
+                                  });
+                                  setShowMetricForm(false);
                                 }
                               } catch (error) {
-                                console.error(
-                                  "Error deleting custom metric:",
-                                  error,
-                                );
+                                logger.error("Error saving custom metric", error);
                               }
                             }}
                           >
-                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                            Save Metric
                           </Button>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <span className="text-sm text-muted-foreground block">
-                              Current
-                            </span>
-                            <span className="font-medium">
-                              {metric.current} {metric.unit}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-sm text-muted-foreground block">
-                              Target
-                            </span>
-                            <span className="font-medium">
-                              {metric.target} {metric.unit}
-                            </span>
-                          </div>
-                        </div>
-                        {metric.current && metric.target && (
-                          <div className="mt-3">
-                            <div className="flex justify-between text-xs mb-1">
-                              <span>Progress</span>
-                              <span>
-                                {Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    Math.round(
-                                      parseFloat(metric.target) >
-                                        parseFloat(metric.current)
-                                        ? (1 -
-                                            parseFloat(metric.current) /
-                                              parseFloat(metric.target)) *
-                                            100
-                                        : (parseFloat(metric.target) /
-                                            parseFloat(metric.current)) *
-                                            100,
-                                    ),
-                                  ),
-                                )}
-                                %
-                              </span>
-                            </div>
-                            <Progress
-                              value={Math.min(
-                                100,
-                                Math.max(
-                                  0,
-                                  Math.round(
-                                    parseFloat(metric.target) >
-                                      parseFloat(metric.current)
-                                      ? (1 -
-                                          parseFloat(metric.current) /
-                                            parseFloat(metric.target)) *
-                                          100
-                                      : (parseFloat(metric.target) /
-                                          parseFloat(metric.current)) *
-                                          100,
-                                  ),
-                                ),
-                              )}
-                              className="h-2"
-                            />
-                          </div>
-                        )}
                       </div>
-                    ))}
-                  </div>
+                    )}
+
+                    {customMetrics.length === 0 && !showMetricForm ? (
+                      <div className="text-center py-8">
+                        <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                        <h3 className="text-lg font-medium mb-1">
+                          No Custom Metrics
+                        </h3>
+                        <p className="text-muted-foreground mb-4">
+                          Add custom metrics to track specific ESG indicators
+                          relevant to your company
+                        </p>
+                        <Button
+                          onClick={() => setShowMetricForm(true)}
+                          variant="outline"
+                          className="mx-auto"
+                        >
+                          <PlusCircle className="h-4 w-4 mr-2" />
+                          Add Your First Metric
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {customMetrics.map((metric, index) => (
+                          <div
+                            key={metric.id || index}
+                            className="border rounded-lg p-4"
+                          >
+                            <div className="flex justify-between items-center mb-2">
+                              <h4 className="font-medium">{metric.name}</h4>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={async () => {
+                                  try {
+                                    if (user && metric.id) {
+                                      await supabase
+                                        .from("custom_metrics")
+                                        .delete()
+                                        .eq("id", metric.id);
+                                      setCustomMetrics(
+                                        customMetrics.filter(
+                                          (m) => m.id !== metric.id,
+                                        ),
+                                      );
+                                    }
+                                  } catch (error) {
+                                    logger.error("Error deleting custom metric", error);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <span className="text-sm text-muted-foreground block">
+                                  Current
+                                </span>
+                                <span className="font-medium">
+                                  {metric.current} {metric.unit}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-sm text-muted-foreground block">
+                                  Target
+                                </span>
+                                <span className="font-medium">
+                                  {metric.target} {metric.unit}
+                                </span>
+                              </div>
+                            </div>
+                            {metric.current && metric.target && (
+                              <div className="mt-3">
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span>Progress</span>
+                                  <span>
+                                    {Math.min(
+                                      100,
+                                      Math.max(
+                                        0,
+                                        Math.round(
+                                          parseFloat(metric.target) >
+                                            parseFloat(metric.current)
+                                            ? (1 -
+                                                parseFloat(metric.current) /
+                                                  parseFloat(metric.target)) *
+                                              100
+                                            : (parseFloat(metric.target) /
+                                                parseFloat(metric.current)) *
+                                              100,
+                                        ),
+                                      ),
+                                    )}
+                                    %
+                                  </span>
+                                </div>
+                                <Progress
+                                  value={Math.min(
+                                    100,
+                                    Math.max(
+                                      0,
+                                      Math.round(
+                                        parseFloat(metric.target) >
+                                          parseFloat(metric.current)
+                                          ? (1 -
+                                              parseFloat(metric.current) /
+                                                parseFloat(metric.target)) *
+                                              100
+                                          : (parseFloat(metric.target) /
+                                              parseFloat(metric.current)) *
+                                              100,
+                                      ),
+                                    ),
+                                  )}
+                                  className="h-2"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

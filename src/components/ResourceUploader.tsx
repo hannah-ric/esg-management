@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,7 +33,6 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { uploadResource } from "@/lib/services";
 
 interface ResourceUploaderProps {
   onResourceAdded?: (resource: any) => void;
@@ -153,25 +153,62 @@ const ResourceUploader: React.FC<ResourceUploaderProps> = ({
         filePath,
       };
 
-      const resource = await uploadResource(resourceData);
+      try {
+        // Upload resource to database (inline implementation)
+        const user = (await supabase.auth.getUser()).data.user;
+        if (!user) throw new Error("User not authenticated");
 
-      setSuccess(true);
-      if (onResourceAdded) {
-        onResourceAdded(resource);
+        const { data: resource, error } = await supabase
+          .from("resources")
+          .insert({
+            title: resourceData.title,
+            description: resourceData.description,
+            type: resourceData.type,
+            category: resourceData.category,
+            url: resourceData.url,
+            file_type: resourceData.fileType,
+            file_path: resourceData.filePath,
+            source: "User Upload",
+            date_added: new Date().toISOString(),
+            tags: resourceData.tags,
+            user_id: user.id,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setSuccess(true);
+        if (onResourceAdded) {
+          onResourceAdded(resource);
+        }
+
+        // Reset form after successful upload
+        setTimeout(() => {
+          setFile(null);
+          setTitle("");
+          setDescription("");
+          setCategory("general");
+          setType("guide");
+          setTags("");
+          setSuccess(false);
+        }, 2000);
+      } catch (dbError) {
+        // If database insert fails, delete the uploaded file to avoid orphaned files
+        logger.error("Error saving resource metadata", dbError);
+        
+        const { error: deleteError } = await supabase.storage
+          .from("resources")
+          .remove([filePath]);
+          
+        if (deleteError) {
+          logger.error("Failed to clean up uploaded file after metadata error", deleteError);
+        }
+        
+        throw new Error("Failed to save resource. Please try again.");
       }
-
-      // Reset form after successful upload
-      setTimeout(() => {
-        setFile(null);
-        setTitle("");
-        setDescription("");
-        setCategory("general");
-        setType("guide");
-        setTags("");
-        setSuccess(false);
-      }, 2000);
     } catch (err) {
-      console.error("Error uploading resource:", err);
+      logger.error("Error uploading resource", err);
       setError(err.message || "Failed to upload resource. Please try again.");
     } finally {
       setIsUploading(false);

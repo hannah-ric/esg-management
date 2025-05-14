@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "./supabase";
+import { logger } from "./logger";
 
 interface StripeKeyContextType {
   publishableKey: string | null;
   loading: boolean;
   error: string | null;
+  isMockMode: boolean;
 }
 
 const StripeKeyContext = createContext<StripeKeyContextType | undefined>(
@@ -21,6 +23,7 @@ export const StripeKeyProvider: React.FC<StripeKeyProviderProps> = ({
   const [publishableKey, setPublishableKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMockMode, setIsMockMode] = useState(false);
 
   useEffect(() => {
     const fetchStripeKey = async () => {
@@ -37,17 +40,24 @@ export const StripeKeyProvider: React.FC<StripeKeyProviderProps> = ({
         if (!data || !data.publishableKey)
           throw new Error("Stripe key not found");
 
-        console.log(`Retrieved Stripe key from ${data.source}`);
+        logger.info("Retrieved Stripe key", { source: data.source });
         setPublishableKey(data.publishableKey);
+        setIsMockMode(false);
       } catch (err) {
-        console.error("Error fetching Stripe key:", err);
-        setError("Failed to load payment system key. Please try again later.");
+        logger.error("Error fetching Stripe key", err);
+        setError("Failed to load payment system. Please try again later.");
 
         // Fallback to environment variable as last resort
         const fallbackKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-        if (fallbackKey && fallbackKey !== "") {
-          console.log("Using fallback key from environment variables");
+        if (fallbackKey && !fallbackKey.includes("mock-key")) {
+          logger.info("Using fallback key from environment variables");
           setPublishableKey(fallbackKey);
+          setIsMockMode(false);
+        } else {
+          // If no valid key is found, fall back to mock mode
+          logger.info("Falling back to mock mode due to missing valid key");
+          setPublishableKey("pk_test_mockstripekey123456789");
+          setIsMockMode(true);
         }
       } finally {
         setLoading(false);
@@ -58,7 +68,7 @@ export const StripeKeyProvider: React.FC<StripeKeyProviderProps> = ({
   }, []);
 
   return (
-    <StripeKeyContext.Provider value={{ publishableKey, loading, error }}>
+    <StripeKeyContext.Provider value={{ publishableKey, loading, error, isMockMode }}>
       {children}
     </StripeKeyContext.Provider>
   );

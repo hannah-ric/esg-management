@@ -1,9 +1,10 @@
-import { Routes, Route } from "react-router-dom";
+import { Route } from "react-router-dom";
 import { AppProvider } from "./components/AppContext";
 import { Toaster } from "./components/ui/toaster";
-import { useRoutes } from "react-router-dom";
+import { useRoutes, Routes } from "react-router-dom";
 import routes from "tempo-routes";
 import { StripeKeyProvider } from "./lib/stripe-key-provider";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Import components
 import Layout from "./components/Layout";
@@ -55,7 +56,9 @@ function App() {
               path="profile"
               element={
                 <AuthGuard>
-                  <ProfileForm />
+                  <ErrorBoundary>
+                    <ProfileForm />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -65,7 +68,9 @@ function App() {
               path="questionnaire"
               element={
                 <AuthGuard>
-                  <Questionnaire />
+                  <ErrorBoundary>
+                    <Questionnaire />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -73,7 +78,9 @@ function App() {
               path="materiality"
               element={
                 <AuthGuard>
-                  <MaterialityMatrix />
+                  <ErrorBoundary>
+                    <MaterialityMatrix />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -81,7 +88,9 @@ function App() {
               path="plan"
               element={
                 <AuthGuard>
-                  <PlanGenerator />
+                  <ErrorBoundary>
+                    <PlanGenerator />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -89,7 +98,9 @@ function App() {
               path="resources"
               element={
                 <AuthGuard>
-                  <ResourceLibrary />
+                  <ErrorBoundary>
+                    <ResourceLibrary />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -97,7 +108,9 @@ function App() {
               path="resources/admin"
               element={
                 <AuthGuard>
-                  <ResourceAdmin />
+                  <ErrorBoundary>
+                    <ResourceAdmin />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -105,7 +118,9 @@ function App() {
               path="dashboard"
               element={
                 <AuthGuard>
-                  <ESGDataDashboard />
+                  <ErrorBoundary>
+                    <ESGDataDashboard />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -113,7 +128,9 @@ function App() {
               path="data-editor"
               element={
                 <AuthGuard>
-                  <ESGDataEditor />
+                  <ErrorBoundary>
+                    <ESGDataEditor />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -121,7 +138,9 @@ function App() {
               path="visualization"
               element={
                 <AuthGuard>
-                  <ESGDataVisualization />
+                  <ErrorBoundary>
+                    <ESGDataVisualization />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -129,7 +148,9 @@ function App() {
               path="insights"
               element={
                 <AuthGuard>
-                  <ESGDataInsights />
+                  <ErrorBoundary>
+                    <ESGDataInsights />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -137,7 +158,9 @@ function App() {
               path="historical"
               element={
                 <AuthGuard>
-                  <ESGHistoricalAnalysis />
+                  <ErrorBoundary>
+                    <ESGHistoricalAnalysis />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -145,7 +168,9 @@ function App() {
               path="comparative"
               element={
                 <AuthGuard>
-                  <ComparativeAnalysis />
+                  <ErrorBoundary>
+                    <ComparativeAnalysis />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -153,7 +178,9 @@ function App() {
               path="recommendations"
               element={
                 <AuthGuard>
-                  <TailoredRecommendations />
+                  <ErrorBoundary>
+                    <TailoredRecommendations />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -161,7 +188,9 @@ function App() {
               path="subscription"
               element={
                 <AuthGuard>
-                  <SubscriptionPlans />
+                  <ErrorBoundary>
+                    <SubscriptionPlans />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -169,7 +198,9 @@ function App() {
               path="payment"
               element={
                 <AuthGuard>
-                  <PaymentForm />
+                  <ErrorBoundary>
+                    <PaymentForm />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -177,7 +208,9 @@ function App() {
               path="payment-history"
               element={
                 <AuthGuard>
-                  <PaymentHistory />
+                  <ErrorBoundary>
+                    <PaymentHistory />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -185,7 +218,9 @@ function App() {
               path="advisory"
               element={
                 <AuthGuard>
-                  <AdvisoryServices />
+                  <ErrorBoundary>
+                    <AdvisoryServices />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -193,7 +228,9 @@ function App() {
               path="implementation"
               element={
                 <AuthGuard>
-                  <ImplementationSupport />
+                  <ErrorBoundary>
+                    <ImplementationSupport />
+                  </ErrorBoundary>
                 </AuthGuard>
               }
             />

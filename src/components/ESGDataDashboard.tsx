@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense, memo } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,19 +145,51 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
     setError(null);
 
     try {
-      // Get all ESG data points grouped by resource
-      const dataPoints = await getUserESGDataPoints();
-      setDataByResource(dataPoints);
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) throw new Error("User not authenticated");
 
-      // Get framework mappings
+      // Get all resources and data points in one query
+      const { data: resources, error: resourcesError } = await supabase
+        .from("resources")
+        .select(`
+          id, 
+          title,
+          esg_data_points(*)
+        `)
+        .eq("user_id", userId);
+
+      if (resourcesError) throw resourcesError;
+
+      // Format data by resource
+      const formattedData: Record<string, any[]> = {};
+      resources?.forEach(resource => {
+        if (resource.esg_data_points?.length > 0) {
+          formattedData[resource.title] = resource.esg_data_points;
+        }
+      });
+
+      setDataByResource(formattedData);
+
+      // Get framework mappings in a single query
+      const { data: mappingsData, error: mappingsError } = await supabase
+        .from("esg_framework_mappings")
+        .select("*");
+
+      if (mappingsError) throw mappingsError;
+
+      // Organize mappings by framework
       const frameworks = ["GRI", "SASB", "TCFD", "CDP", "SDG"];
       const mappings: Record<string, any[]> = {};
-      for (const framework of frameworks) {
-        const frameworkMappings = await getFrameworkMappings(framework);
-        if (frameworkMappings.length > 0) {
+      
+      frameworks.forEach(framework => {
+        const frameworkMappings = mappingsData?.filter(
+          mapping => mapping.framework_id === framework
+        );
+        if (frameworkMappings?.length > 0) {
           mappings[framework] = frameworkMappings;
         }
-      }
+      });
+
       setFrameworkMappings(mappings);
     } catch (err) {
       console.error("Error loading ESG data:", err);
@@ -246,6 +278,11 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  // Create memoized components
+  const MemoizedESGMetricDashboard = memo(ESGMetricDashboard);
+  const MemoizedESGDataVisualization = memo(ESGDataVisualization);
+  const MemoizedESGDataInsights = memo(ESGDataInsights);
 
   if (loading) {
     return (
@@ -616,14 +653,26 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
           </TabsContent>
 
           <TabsContent value="metrics-dashboard">
-            <ESGMetricDashboard />
+            {activeTab === "metrics-dashboard" && (
+              <Suspense fallback={<div className="h-64 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>}>
+                <MemoizedESGMetricDashboard />
+              </Suspense>
+            )}
           </TabsContent>
 
           <TabsContent value="visualization">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ESGDataVisualization />
-              <ESGDataInsights className="h-full" />
-            </div>
+            {activeTab === "visualization" && (
+              <Suspense fallback={<div className="h-64 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <MemoizedESGDataVisualization />
+                  <MemoizedESGDataInsights className="h-full" />
+                </div>
+              </Suspense>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>

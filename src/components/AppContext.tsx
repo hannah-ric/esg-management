@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { isMockAuth, mockUser } from "../lib/mock-auth";
-import { User, Session } from "@supabase/supabase-js";
+import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 
 // Define types
 export interface User {
@@ -104,6 +104,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Effect to sync Supabase user with our app state
   useEffect(() => {
+    let isMounted = true;
+    
     // Use mock user in development
     if (isMockAuth()) {
       setUser({
@@ -124,20 +126,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email,
-            firstName: session.user.user_metadata?.first_name,
-            lastName: session.user.user_metadata?.last_name,
-            imageUrl: "",
-            publicMetadata: session.user.user_metadata,
-          });
+        if (isMounted) {
+          if (session?.user) {
+            setUser({
+              id: session.user.id,
+              email: session.user.email,
+              firstName: session.user.user_metadata?.first_name,
+              lastName: session.user.user_metadata?.last_name,
+              imageUrl: "",
+              publicMetadata: session.user.user_metadata,
+            });
+          }
+          setLoading(false);
         }
-        setLoading(false);
       } catch (error) {
-        console.error("Error getting initial session:", error);
-        setLoading(false);
+        if (isMounted) {
+          console.error("Error getting initial session:", error);
+          setLoading(false);
+        }
       }
     };
 
@@ -147,33 +153,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          firstName: session.user.user_metadata?.first_name,
-          lastName: session.user.user_metadata?.last_name,
-          imageUrl: "",
-          publicMetadata: session.user.user_metadata,
-        });
-      } else {
-        setUser(null);
+      if (isMounted) {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            firstName: session.user.user_metadata?.first_name,
+            lastName: session.user.user_metadata?.last_name,
+            imageUrl: "",
+            publicMetadata: session.user.user_metadata,
+          });
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     // Cleanup subscription
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   // Load user data from Supabase when user changes
   useEffect(() => {
-    if (user) {
-      loadUserData();
+    let timeoutId: ReturnType<typeof setTimeout>;
+    
+    if (user && !loading) {
+      // Add a small delay to ensure auth state has settled
+      timeoutId = setTimeout(() => {
+        loadUserData();
+      }, 100);
     }
-  }, [user?.id]);
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [user?.id, loading]);
 
   // Function to load user data from Supabase
   const loadUserData = async () => {
@@ -181,74 +199,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       setLoading(true);
+      let hasErrors = false;
 
       // Load questionnaire data
-      const { data: questionnaireData, error: questionnaireError } =
-        await supabase
-          .from("questionnaire_data")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
+      try {
+        const { data: questionnaireData, error: questionnaireError } =
+          await supabase
+            .from("questionnaire_data")
+            .select("*")
+            .eq("user_id", user.id)
+            .single();
 
-      if (questionnaireError && questionnaireError.code !== "PGRST116") {
-        console.error("Error loading questionnaire data:", questionnaireError);
-      } else if (questionnaireData) {
-        setQuestionnaireData(questionnaireData.data || {});
+        if (questionnaireError && questionnaireError.code !== "PGRST116") {
+          console.error("Error loading questionnaire data:", questionnaireError);
+          hasErrors = true;
+        } else if (questionnaireData) {
+          setQuestionnaireData(questionnaireData.data || {});
+        }
+      } catch (err) {
+        console.error("Failed to load questionnaire data:", err);
+        hasErrors = true;
       }
 
       // Load materiality topics
-      const { data: topicsData, error: topicsError } = await supabase
-        .from("materiality_topics")
-        .select("*")
-        .eq("user_id", user.id);
+      try {
+        const { data: topicsData, error: topicsError } = await supabase
+          .from("materiality_topics")
+          .select("*")
+          .eq("user_id", user.id);
 
-      if (topicsError) {
-        console.error("Error loading materiality topics:", topicsError);
-      } else if (topicsData) {
-        setMaterialityTopics(topicsData);
+        if (topicsError) {
+          console.error("Error loading materiality topics:", topicsError);
+          hasErrors = true;
+        } else if (topicsData) {
+          setMaterialityTopics(topicsData);
+        }
+      } catch (err) {
+        console.error("Failed to load materiality topics:", err);
+        hasErrors = true;
       }
 
       // Load ESG plan
-      const { data: planData, error: planError } = await supabase
-        .from("esg_plans")
-        .select(
-          "*, recommendations:esg_recommendations(*), implementation_phases:implementation_phases(*, tasks:implementation_tasks(*))",
-        )
-        .eq("user_id", user.id)
-        .single();
+      try {
+        const { data: planData, error: planError } = await supabase
+          .from("esg_plans")
+          .select(
+            "*, recommendations:esg_recommendations(*), implementation_phases:implementation_phases(*, tasks:implementation_tasks(*))",
+          )
+          .eq("user_id", user.id)
+          .single();
 
-      if (planError && planError.code !== "PGRST116") {
-        console.error("Error loading ESG plan:", planError);
-      } else if (planData) {
-        setESGPlan({
-          id: planData.id,
-          title: planData.title,
-          description: planData.description,
-          recommendations: planData.recommendations.map((rec: any) => ({
-            id: rec.id,
-            title: rec.title,
-            description: rec.description,
-            framework: rec.framework,
-            indicator: rec.indicator,
-            priority: rec.priority,
-            effort: rec.effort,
-            impact: rec.impact,
-          })),
-          implementationPhases: planData.implementation_phases.map(
-            (phase: any) => ({
-              id: phase.id,
-              title: phase.title,
-              description: phase.description,
-              duration: phase.duration,
-              tasks: phase.tasks.map((task: any) => ({
-                id: task.id,
-                title: task.title,
-                description: task.description,
-                status: task.status,
-              })),
-            }),
-          ),
-        });
+        if (planError && planError.code !== "PGRST116") {
+          console.error("Error loading ESG plan:", planError);
+          hasErrors = true;
+        } else if (planData) {
+          setESGPlan({
+            id: planData.id,
+            title: planData.title,
+            description: planData.description,
+            recommendations: planData.recommendations.map((rec: any) => ({
+              id: rec.id,
+              title: rec.title,
+              description: rec.description,
+              framework: rec.framework,
+              indicator: rec.indicator,
+              priority: rec.priority,
+              effort: rec.effort,
+              impact: rec.impact,
+            })),
+            implementationPhases: planData.implementation_phases.map(
+              (phase: any) => ({
+                id: phase.id,
+                title: phase.title,
+                description: phase.description,
+                duration: phase.duration,
+                tasks: phase.tasks.map((task: any) => ({
+                  id: task.id,
+                  title: task.title,
+                  description: task.description,
+                  status: task.status,
+                })),
+              }),
+            ),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load ESG plan:", err);
+        hasErrors = true;
+      }
+
+      if (hasErrors) {
+        // Notify the user but don't block the app
+        console.warn("Some data could not be loaded completely");
       }
     } catch (error) {
       console.error("Error loading user data:", error);
@@ -273,7 +315,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Function to save questionnaire data to Supabase
-  const saveQuestionnaireData = async () => {
+  const saveQuestionnaireData = async (): Promise<void> => {
     if (!user) return;
 
     try {
@@ -293,8 +335,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         console.error("Error saving questionnaire data:", error);
         throw error;
       }
-
-      return data;
     } catch (error) {
       console.error("Error saving questionnaire data:", error);
       throw error;
@@ -302,7 +342,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Function to save materiality topics to Supabase
-  const saveMaterialityTopics = async () => {
+  const saveMaterialityTopics = async (): Promise<void> => {
     if (!user) return;
 
     try {
@@ -333,8 +373,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           console.error("Error saving materiality topics:", error);
           throw error;
         }
-
-        return data;
       }
     } catch (error) {
       console.error("Error saving materiality topics:", error);
@@ -343,7 +381,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Function to save ESG plan to Supabase
-  const saveESGPlan = async () => {
+  const saveESGPlan = async (): Promise<void> => {
     if (!user || !esgPlan) return;
 
     try {
@@ -364,8 +402,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         console.error("Error saving ESG plan:", transactionError);
         throw transactionError;
       }
-
-      return { success: true };
     } catch (error) {
       console.error("Error saving ESG plan:", error);
       throw error;

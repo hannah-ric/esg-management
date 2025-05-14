@@ -3,11 +3,11 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "../ui/use-toast";
-import { useAuthContext } from "../AuthProvider";
+import { useAppContext } from "../AppContext";
 import { updateProfile } from "../../lib/auth";
 
 export default function ProfileForm() {
-  const { user } = useAuthContext();
+  const { user } = useAppContext();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -16,9 +16,9 @@ export default function ProfileForm() {
 
   useEffect(() => {
     if (user) {
-      setFirstName(user.user_metadata?.first_name || "");
-      setLastName(user.user_metadata?.last_name || "");
-      setCompanyName(user.user_metadata?.company_name || "");
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
+      setCompanyName(user.publicMetadata?.company_name || "");
     }
   }, [user]);
 

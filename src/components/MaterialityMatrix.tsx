@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "./AppContext";
 import { analyzeMaterialityTopics } from "@/lib/ai-services";
-import { saveMaterialityTopics } from "@/lib/services";
+import { logger } from "@/lib/logger";
+import { useToast } from "@/components/ui/use-toast";
+import { useErrorHandler } from "@/lib/error-utils";
 import {
   Card,
   CardContent,
@@ -131,7 +133,9 @@ const MaterialityMatrix = ({
   readOnly = false,
 }: MaterialityMatrixProps) => {
   const navigate = useNavigate();
-  const { setMaterialityTopics, questionnaireData, user } = useAppContext();
+  const materialityAppContext = useAppContext();
+  const { toast } = useToast();
+  const { handleAsync } = useErrorHandler();
   const [matrixTopics, setMatrixTopics] = useState<MaterialityTopic[]>(topics);
   const [selectedTopic, setSelectedTopic] = useState<MaterialityTopic | null>(
     null,
@@ -143,48 +147,51 @@ const MaterialityMatrix = ({
   const [isGeneratingTopics, setIsGeneratingTopics] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     setMatrixTopics(topics);
   }, [topics]);
 
-  // Save materiality topics to Supabase when they change
-  useEffect(() => {
-    const saveTopics = async () => {
-      if (user && matrixTopics.length > 0 && !readOnly) {
-        try {
-          setIsSaving(true);
-          await saveMaterialityTopics(matrixTopics);
-        } catch (error) {
-          console.error("Error saving materiality topics:", error);
-        } finally {
-          setIsSaving(false);
-        }
+  // Save material topics
+  const handleSave = async () => {
+    setIsSaving(true);
+    
+    const result = await handleAsync(
+      async () => {
+        materialityAppContext.updateMaterialityTopics(matrixTopics);
+        await materialityAppContext.saveMaterialityTopics();
+        setIsSaved(true);
+        return true;
+      },
+      {
+        errorMessage: "Error saving materiality topics",
+        successMessage: "Materiality topics saved successfully",
+        showErrorToast: true,
+        showSuccessToast: true
       }
-    };
-
-    // Don't save on initial load, only when topics change after that
-    if (matrixTopics !== topics) {
-      saveTopics();
-    }
-  }, [matrixTopics, user, readOnly]);
+    );
+    
+    setIsSaving(false);
+  };
 
   // Function to proceed to plan generator
-  const handleProceedToPlan = () => {
-    setMaterialityTopics(matrixTopics);
+  const handleProceedToPlan = useCallback(() => {
+    materialityAppContext.updateMaterialityTopics(matrixTopics);
     navigate("/plan-generator");
-  };
+  }, [materialityAppContext, matrixTopics, navigate]);
 
-  const handleTopicUpdate = (updatedTopic: MaterialityTopic) => {
-    const updatedTopics = matrixTopics.map((topic) =>
-      topic.id === updatedTopic.id ? updatedTopic : topic,
+  const handleTopicUpdate = useCallback((updatedTopic: MaterialityTopic) => {
+    setMatrixTopics(prevTopics => 
+      prevTopics.map(topic => topic.id === updatedTopic.id ? updatedTopic : topic)
     );
-    setMatrixTopics(updatedTopics);
     setSelectedTopic(updatedTopic);
     if (onTopicUpdate) {
-      onTopicUpdate(updatedTopics);
+      onTopicUpdate(matrixTopics.map(topic => 
+        topic.id === updatedTopic.id ? updatedTopic : topic
+      ));
     }
-  };
+  }, [onTopicUpdate, matrixTopics]);
 
   const filteredTopics = matrixTopics.filter((topic) =>
     filter === "all" ? true : topic.category === filter,
@@ -202,12 +209,12 @@ const MaterialityMatrix = ({
     try {
       // Get industry, size, and region from the context if available
       const industry =
-        questionnaireData?.["industry-selection"]?.industry || "General";
+        materialityAppContext.questionnaireData?.["industry-selection"]?.industry || "General";
       const size =
-        questionnaireData?.["company-profile"]?.employeeCount ||
+        materialityAppContext.questionnaireData?.["company-profile"]?.employeeCount ||
         "Medium Enterprise";
       const region =
-        questionnaireData?.["regulatory-requirements"]?.primaryRegion ||
+        materialityAppContext.questionnaireData?.["regulatory-requirements"]?.primaryRegion ||
         "Global";
 
       // First try to use the tailored recommendations if available
@@ -216,7 +223,7 @@ const MaterialityMatrix = ({
           await import("@/lib/tailored-recommendations");
 
         const response = await getTailoredRecommendations({
-          surveyAnswers: questionnaireData || {},
+          surveyAnswers: materialityAppContext.questionnaireData || {},
           materialityTopics: matrixTopics || [],
         });
 
@@ -234,7 +241,7 @@ const MaterialityMatrix = ({
           }
         }
       } catch (tailoredError) {
-        console.error("Error using tailored recommendations:", tailoredError);
+        logger.error("Error using tailored recommendations", tailoredError);
         // Fall back to the original method if tailored recommendations fail
       }
 
@@ -314,11 +321,11 @@ const MaterialityMatrix = ({
           );
         }
       } catch (parseError) {
-        console.error("Error parsing AI response:", parseError);
+        logger.error("Error parsing AI response", parseError);
         setAiError("Error parsing AI recommendations. Please try again.");
       }
     } catch (err) {
-      console.error("Error generating AI topics:", err);
+      logger.error("Error generating AI topics", err);
       setAiError(
         err.message || "Failed to generate AI topics. Please try again.",
       );
@@ -690,16 +697,25 @@ const MaterialityMatrix = ({
             </div>
           </div>
 
-          <Button onClick={handleProceedToPlan} className="ml-auto">
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Continue to Plan Generator"
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleSave} 
+              variant="outline"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+            <Button onClick={handleProceedToPlan}>
+              Continue to Plan Generator
+            </Button>
+          </div>
 
           <TooltipProvider>
             <Tooltip>

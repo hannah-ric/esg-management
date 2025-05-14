@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { supabase } from "@/lib/supabase";
-import {
-  getFrameworkRecommendations,
-  getResourceRecommendations,
-} from "@/lib/ai-services";
+import { 
+  analyzeExternalContent, 
+  searchResourceLibrary, 
+  generateAIRecommendations 
+} from "@/lib/plan-enhancement";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,29 +45,21 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     setIsAnalyzing(true);
     setError(null);
 
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "supabase-functions-analyze-esg-content",
-        {
-          body: { url },
-        },
-      );
-
-      if (error) throw new Error(error.message);
-
-      if (onEnhancementComplete && data) {
+    const result = await analyzeExternalContent(url);
+    
+    if (result.success) {
+      if (onEnhancementComplete && result.data) {
         onEnhancementComplete({
           source: "diffbot",
-          data,
+          data: result.data,
           type: "url_analysis",
         });
       }
-    } catch (err) {
-      console.error("Error analyzing URL:", err);
-      setError(err.message || "Failed to analyze the URL. Please try again.");
-    } finally {
-      setIsAnalyzing(false);
+    } else {
+      setError(result.error || "Failed to analyze the URL. Please try again.");
     }
+    
+    setIsAnalyzing(false);
   };
 
   const searchResources = async () => {
@@ -75,22 +68,15 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     setIsSearching(true);
     setError(null);
 
-    try {
-      // Search for resources in our database
-      const { data, error } = await supabase
-        .from("resources")
-        .select("*")
-        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
-
-      if (error) throw error;
-
-      setSearchResults(data || []);
-    } catch (err) {
-      console.error("Error searching resources:", err);
-      setError("Failed to search resources. Please try again.");
-    } finally {
-      setIsSearching(false);
+    const result = await searchResourceLibrary(searchQuery);
+    
+    if (result.success) {
+      setSearchResults(result.data);
+    } else {
+      setError(result.error || "Failed to search resources. Please try again.");
     }
+    
+    setIsSearching(false);
   };
 
   const toggleResultSelection = (result: any) => {
@@ -123,54 +109,28 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     setIsGeneratingAI(true);
     setError(null);
 
-    try {
-      // Prepare company profile data
-      const companyProfile = {
-        companyName: companyName || "Your Company",
-        industry: industry || "General",
-        size: "Medium Enterprise",
-        region: "Global",
-      };
-
-      // Get AI-powered framework recommendations
-      const recommendations = await getFrameworkRecommendations(
-        companyProfile,
-        materialityTopics || [],
-      );
-
-      // Get AI-powered resource recommendations if esgPlan is available
-      let resourceRecs = null;
-      if (esgPlan) {
-        resourceRecs = await getResourceRecommendations(
-          esgPlan,
-          companyProfile,
-        );
-      }
-
-      setAiRecommendations({
-        frameworks: recommendations,
-        resources: resourceRecs,
-      });
+    const result = await generateAIRecommendations(
+      companyName,
+      industry,
+      materialityTopics,
+      esgPlan
+    );
+    
+    if (result.success && result.data) {
+      setAiRecommendations(result.data);
 
       if (onEnhancementComplete) {
         onEnhancementComplete({
           source: "ai",
-          data: {
-            frameworks: recommendations,
-            resources: resourceRecs,
-          },
+          data: result.data,
           type: "ai_recommendations",
         });
       }
-    } catch (err) {
-      console.error("Error generating AI recommendations:", err);
-      setError(
-        err.message ||
-          "Failed to generate AI recommendations. Please try again.",
-      );
-    } finally {
-      setIsGeneratingAI(false);
+    } else {
+      setError(result.error || "Failed to generate AI recommendations. Please try again.");
     }
+    
+    setIsGeneratingAI(false);
   };
 
   return (

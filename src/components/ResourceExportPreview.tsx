@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Eye, FileText, FileSpreadsheet } from "lucide-react";
 import ResourceExporter from "./ResourceExporter";
+import { logger } from "@/lib/logger";
 
 interface ResourceExportPreviewProps {
   resource: {
@@ -172,7 +173,7 @@ const ResourceExportPreview: React.FC<ResourceExportPreviewProps> = ({
               resource={resource}
               onExportComplete={(type, success) => {
                 if (success) {
-                  console.log(`${type} export completed successfully`);
+                  logger.info(`${type} export completed successfully`);
                 }
               }}
             />

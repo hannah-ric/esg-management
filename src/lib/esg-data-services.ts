@@ -227,7 +227,10 @@ export async function searchESGDataPoints(
     const { data, error } = await supabase
       .from("esg_data_points")
       .select("*")
-      .or(`metric_id.ilike.%${searchTerm}%,value.ilike.%${searchTerm}%`);
+      .or([
+        { metric_id: { ilike: `%${searchTerm}%` } },
+        { value: { ilike: `%${searchTerm}%` } }
+      ]);
 
     if (error) throw error;
     return data || [];

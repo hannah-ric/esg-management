@@ -16,18 +16,13 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY || "",
 );
 
-// Import the AuthProvider
-import { AuthProvider } from "./components/AuthProvider";
-
 // Root component
 const Root = () => {
   return (
     <React.StrictMode>
-      <AuthProvider>
-        <BrowserRouter basename={basename}>
-          <App />
-        </BrowserRouter>
-      </AuthProvider>
+      <BrowserRouter basename={basename}>
+        <App />
+      </BrowserRouter>
     </React.StrictMode>
   );
 };

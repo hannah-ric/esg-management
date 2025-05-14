@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { useAuthContext } from "../AuthProvider";
+import { useAppContext } from "../AppContext";
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -8,7 +8,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, redirectTo = "/login" }: AuthGuardProps) {
-  const { user, loading } = useAuthContext();
+  const { user, loading } = useAppContext();
 
   // Show loading state while checking authentication
   if (loading) {
@@ -37,7 +37,7 @@ export function GuestGuard({
   children,
   redirectTo = "/dashboard",
 }: GuestGuardProps) {
-  const { user, loading } = useAuthContext();
+  const { user, loading } = useAppContext();
 
   // Show loading state while checking authentication
   if (loading) {
