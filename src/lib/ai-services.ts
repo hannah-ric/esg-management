@@ -208,3 +208,76 @@ export async function getESGDataInsights(
     throw error;
   }
 }
+
+export async function analyzeMaterialityImpactForPlan(
+  materialityTopics: any[] // TODO: Define a proper type for MaterialityTopic if available from AppContext
+): Promise<AIAssistantResponse> {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-esg-ai-assistant",
+      {
+        body: {
+          prompt: "Analyze the provided materiality topics and provide an impact analysis relevant for ESG action plan generation. Focus on interdependencies, potential leverage points, and key risks. The analysis should be concise and directly usable for strategic planning. Return the analysis as a JSON string within the 'content' field.",
+          context: {
+            materialityTopics,
+          },
+          task: "materiality-impact-analysis-for-plan",
+          maxTokens: 800, 
+        },
+      },
+    );
+
+    if (error) throw error;
+    return data as AIAssistantResponse; // Assuming data is AIAssistantResponse
+  } catch (error: any) {
+    console.error("Error analyzing materiality impact for plan:", error);
+    return {
+      content: JSON.stringify({ error: "Unable to analyze materiality impact at this time." }), // Ensure content is a string
+      task: "materiality-impact-analysis-for-plan",
+      error: error.message,
+    };
+  }
+}
+
+export async function generateESGActionPlan(
+  materialityTopics: any[], // TODO: Define proper types
+  impactAnalysisContent: string // Expecting string content (potentially JSON string) from previous step
+): Promise<AIAssistantResponse> {
+  let parsedImpactAnalysis = {};
+  try {
+    parsedImpactAnalysis = JSON.parse(impactAnalysisContent);
+  } catch (e) {
+    console.warn("Impact analysis content was not valid JSON, passing as string:", impactAnalysisContent);
+    // If it's not JSON, we might pass it as a raw string, 
+    // or the AI prompt might need to be robust to handle non-JSON string analysis.
+    // For now, let's create a simple object if parsing fails to avoid breaking the context structure.
+    parsedImpactAnalysis = { analysisText: impactAnalysisContent };
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-esg-ai-assistant",
+      {
+        body: {
+          prompt: "Based on the materiality topics and their impact analysis, generate a comprehensive ESG action plan. The plan should include a title, description, specific recommendations (each with a description, priority, effort, and impact score), and implementation phases (each with a name, description, and a list of actionable tasks, where each task has a name and status). Return this entire plan as a single well-formed JSON object string within the 'content' field.",
+          context: {
+            materialityTopics,
+            impactAnalysis: parsedImpactAnalysis, // Pass the parsed (or wrapped) analysis
+          },
+          task: "esg-action-plan-generation", 
+          maxTokens: 2000, // Plan can be large
+        },
+      },
+    );
+
+    if (error) throw error;
+    return data as AIAssistantResponse; // Assuming data is AIAssistantResponse
+  } catch (error: any) {
+    console.error("Error generating ESG action plan:", error);
+    return {
+      content: JSON.stringify({ error: "Unable to generate ESG action plan at this time." }), // Ensure content is a string
+      task: "esg-action-plan-generation",
+      error: error.message,
+    };
+  }
+}

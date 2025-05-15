@@ -15,6 +15,7 @@ import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import QuestionnaireStep from "./QuestionnaireStep";
 import { useAppContext } from "./AppContext";
 import { saveQuestionnaireData } from "@/lib/services";
+import { toast } from "@/components/ui/use-toast";
 
 interface QuestionnaireProps {
   onComplete?: (data: any) => void;
@@ -26,7 +27,7 @@ const Questionnaire = ({
   initialData = {},
 }: QuestionnaireProps) => {
   const navigate = useNavigate();
-  const { setQuestionnaireData } = useAppContext();
+  const { updateQuestionnaireData } = useAppContext();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState(initialData);
   const [isSaving, setIsSaving] = useState(false);
@@ -481,7 +482,7 @@ const Questionnaire = ({
       setCurrentStep(currentStep + 1);
     } else {
       // Save data to context and navigate to materiality matrix
-      setQuestionnaireData(formData);
+      updateQuestionnaireData(formData);
       onComplete(formData);
       navigate("/materiality-matrix");
     }
@@ -513,7 +514,7 @@ const Questionnaire = ({
       await saveQuestionnaireData(dataToSave);
 
       // Update context
-      setQuestionnaireData(formData);
+      updateQuestionnaireData(formData);
     } catch (error) {
       console.error("Error saving questionnaire data:", error);
       // You could add a toast notification here

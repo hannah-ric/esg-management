@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,9 @@ import {
   saveESGDataPoint,
   getFrameworkRecommendations,
 } from "@/lib/esg-data-services";
+import { parseLocaleNumber, formatLocaleNumber } from '@/lib/utils';
+import { sanitizeInput } from '@/lib/error-utils';
+import { useToast } from "@/components/ui/use-toast";
 
 interface ESGMetricFormProps {
   resourceId: string;
@@ -57,6 +60,31 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
   const [recommendedFrameworks, setRecommendedFrameworks] = useState<any[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] =
     useState(false);
+
+  const [displayValues, setDisplayValues] = useState({ value: '' });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialData) {
+        setFormData(prev => ({...prev, ...initialData}));
+    }
+    setDisplayValues({
+      value: initialData?.value !== undefined ? formatLocaleNumber(initialData.value) : '',
+    });
+  }, [initialData]);
+
+  const handleInputChange = useCallback((field: keyof ESGDataPoint, value: any) => {
+    const sanitizedValue = (typeof value === 'string' && field !== 'value')
+                            ? sanitizeInput(value) 
+                            : value;
+    setFormData(prev => ({ ...prev, [field]: sanitizedValue }));
+  }, []);
+
+  const handleNumericInputChange = useCallback((field: 'value', displayValue: string) => {
+    setDisplayValues(prev => ({ ...prev, [field]: displayValue }));
+    const parsed = parseLocaleNumber(displayValue);
+    setFormData(prev => ({ ...prev, [field]: displayValue }));
+  }, []);
 
   // Predefined metric options
   const metricOptions = [
@@ -163,28 +191,23 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
     });
   };
 
-  // Handle form submission
-  const handleSubmit = async () => {
-    if (!formData.metric_id || !formData.value) {
-      setError("Metric ID and value are required.");
-      return;
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    const numericValue = parseLocaleNumber(displayValues.value);
+
+    if (displayValues.value && isNaN(numericValue)) {
+        toast({ title: "Invalid Input", description: "Current value is not a valid number.", variant: "destructive" });
+        return;
     }
 
-    // Validate historical entries
-    const invalidEntries = historicalEntries.filter(
-      (entry) =>
-        !entry.year ||
-        !entry.value ||
-        parseInt(entry.year) >
-          parseInt(
-            formData.reporting_year || new Date().getFullYear().toString(),
-          ),
-    );
+    const finalMetric: Partial<ESGDataPoint> = {
+        ...formData,
+        value: displayValues.value,
+        historical_data: historicalEntries,
+    };
 
-    if (invalidEntries.length > 0) {
-      setError(
-        "Please complete all historical data entries with valid years and values.",
-      );
+    if (!finalMetric.metric_id || !finalMetric.value) {
+      toast({ title: "Missing Fields", description: "Metric ID and value are required.", variant: "destructive" });
       return;
     }
 
@@ -192,14 +215,7 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
     setError(null);
 
     try {
-      // Prepare the data point with historical data
-      const dataPoint: ESGDataPoint = {
-        ...(formData as ESGDataPoint),
-        historical_data: historicalEntries,
-      };
-
-      // Save the data point
-      const savedDataPoint = await saveESGDataPoint(dataPoint);
+      const savedDataPoint = await saveESGDataPoint(finalMetric as ESGDataPoint);
 
       if (savedDataPoint) {
         onSave(savedDataPoint);
@@ -212,7 +228,7 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [formData, displayValues, historicalEntries, onSave, toast]);
 
   return (
     <div className="space-y-6">
@@ -283,10 +299,8 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
           <Input
             id="value"
             placeholder="e.g., 1000 tCO2e"
-            value={formData.value}
-            onChange={(e) =>
-              setFormData({ ...formData, value: e.target.value })
-            }
+            value={displayValues.value}
+            onChange={(e) => handleNumericInputChange('value', e.target.value)}
           />
         </div>
 

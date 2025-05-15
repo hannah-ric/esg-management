@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { exportToMultipleSheets, exportToPDF } from "./ExportUtils";
+import { exportToMultipleSheets, exportToPDFWithWorker } from "./ExportUtils";
 import {
   FileDown,
   FileText,
@@ -289,10 +289,11 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
         document.body.appendChild(tempDiv);
 
         // Export to PDF
-        success = await exportToPDF(
+        await exportToPDFWithWorker(
           "pdf-export-container",
-          `ESG_Resources_Export_${new Date().toISOString().split("T")[0]}.pdf`,
+          `ESG_Resources_Export_${new Date().toISOString().split("T")[0]}.pdf`
         );
+        success = true;
 
         // Remove the temporary div
         document.body.removeChild(tempDiv);

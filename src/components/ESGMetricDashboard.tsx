@@ -51,6 +51,7 @@ import {
 import { exportToExcel } from "@/components/ExportUtils";
 import ESGMetricForm from "./ESGMetricForm";
 import ESGMetricChart from "./ESGMetricChart";
+import ESGHistoricalAnalysis from "./ESGHistoricalAnalysis";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -136,7 +137,7 @@ const ESGMetricDashboard: React.FC<ESGMetricDashboardProps> = ({
     setLoading(true);
     try {
       const results = await searchESGDataPoints(searchQuery);
-      setMetrics(results);
+      setMetrics(results.data);
     } catch (err) {
       console.error("Error searching ESG metrics:", err);
       setError("Failed to search ESG metrics. Please try again.");
@@ -235,7 +236,7 @@ const ESGMetricDashboard: React.FC<ESGMetricDashboardProps> = ({
     });
 
     // Export to Excel
-    exportToExcel(exportData, "esg-metrics-export.xlsx", "ESG Metrics");
+    exportToExcel(exportData, "esg-metrics-export.xlsx");
   };
 
   const getMetricLabel = (metricId: string) => {

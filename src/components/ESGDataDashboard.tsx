@@ -12,6 +12,8 @@ import {
   Filter,
   Plus,
   FileText,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   Dialog,
@@ -42,12 +44,15 @@ import {
   getFrameworkMappings,
   saveESGDataPoint,
   ESGDataPoint,
+  getESGDataPoints,
+  PaginationParams
 } from "@/lib/esg-data-services";
 import ResourceAnalyzer from "./ResourceAnalyzer";
 import { exportToExcel } from "@/components/ExportUtils";
 import ESGDataVisualization from "./ESGDataVisualization";
 import ESGDataInsights from "./ESGDataInsights";
 import ESGMetricDashboard from "./ESGMetricDashboard";
+import { Label } from "@/components/ui/label";
 
 interface ESGDataDashboardProps {
   onSelectResource?: (resourceId: string) => void;
@@ -59,9 +64,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
   const [dataByResource, setDataByResource] = useState<Record<string, any[]>>(
     {},
   );
-  const [frameworkMappings, setFrameworkMappings] = useState<
-    Record<string, any[]>
-  >({});
+  const [frameworkMappingsByResource, setFrameworkMappingsByResource] = useState<Record<string, Record<string, any[]>>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
@@ -72,11 +75,24 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
   const [isExtractDialogOpen, setIsExtractDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [frameworkFilter, setFrameworkFilter] = useState("all");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<ESGDataPoint[]>([]);
+  const [searchPagination, setSearchPagination] = useState<PaginationParams>({ page: 1, pageSize: 10 });
+  const [searchTotalPages, setSearchTotalPages] = useState(1);
+  const [isSearching, setIsSearching] = useState(false);
+  const [pagination, setPagination] = useState<PaginationParams>({ page: 1, pageSize: 20 });
+  const [totalPages, setTotalPages] = useState(1);
+  const [resources, setResources] = useState<any[]>([]);
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadData();
+    loadResources();
   }, []);
+
+  useEffect(() => {
+    if (selectedResourceId) {
+      loadResourceDataAndMappings(selectedResourceId);
+    }
+  }, [selectedResourceId, pagination]);
 
   const handleDataExtracted = (dataPoints: Record<string, any>) => {
     setExtractedDataPoints(dataPoints);
@@ -89,23 +105,15 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
     dataPoint: any,
   ) => {
     try {
-      // Get the first resource ID (this is a simplification - in a real app you'd select the right resource)
-      const resourceKeys = Object.keys(dataByResource);
-      if (resourceKeys.length === 0) {
+      // Get the first resource ID or the selected resource
+      if (!selectedResourceId && resources.length === 0) {
         setError(
           "No resources available to add data to. Please add a resource first.",
         );
         return;
       }
 
-      const resourceName = resourceKeys[0];
-      const resourceDataPoints = dataByResource[resourceName];
-      if (!resourceDataPoints || resourceDataPoints.length === 0) {
-        setError("No data points available for the selected resource.");
-        return;
-      }
-
-      const resourceId = resourceDataPoints[0].resource_id;
+      const resourceId = selectedResourceId || resources[0].id;
 
       // Create a new data point with current year as reporting year
       const currentYear = new Date().getFullYear().toString();
@@ -132,83 +140,138 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
       const successMessage = `Successfully added ${metricId.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} metric to your dashboard`;
       alert(successMessage);
 
-      // Reload data to show the newly added data point
-      await loadData();
+      // Reload data
+      if (selectedResourceId) {
+        loadResourceDataAndMappings(selectedResourceId);
+      }
     } catch (err) {
       console.error("Error adding extracted data point:", err);
       setError("Failed to add extracted data point. Please try again.");
     }
   };
 
-  const loadData = async () => {
+  const loadResources = async () => {
     setLoading(true);
     setError(null);
-
     try {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) throw new Error("User not authenticated");
 
-      // Get all resources and data points in one query
-      const { data: resources, error: resourcesError } = await supabase
+      const { data: resourcesData, error: resourcesError } = await supabase
         .from("resources")
-        .select(`
-          id, 
-          title,
-          esg_data_points(*)
-        `)
+        .select("id, title")
         .eq("user_id", userId);
 
       if (resourcesError) throw resourcesError;
-
-      // Format data by resource
-      const formattedData: Record<string, any[]> = {};
-      resources?.forEach(resource => {
-        if (resource.esg_data_points?.length > 0) {
-          formattedData[resource.title] = resource.esg_data_points;
+      setResources(resourcesData || []);
+      if (resourcesData && resourcesData.length > 0) {
+        if (!selectedResourceId) {
+             setSelectedResourceId(resourcesData[0].id);
         }
-      });
-
-      setDataByResource(formattedData);
-
-      // Get framework mappings in a single query
-      const { data: mappingsData, error: mappingsError } = await supabase
-        .from("esg_framework_mappings")
-        .select("*");
-
-      if (mappingsError) throw mappingsError;
-
-      // Organize mappings by framework
-      const frameworks = ["GRI", "SASB", "TCFD", "CDP", "SDG"];
-      const mappings: Record<string, any[]> = {};
-      
-      frameworks.forEach(framework => {
-        const frameworkMappings = mappingsData?.filter(
-          mapping => mapping.framework_id === framework
-        );
-        if (frameworkMappings?.length > 0) {
-          mappings[framework] = frameworkMappings;
-        }
-      });
-
-      setFrameworkMappings(mappings);
+      } else {
+        setLoading(false);
+        setDataByResource({}); // Clear data if no resources
+        setFrameworkMappingsByResource({});
+      }
     } catch (err) {
-      console.error("Error loading ESG data:", err);
-      setError("Failed to load ESG data. Please try again.");
+      console.error("Error loading resources:", err);
+      setError("Failed to load resources. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const loadResourceDataAndMappings = async (resourceId: string) => {
+    setLoading(true);
+    setError(null);
+
+    const resourceCacheKey = `resourceMappingsCache_${resourceId}`;
+    const CACHE_DURATION_MS_RESOURCE = 1000 * 60 * 30; // 30 minutes cache for specific resource mappings
+
+    try {
+      // Load ESG Data Points (paginated)
+      const dpResponse = await getESGDataPoints(resourceId, pagination);
+      const resource = resources.find(r => r.id === resourceId);
+      const resourceTitle = resource ? resource.title : "Unknown Resource";
+      setDataByResource({ [resourceTitle]: dpResponse.data });
+      setTotalPages(dpResponse.totalPages);
+
+      // Load Framework Mappings for this specific resource with caching
+      let currentResourceMappings: Record<string, any[]> = {};
+      try {
+        const cached = localStorage.getItem(resourceCacheKey);
+        if (cached) {
+          const { timestamp, data: cachedData } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_DURATION_MS_RESOURCE) {
+            currentResourceMappings = cachedData;
+          } else {
+            localStorage.removeItem(resourceCacheKey); // Expired
+          }
+        }
+      } catch (e) { console.error("Error reading resource mappings cache", e); localStorage.removeItem(resourceCacheKey);}
+
+      if (Object.keys(currentResourceMappings).length === 0) { // Not in cache or expired
+        const { data: mappingsData, error: mappingsError } = await supabase
+          .from("esg_framework_mappings")
+          .select("*")
+          .eq("resource_id", resourceId); // Fetch only for the current resource
+        
+        if (mappingsError) throw mappingsError;
+
+        const organizedMappings: Record<string, any[]> = {};
+        const frameworks = ["GRI", "SASB", "TCFD", "CDP", "SDG"]; // Consider making this dynamic or a constant
+        frameworks.forEach(framework => {
+          const frameworkSpecificMappings = mappingsData?.filter(
+            mapping => mapping.framework_id === framework
+          );
+          if (frameworkSpecificMappings?.length > 0) {
+            organizedMappings[framework] = frameworkSpecificMappings;
+          }
+        });
+        currentResourceMappings = organizedMappings;
+        try {
+            localStorage.setItem(resourceCacheKey, JSON.stringify({ timestamp: Date.now(), data: currentResourceMappings }));
+        } catch (e) { console.error("Error saving resource mappings to cache", e); }
+      }
+      
+      setFrameworkMappingsByResource(prev => ({ ...prev, [resourceId]: currentResourceMappings }));
+
+    } catch (err) {
+      console.error(`Error loading data for resource ${resourceId}:`, err);
+      setError("Failed to load ESG data or mappings. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery) return;
+  const handleSearch = async (newPage?: number) => {
+    if (!searchQuery) {
+      setSearchResults([]);
+      setSearchTotalPages(1);
+      return;
+    }
+    setIsSearching(true);
+    setError(null);
+
+    const currentPage = newPage || searchPagination.page;
 
     try {
-      const results = await searchESGDataPoints(searchQuery);
-      setSearchResults(results);
+      const response = await searchESGDataPoints(searchQuery, { ...searchPagination, page: currentPage });
+      setSearchResults(response.data);
+      setSearchTotalPages(response.totalPages);
+      setSearchPagination(prev => ({ ...prev, page: currentPage }));
+      setActiveTab("search-results"); // Switch to search results tab
     } catch (err) {
       console.error("Error searching ESG data:", err);
       setError("Failed to search ESG data. Please try again.");
+      setSearchResults([]);
+      setSearchTotalPages(1);
+    } finally {
+      setIsSearching(false);
     }
+  };
+  
+  const handleSearchPageChange = (newPage: number) => {
+    handleSearch(newPage);
   };
 
   const handleExportData = () => {
@@ -234,7 +297,80 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
     }
 
     // Export to Excel
-    exportToExcel(exportData, "esg-data-export.xlsx", "ESG Data");
+    exportToExcel(exportData, "esg-data-export.xlsx");
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPagination({ ...pagination, page: newPage });
+  };
+
+  const handleResourceSelect = (resourceId: string) => {
+    setSelectedResourceId(resourceId);
+    // Reset pagination when changing resources
+    setPagination({ page: 1, pageSize: pagination.pageSize });
+    
+    if (onSelectResource) {
+      onSelectResource(resourceId);
+    }
+  };
+
+  // Render pagination controls
+  const renderPagination = () => {
+    return (
+      <div className="flex items-center justify-between mt-4">
+        <Button 
+          variant="outline" 
+          size="sm"
+          disabled={pagination.page <= 1}
+          onClick={() => handlePageChange(pagination.page - 1)}
+          aria-label="Go to previous page of resource data"
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+        </Button>
+        <span className="text-sm">
+          Page {pagination.page} of {totalPages}
+        </span>
+        <Button 
+          variant="outline" 
+          size="sm"
+          disabled={pagination.page >= totalPages}
+          onClick={() => handlePageChange(pagination.page + 1)}
+          aria-label="Go to next page of resource data"
+        >
+          Next <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
+    );
+  };
+
+  // Render pagination controls for search results
+  const renderSearchPagination = () => {
+    if (searchResults.length === 0 && !isSearching) return null;
+    return (
+      <div className="flex items-center justify-between mt-4">
+        <Button 
+          variant="outline" 
+          size="sm"
+          disabled={searchPagination.page <= 1 || isSearching}
+          onClick={() => handleSearchPageChange(searchPagination.page - 1)}
+          aria-label="Go to previous page of search results"
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+        </Button>
+        <span className="text-sm">
+          Page {searchPagination.page} of {searchTotalPages}
+        </span>
+        <Button 
+          variant="outline" 
+          size="sm"
+          disabled={searchPagination.page >= searchTotalPages || isSearching}
+          onClick={() => handleSearchPageChange(searchPagination.page + 1)}
+          aria-label="Go to next page of search results"
+        >
+          Next <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
+    );
   };
 
   const getMetricLabel = (metricId: string) => {
@@ -331,20 +467,24 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
         <div className="mb-6">
           <div className="flex gap-2">
             <div className="relative flex-grow">
+              <Label htmlFor="esg-data-search" className="sr-only">Search ESG Data</Label>
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                id="esg-data-search"
                 placeholder="Search ESG data..."
                 className="pl-8"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                aria-label="Search ESG data by metric, value, context, or source"
               />
             </div>
-            <Button variant="outline" onClick={handleSearch}>
+            <Button variant="outline" onClick={() => handleSearch()} aria-label="Submit search">
               <Search className="h-4 w-4 mr-1" /> Search
             </Button>
-            <Select value={frameworkFilter} onValueChange={setFrameworkFilter}>
-              <SelectTrigger className="w-[180px]">
+            <Label htmlFor="framework-filter-select" className="sr-only">Filter by framework</Label>
+            <Select value={frameworkFilter} onValueChange={setFrameworkFilter} >
+              <SelectTrigger className="w-[180px]" id="framework-filter-select" aria-label="Filter by framework">
                 <SelectValue placeholder="Filter by framework" />
               </SelectTrigger>
               <SelectContent>
@@ -359,8 +499,30 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
           </div>
         </div>
 
+        {/* Resource selector */}
+        {resources.length > 0 && (
+          <div className="mb-4">
+            <Label htmlFor="resource-select">Select Resource to View Data</Label>
+            <Select
+              value={selectedResourceId || ""}
+              onValueChange={handleResourceSelect}
+            >
+              <SelectTrigger id="resource-select" aria-label="Select a resource to view its data">
+                <SelectValue placeholder="Select a resource" />
+              </SelectTrigger>
+              <SelectContent>
+                {resources.map((resource) => (
+                  <SelectItem key={resource.id} value={resource.id}>
+                    {resource.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
+          <TabsList className="mb-4" aria-label="Dashboard data views">
             <TabsTrigger value="by-resource">By Resource</TabsTrigger>
             <TabsTrigger value="by-framework">By Framework</TabsTrigger>
             <TabsTrigger value="search-results">
@@ -467,48 +629,32 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
           </TabsContent>
 
           <TabsContent value="by-framework">
-            {Object.keys(frameworkMappings).length > 0 ? (
+            {selectedResourceId && frameworkMappingsByResource[selectedResourceId] && Object.keys(frameworkMappingsByResource[selectedResourceId]).length > 0 ? (
               <div className="space-y-6">
-                {Object.entries(frameworkMappings)
+                {Object.entries(frameworkMappingsByResource[selectedResourceId])
                   .filter(
-                    ([framework]) =>
+                    ([frameworkName]) =>
                       frameworkFilter === "all" ||
-                      framework === frameworkFilter,
+                      frameworkName === frameworkFilter,
                   )
-                  .map(([framework, mappings]) => (
-                    <div key={framework} className="border rounded-md p-4">
+                  .map(([frameworkName, frameworkSpecificMappings]) => (
+                    <div key={frameworkName} className="border rounded-md p-4">
                       <h3 className="font-medium text-lg mb-4">
-                        <Badge className={getFrameworkColor(framework)}>
-                          {framework}
+                        <Badge className={getFrameworkColor(frameworkName)}>
+                          {frameworkName}
                         </Badge>
                       </h3>
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead>Disclosure</TableHead>
-                            <TableHead>Resource</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {mappings.map((mapping) => (
+                          {(frameworkSpecificMappings as any[]).map((mapping: any) => (
                             <TableRow key={mapping.id}>
                               <TableCell className="font-medium">
                                 {mapping.disclosure_id}
-                              </TableCell>
-                              <TableCell>
-                                {mapping.resource_id}
-                                {onSelectResource && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="ml-2"
-                                    onClick={() =>
-                                      onSelectResource(mapping.resource_id)
-                                    }
-                                  >
-                                    View
-                                  </Button>
-                                )}
                               </TableCell>
                             </TableRow>
                           ))}
@@ -520,20 +666,26 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
-                  No framework mappings found. Try analyzing some resources
-                  first.
+                  {selectedResourceId ? "No framework mappings found for the selected resource or filter." : "Please select a resource to view framework mappings."}
                 </p>
               </div>
             )}
           </TabsContent>
 
           <TabsContent value="search-results">
-            {searchResults.length > 0 ? (
+            {isSearching && (
+              <div className="flex justify-center items-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            {!isSearching && searchResults.length > 0 && (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Metric</TableHead>
                     <TableHead>Value</TableHead>
+                    <TableHead>Context</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Framework</TableHead>
                     <TableHead>Resource</TableHead>
                   </TableRow>
@@ -545,6 +697,8 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
                         {getMetricLabel(dataPoint.metric_id)}
                       </TableCell>
                       <TableCell>{dataPoint.value}</TableCell>
+                      <TableCell>{dataPoint.context}</TableCell>
+                      <TableCell>{dataPoint.source}</TableCell>
                       <TableCell>
                         {dataPoint.framework_id && dataPoint.disclosure_id && (
                           <Badge
@@ -560,7 +714,8 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
                         )}
                       </TableCell>
                       <TableCell>
-                        {dataPoint.resource_id}
+                        {/* Attempt to find resource title, fallback to ID */}
+                        {resources.find(r => r.id === dataPoint.resource_id)?.title || dataPoint.resource_id}
                         {onSelectResource && (
                           <Button
                             variant="ghost"
@@ -578,20 +733,23 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
                   ))}
                 </TableBody>
               </Table>
-            ) : searchQuery ? (
+            )}
+            {!isSearching && searchResults.length === 0 && searchQuery && (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
                   No results found for "{searchQuery}". Try a different search
                   term.
                 </p>
               </div>
-            ) : (
+            )}
+            {!isSearching && searchResults.length === 0 && !searchQuery && (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
                   Enter a search term to find ESG data points.
                 </p>
               </div>
             )}
+            {renderSearchPagination()} {/* Add search pagination controls */}
           </TabsContent>
 
           <TabsContent value="extracted-data">
@@ -675,6 +833,9 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Add pagination at the bottom of your data display */}
+        {!loading && Object.keys(dataByResource).length > 0 && renderPagination()}
       </CardContent>
     </Card>
   );

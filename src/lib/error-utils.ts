@@ -1,5 +1,6 @@
 import { logger } from "./logger";
 import { useToast } from "@/components/ui/use-toast";
+import DOMPurify from 'dompurify';
 
 /**
  * Utility function for handling async operations with consistent error handling
@@ -76,4 +77,49 @@ export function useErrorHandler() {
   };
   
   return { handleAsync };
+}
+
+/**
+ * Sanitizes user input to prevent XSS attacks
+ * @param input The input string to sanitize
+ * @returns A sanitized string safe for display
+ */
+export function sanitizeInput(input: string): string {
+  if (!input) return '';
+  
+  // If we're in a browser environment, use DOMPurify
+  if (typeof window !== 'undefined') {
+    return DOMPurify.sanitize(input, { 
+      ALLOWED_TAGS: [], // Strip all HTML tags
+      ALLOWED_ATTR: [] // Strip all attributes
+    });
+  }
+  
+  // Basic server-side fallback (should be improved in a real implementation)
+  return input
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Sanitizes user input for database operations
+ * @param input Input object to sanitize
+ * @returns A sanitized version of the input
+ */
+export function sanitizeObject<T extends Record<string, any>>(input: T): T {
+  if (!input || typeof input !== 'object') return input;
+  
+  const result = { ...input };
+  
+  for (const key in result) {
+    if (typeof result[key] === 'string') {
+      (result as Record<string, any>)[key] = sanitizeInput(result[key] as string);
+    } else if (typeof result[key] === 'object' && result[key] !== null) {
+      (result as Record<string, any>)[key] = sanitizeObject(result[key]);
+    }
+  }
+  
+  return result;
 } 

@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  exportToPDF,
+  exportToPDFWithWorker,
   exportToExcel,
   exportToMultipleSheets,
 } from "./ExportUtils";
 import { FileText, FileSpreadsheet, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import * as XLSX from "xlsx";
 
 interface ResourceExporterProps {
   resource: {
@@ -134,18 +133,13 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
       document.body.appendChild(tempDiv);
 
       // Export to PDF with improved quality and margins
-      const success = await exportToPDF(
+      await exportToPDFWithWorker(
         "temp-pdf-export",
-        `${resource.title.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-        { margin: 20, quality: 3 },
+        `${resource.title.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`
       );
 
       // Remove the temporary div
       document.body.removeChild(tempDiv);
-
-      if (onExportComplete) {
-        onExportComplete("pdf", success);
-      }
 
       // Show success message
       setExportSuccess("PDF exported successfully!");
@@ -154,6 +148,12 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
       setTimeout(() => {
         setExportSuccess(null);
       }, 3000);
+
+      // For the purpose of onExportComplete, we assume success if no error was thrown by exportToPDFWithWorker.
+      // A more robust solution would involve exportToPDFWithWorker returning a promise that resolves to success/failure.
+      if (onExportComplete) {
+        onExportComplete("pdf", true); // Assuming success
+      }
     } catch (error) {
       console.error("Error exporting to PDF:", error);
       setExportError("Failed to export to PDF. Please try again.");
@@ -306,7 +306,7 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
       )}
 
       {exportSuccess && (
-        <Alert variant="success" className="mt-2">
+        <Alert variant="default" className="mt-2">
           <AlertDescription>{exportSuccess}</AlertDescription>
         </Alert>
       )}

@@ -34,10 +34,7 @@ export async function searchResourceLibrary(searchQuery: string) {
     const { data, error } = await supabase
       .from("resources")
       .select("*")
-      .or([
-        { title: { ilike: `%${searchQuery}%` } },
-        { description: { ilike: `%${searchQuery}%` } }
-      ]);
+      .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
 
     if (error) throw error;
     return { success: true, data: data || [] };

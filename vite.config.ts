@@ -12,6 +12,13 @@ export default defineConfig({
   optimizeDeps: {
     entries: ["src/main.tsx", "src/tempobook/**/*"],
   },
+  worker: {
+    format: "es",
+    rollupOptions: {
+      // You might need to configure output if you have complex needs for worker chunks
+      // For now, just setting the format should be the priority.
+    },
+  },
   plugins: [
     react(),
     tempo({

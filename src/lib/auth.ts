@@ -9,12 +9,89 @@ import {
   mockResetPassword,
   mockUpdateProfile,
 } from "./mock-auth";
+import { logger } from "./logger";
 
 // Auth context types
 export interface AuthState {
   user: User | null;
   session: Session | null;
   loading: boolean;
+}
+
+// Standardized error types for better error handling
+export enum AuthErrorType {
+  INVALID_CREDENTIALS = "invalid_credentials",
+  EMAIL_IN_USE = "email_in_use",
+  WEAK_PASSWORD = "weak_password",
+  RATE_LIMITED = "rate_limited",
+  NETWORK_ERROR = "network_error",
+  UNAUTHORIZED = "unauthorized",
+  UNKNOWN = "unknown"
+}
+
+export interface AuthError {
+  type: AuthErrorType;
+  message: string;
+  code?: string;
+  originalError?: any;
+}
+
+// Process Supabase errors into standardized format
+function processAuthError(error: any): AuthError {
+  // Don't log sensitive information
+  const safeError = {
+    message: error.message,
+    code: error.code,
+    status: error.status
+  };
+  
+  logger.error("Auth error:", safeError);
+  
+  // Map error codes to our standardized types
+  if (error.code === "invalid_credentials" || error.code === "23505" || error.code === "auth/invalid-email") {
+    return {
+      type: AuthErrorType.INVALID_CREDENTIALS,
+      message: "The email or password you entered is incorrect.",
+      code: error.code
+    };
+  } else if (error.code === "email_in_use" || error.code === "23505") {
+    return {
+      type: AuthErrorType.EMAIL_IN_USE,
+      message: "This email is already in use. Please try another email or log in.",
+      code: error.code
+    };
+  } else if (error.code === "weak_password") {
+    return {
+      type: AuthErrorType.WEAK_PASSWORD,
+      message: "Please use a stronger password with at least 8 characters.",
+      code: error.code
+    };
+  } else if (error.status === 429) {
+    return {
+      type: AuthErrorType.RATE_LIMITED,
+      message: "Too many requests. Please try again later.",
+      code: error.code
+    };
+  } else if (error.code === "auth/network-request-failed") {
+    return {
+      type: AuthErrorType.NETWORK_ERROR,
+      message: "Network error. Please check your connection and try again.",
+      code: error.code
+    };
+  } else if (error.status === 401 || error.code === "auth/unauthorized") {
+    return {
+      type: AuthErrorType.UNAUTHORIZED,
+      message: "You are not authorized to perform this action.",
+      code: error.code
+    };
+  }
+  
+  // Generic error for unknown cases
+  return {
+    type: AuthErrorType.UNKNOWN,
+    message: "An unexpected error occurred. Please try again.",
+    code: error.code
+  };
 }
 
 // Hook for getting the current auth state
@@ -38,7 +115,11 @@ export function useAuth() {
           loading: false,
         });
       } catch (error) {
-        console.error("Error getting initial session:", error);
+        logger.error("Error getting initial session:", { 
+          status: error.status,
+          code: error.code,
+          message: "Session retrieval failed" 
+        });
         setAuthState((prev) => ({ ...prev, loading: false }));
       }
     };
@@ -99,9 +180,8 @@ export async function signUp({
 
     if (error) throw error;
     return { data, error: null };
-  } catch (error: any) {
-    console.error("Error signing up:", error);
-    return { data: null, error };
+  } catch (error) {
+    return { data: null, error: processAuthError(error) };
   }
 }
 
@@ -126,9 +206,8 @@ export async function signIn({
 
     if (error) throw error;
     return { data, error: null };
-  } catch (error: any) {
-    console.error("Error signing in:", error);
-    return { data: null, error };
+  } catch (error) {
+    return { data: null, error: processAuthError(error) };
   }
 }
 
@@ -143,9 +222,8 @@ export async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     return { error: null };
-  } catch (error: any) {
-    console.error("Error signing out:", error);
-    return { error };
+  } catch (error) {
+    return { error: processAuthError(error) };
   }
 }
 
@@ -162,9 +240,8 @@ export async function resetPassword(email: string) {
     });
     if (error) throw error;
     return { error: null };
-  } catch (error: any) {
-    console.error("Error resetting password:", error);
-    return { error };
+  } catch (error) {
+    return { error: processAuthError(error) };
   }
 }
 
@@ -197,8 +274,7 @@ export async function updateProfile({
 
     if (error) throw error;
     return { user, error: null };
-  } catch (error: any) {
-    console.error("Error updating profile:", error);
-    return { user: null, error };
+  } catch (error) {
+    return { user: null, error: processAuthError(error) };
   }
 }

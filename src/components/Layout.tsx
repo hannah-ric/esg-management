@@ -3,6 +3,7 @@ import { Link, Outlet, useNavigate } from "react-router-dom";
 import { Globe, User, LogOut, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 import { useAppContext } from "./AppContext";
+import { supabase } from "../lib/supabase";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +24,7 @@ import { Label } from "./ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 const Layout = () => {
-  const { user, signIn, signUp, signOut } = useAppContext();
+  const { user } = useAppContext();
   const navigate = useNavigate();
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "signup">("login");
@@ -40,11 +41,16 @@ const Layout = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await signIn(email, password);
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) throw signInError;
+
       setIsAuthDialogOpen(false);
       setEmail("");
       setPassword("");
-      navigate("/"); // Redirect to home page after successful login
+      navigate("/");
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Invalid email or password. Please try again.");
@@ -62,13 +68,19 @@ const Layout = () => {
         throw new Error("Please fill in all required fields");
       }
 
-      await signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        firstName,
-        lastName,
-        companyName,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            company_name: companyName,
+          },
+        },
       });
+      if (signUpError) throw signUpError;
+
       setIsAuthDialogOpen(false);
       setEmail("");
       setPassword("");
@@ -76,7 +88,6 @@ const Layout = () => {
       setLastName("");
       setCompanyName("");
 
-      // Show success message and switch to login tab
       alert(
         "Account created successfully! Please check your email to confirm your account before logging in.",
       );
@@ -90,7 +101,10 @@ const Layout = () => {
   };
 
   const handleSignOut = async () => {
-    await signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Error signing out:", error);
+    }
     navigate("/");
   };
 

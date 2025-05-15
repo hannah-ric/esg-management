@@ -319,7 +319,7 @@ const ResourceLibrary: React.FC = () => {
       const highPriorityTopics = materialityTopics
         .filter(
           (topic) =>
-            topic.stakeholderImpact > 0.6 && topic.businessImpact > 0.6,
+            topic.stakeholderImportance > 0.6 && topic.businessImpact > 0.6,
         )
         .map((topic) => topic.name);
 

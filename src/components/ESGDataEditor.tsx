@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,18 +35,25 @@ import {
 import {
   ESGDataPoint,
   ESGFrameworkMapping,
-  getESGDataPoints,
+  getAllESGDataPoints,
   getESGFrameworkMappings,
   saveESGDataPoint,
   deleteESGDataPoint,
   saveESGFrameworkMapping,
   deleteESGFrameworkMapping,
 } from "@/lib/esg-data-services";
+import { sanitizeInput, sanitizeObject } from "@/lib/error-utils";
 
 interface ESGDataEditorProps {
-  resourceId: string;
+  resourceId?: string;
   resourceTitle?: string;
   onDataChange?: () => void;
+}
+
+// Define a resource data type for clarity
+interface ResourceData {
+  dataPoints: ESGDataPoint[];
+  mappings: ESGFrameworkMapping[];
 }
 
 const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
@@ -54,8 +61,10 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
   resourceTitle = "Resource",
   onDataChange,
 }) => {
-  const [dataPoints, setDataPoints] = useState<ESGDataPoint[]>([]);
-  const [mappings, setMappings] = useState<ESGFrameworkMapping[]>([]);
+  const [resourceData, setResourceData] = useState<ResourceData>({
+    dataPoints: [],
+    mappings: []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("data-points");
@@ -73,44 +82,60 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
     disclosure_id: "",
   });
 
-  useEffect(() => {
-    loadData();
-  }, [resourceId]);
+  // Memoize data points and mappings for better performance
+  const dataPoints = useMemo(() => resourceData.dataPoints, [resourceData.dataPoints]);
+  const mappings = useMemo(() => resourceData.mappings, [resourceData.mappings]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    if (!resourceId) return;
     setLoading(true);
     setError(null);
 
     try {
       const [dataPointsData, mappingsData] = await Promise.all([
-        getESGDataPoints(resourceId),
+        getAllESGDataPoints(resourceId),
         getESGFrameworkMappings(resourceId),
       ]);
 
-      setDataPoints(dataPointsData);
-      setMappings(mappingsData);
+      setResourceData({
+        dataPoints: dataPointsData,
+        mappings: mappingsData
+      });
     } catch (err) {
       console.error("Error loading ESG data:", err);
       setError("Failed to load ESG data. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [resourceId]);
 
-  const handleAddDataPoint = async () => {
+  useEffect(() => {
+    if (resourceId) {
+      loadData();
+    }
+  }, [resourceId, loadData]);
+
+  const handleAddDataPoint = useCallback(async () => {
     try {
       if (!newDataPoint.metric_id || !newDataPoint.value) {
         setError("Metric ID and value are required.");
         return;
       }
 
-      const dataPoint = await saveESGDataPoint({
+      // Sanitize input data before saving
+      const sanitizedDataPoint = sanitizeObject({
         ...(newDataPoint as ESGDataPoint),
         resource_id: resourceId,
       });
 
+      const dataPoint = await saveESGDataPoint(sanitizedDataPoint);
+
       if (dataPoint) {
-        setDataPoints([...dataPoints, dataPoint]);
+        setResourceData(prev => ({
+          ...prev,
+          dataPoints: [...prev.dataPoints, dataPoint]
+        }));
+        
         setNewDataPoint({
           metric_id: "",
           value: "",
@@ -125,35 +150,46 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
       console.error("Error adding data point:", err);
       setError("Failed to add data point. Please try again.");
     }
-  };
+  }, [newDataPoint, resourceId, onDataChange]);
 
-  const handleDeleteDataPoint = async (id: string) => {
+  const handleDeleteDataPoint = useCallback(async (id: string) => {
     try {
       const success = await deleteESGDataPoint(id);
       if (success) {
-        setDataPoints(dataPoints.filter((dp) => dp.id !== id));
+        setResourceData(prev => ({
+          ...prev,
+          dataPoints: prev.dataPoints.filter((dp) => dp.id !== id)
+        }));
+        
         if (onDataChange) onDataChange();
       }
     } catch (err) {
       console.error("Error deleting data point:", err);
       setError("Failed to delete data point. Please try again.");
     }
-  };
+  }, [onDataChange]);
 
-  const handleAddMapping = async () => {
+  const handleAddMapping = useCallback(async () => {
     try {
       if (!newMapping.framework_id || !newMapping.disclosure_id) {
         setError("Framework ID and disclosure ID are required.");
         return;
       }
 
-      const mapping = await saveESGFrameworkMapping({
+      // Sanitize input data before saving
+      const sanitizedMapping = sanitizeObject({
         ...(newMapping as ESGFrameworkMapping),
         resource_id: resourceId,
       });
 
+      const mapping = await saveESGFrameworkMapping(sanitizedMapping);
+
       if (mapping) {
-        setMappings([...mappings, mapping]);
+        setResourceData(prev => ({
+          ...prev,
+          mappings: [...prev.mappings, mapping]
+        }));
+        
         setNewMapping({
           framework_id: "",
           disclosure_id: "",
@@ -165,50 +201,92 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
       console.error("Error adding mapping:", err);
       setError("Failed to add mapping. Please try again.");
     }
-  };
+  }, [newMapping, resourceId, onDataChange]);
 
-  const handleDeleteMapping = async (id: string) => {
+  const handleDeleteMapping = useCallback(async (id: string) => {
     try {
       const success = await deleteESGFrameworkMapping(id);
       if (success) {
-        setMappings(mappings.filter((m) => m.id !== id));
+        setResourceData(prev => ({
+          ...prev,
+          mappings: prev.mappings.filter((m) => m.id !== id)
+        }));
+        
         if (onDataChange) onDataChange();
       }
     } catch (err) {
       console.error("Error deleting mapping:", err);
       setError("Failed to delete mapping. Please try again.");
     }
-  };
+  }, [onDataChange]);
 
-  const getMetricLabel = (metricId: string) => {
-    const labels: Record<string, string> = {
-      "carbon-emissions": "Carbon Emissions",
-      "energy-consumption": "Energy Consumption",
-      "water-usage": "Water Usage",
-      "waste-management": "Waste Management",
-      "diversity-inclusion": "Diversity & Inclusion",
-      "health-safety": "Health & Safety",
+  // Memoize these functions to prevent unnecessary rerenders
+  const handleDataPointChange = useCallback((field: string, value: any) => {
+    setNewDataPoint(prev => ({
+      ...prev,
+      [field]: field === 'value' || field === 'context' ? sanitizeInput(value) : value
+    }));
+  }, []);
+
+  const handleMappingChange = useCallback((field: string, value: string) => {
+    setNewMapping(prev => ({
+      ...prev,
+      [field]: sanitizeInput(value)
+    }));
+  }, []);
+
+  // Memoize these pure functions
+  const getMetricLabel = useMemo(() => {
+    return (metricId: string) => {
+      const labels: Record<string, string> = {
+        "carbon-emissions": "Carbon Emissions",
+        "energy-consumption": "Energy Consumption",
+        "water-usage": "Water Usage",
+        "waste-management": "Waste Management",
+        "diversity-inclusion": "Diversity & Inclusion",
+        "health-safety": "Health & Safety",
+      };
+      return (
+        labels[metricId] ||
+        metricId.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+      );
     };
+  }, []);
+
+  const getFrameworkColor = useMemo(() => {
+    return (frameworkId: string) => {
+      switch (frameworkId) {
+        case "GRI":
+          return "bg-blue-100 text-blue-800";
+        case "SASB":
+          return "bg-green-100 text-green-800";
+        case "TCFD":
+          return "bg-purple-100 text-purple-800";
+        default:
+          return "bg-gray-100 text-gray-800";
+      }
+    };
+  }, []);
+
+  if (!resourceId) {
     return (
-      labels[metricId] ||
-      metricId.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>ESG Data Editor</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="default">
+            <AlertTitle>No Resource Selected</AlertTitle>
+            <AlertDescription>
+              Please select a resource to edit its ESG data.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     );
-  };
+  }
 
-  const getFrameworkColor = (frameworkId: string) => {
-    switch (frameworkId) {
-      case "GRI":
-        return "bg-blue-100 text-blue-800";
-      case "SASB":
-        return "bg-green-100 text-green-800";
-      case "TCFD":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  if (loading) {
+  if (loading && resourceId) {
     return (
       <div className="flex justify-center items-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -243,10 +321,7 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
                       placeholder="e.g., carbon-emissions"
                       value={newDataPoint.metric_id}
                       onChange={(e) =>
-                        setNewDataPoint({
-                          ...newDataPoint,
-                          metric_id: e.target.value,
-                        })
+                        handleDataPointChange("metric_id", e.target.value)
                       }
                     />
                   </div>
@@ -254,93 +329,71 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
                     <Label htmlFor="value">Value</Label>
                     <Input
                       id="value"
-                      placeholder="e.g., 1000 tCO2e"
+                      placeholder="e.g., 45.2 tonnes CO2e"
                       value={newDataPoint.value}
                       onChange={(e) =>
-                        setNewDataPoint({
-                          ...newDataPoint,
-                          value: e.target.value,
-                        })
+                        handleDataPointChange("value", e.target.value)
                       }
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="context">Context</Label>
+                    <Label htmlFor="context">Context (Optional)</Label>
                     <Textarea
                       id="context"
-                      placeholder="Context for this data point"
-                      value={newDataPoint.context}
+                      placeholder="Additional context for this data point"
+                      value={newDataPoint.context || ""}
                       onChange={(e) =>
-                        setNewDataPoint({
-                          ...newDataPoint,
-                          context: e.target.value,
-                        })
+                        handleDataPointChange("context", e.target.value)
                       }
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="framework-id">Framework ID</Label>
-                      <Input
-                        id="framework-id"
-                        placeholder="e.g., GRI"
-                        value={newDataPoint.framework_id}
-                        onChange={(e) =>
-                          setNewDataPoint({
-                            ...newDataPoint,
-                            framework_id: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="disclosure-id">Disclosure ID</Label>
-                      <Input
-                        id="disclosure-id"
-                        placeholder="e.g., 305"
-                        value={newDataPoint.disclosure_id}
-                        onChange={(e) =>
-                          setNewDataPoint({
-                            ...newDataPoint,
-                            disclosure_id: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confidence">Confidence (0-1)</Label>
+                    <Input
+                      id="confidence"
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={newDataPoint.confidence}
+                      onChange={(e) =>
+                        handleDataPointChange(
+                          "confidence",
+                          parseFloat(e.target.value),
+                        )
+                      }
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="source">Source</Label>
                     <Input
                       id="source"
-                      placeholder="e.g., Page 42"
+                      placeholder="e.g., Internal records, 2023"
                       value={newDataPoint.source}
                       onChange={(e) =>
-                        setNewDataPoint({
-                          ...newDataPoint,
-                          source: e.target.value,
-                        })
+                        handleDataPointChange("source", e.target.value)
                       }
                     />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsAddingDataPoint(false)}
-                  >
+                  <Button variant="outline" onClick={() => setIsAddingDataPoint(false)}>
                     Cancel
                   </Button>
                   <Button onClick={handleAddDataPoint}>
-                    <Save className="h-4 w-4 mr-1" /> Save
+                    <Save className="h-4 w-4 mr-1" /> Save Data Point
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
 
-            <Dialog open={isAddingMapping} onOpenChange={setIsAddingMapping}>
+            <Dialog
+              open={isAddingMapping}
+              onOpenChange={setIsAddingMapping}
+            >
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
-                  <Plus className="h-4 w-4 mr-1" /> Add Mapping
+                  <Plus className="h-4 w-4 mr-1" /> Add Framework Mapping
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -349,18 +402,15 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="framework-id">Framework ID</Label>
+                    <Label htmlFor="framework-id">Framework</Label>
                     <Select
                       value={newMapping.framework_id}
                       onValueChange={(value) =>
-                        setNewMapping({
-                          ...newMapping,
-                          framework_id: value,
-                        })
+                        handleMappingChange("framework_id", value)
                       }
                     >
                       <SelectTrigger id="framework-id">
-                        <SelectValue placeholder="Select framework" />
+                        <SelectValue placeholder="Select a framework" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="GRI">GRI</SelectItem>
@@ -375,26 +425,20 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
                     <Label htmlFor="disclosure-id">Disclosure ID</Label>
                     <Input
                       id="disclosure-id"
-                      placeholder="e.g., 305-1 or E1"
-                      value={newMapping.disclosure_id}
+                      placeholder="e.g., GRI 305-1"
+                      value={newMapping.disclosure_id || ""}
                       onChange={(e) =>
-                        setNewMapping({
-                          ...newMapping,
-                          disclosure_id: e.target.value,
-                        })
+                        handleMappingChange("disclosure_id", e.target.value)
                       }
                     />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsAddingMapping(false)}
-                  >
+                  <Button variant="outline" onClick={() => setIsAddingMapping(false)}>
                     Cancel
                   </Button>
                   <Button onClick={handleAddMapping}>
-                    <Save className="h-4 w-4 mr-1" /> Save
+                    <Save className="h-4 w-4 mr-1" /> Save Mapping
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -412,61 +456,40 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-4">
-            <TabsTrigger value="data-points">
-              Data Points
-              <Badge variant="secondary" className="ml-2">
-                {dataPoints.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="mappings">
-              Framework Mappings
-              <Badge variant="secondary" className="ml-2">
-                {mappings.length}
-              </Badge>
-            </TabsTrigger>
+            <TabsTrigger value="data-points">Data Points</TabsTrigger>
+            <TabsTrigger value="framework-mappings">Framework Mappings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="data-points">
-            {dataPoints.length > 0 ? (
+            {dataPoints.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No data points added yet. Click "Add Data Point" to get started.
+              </div>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Metric</TableHead>
                     <TableHead>Value</TableHead>
-                    <TableHead>Framework</TableHead>
                     <TableHead>Source</TableHead>
+                    <TableHead>Confidence</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dataPoints.map((dataPoint) => (
-                    <TableRow key={dataPoint.id}>
+                  {dataPoints.map((dp) => (
+                    <TableRow key={dp.id}>
                       <TableCell className="font-medium">
-                        {getMetricLabel(dataPoint.metric_id)}
+                        {getMetricLabel(dp.metric_id)}
                       </TableCell>
-                      <TableCell>{dataPoint.value}</TableCell>
-                      <TableCell>
-                        {dataPoint.framework_id && dataPoint.disclosure_id && (
-                          <Badge
-                            variant="outline"
-                            className={
-                              dataPoint.framework_id
-                                ? getFrameworkColor(dataPoint.framework_id)
-                                : ""
-                            }
-                          >
-                            {dataPoint.framework_id} {dataPoint.disclosure_id}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{dataPoint.source}</TableCell>
+                      <TableCell>{dp.value}</TableCell>
+                      <TableCell>{dp.source}</TableCell>
+                      <TableCell>{(dp.confidence * 100).toFixed(0)}%</TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            dataPoint.id && handleDeleteDataPoint(dataPoint.id)
-                          }
+                          size="icon"
+                          onClick={() => handleDeleteDataPoint(dp.id!)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -475,22 +498,21 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
                   ))}
                 </TableBody>
               </Table>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">
-                  No ESG data points found for this resource.
-                </p>
-              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="mappings">
-            {mappings.length > 0 ? (
+          <TabsContent value="framework-mappings">
+            {mappings.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No framework mappings added yet. Click "Add Framework Mapping" to
+                get started.
+              </div>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Framework</TableHead>
-                    <TableHead>Disclosure</TableHead>
+                    <TableHead>Disclosure ID</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -508,10 +530,8 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            mapping.id && handleDeleteMapping(mapping.id)
-                          }
+                          size="icon"
+                          onClick={() => handleDeleteMapping(mapping.id!)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -520,12 +540,6 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
                   ))}
                 </TableBody>
               </Table>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">
-                  No framework mappings found for this resource.
-                </p>
-              </div>
             )}
           </TabsContent>
         </Tabs>

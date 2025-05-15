@@ -2,13 +2,13 @@ import React, { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { ESGDataPoint } from "@/lib/esg-data-services";
 import ESGMetricChart from "./ESGMetricChart";
 
 interface ESGHistoricalAnalysisProps {
-  metric: ESGDataPoint;
+  metric?: ESGDataPoint;
   className?: string;
 }
 
@@ -121,6 +121,24 @@ const ESGHistoricalAnalysis: React.FC<ESGHistoricalAnalysisProps> = ({
       metricId.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
     );
   };
+
+  if (!metric) {
+    return (
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle>Historical Analysis</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="default">
+            <AlertTitle>No Metric Selected</AlertTitle>
+            <AlertDescription>
+              Please select a metric to perform historical analysis.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Prepare data for chart display
   const prepareChartData = () => {

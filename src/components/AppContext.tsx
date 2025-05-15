@@ -19,7 +19,14 @@ export interface MaterialityTopic {
   category: string;
   stakeholderImportance: number;
   businessImpact: number;
+  description?: string;
 }
+
+// Exporting enum-like types
+export type Priority = "high" | "medium" | "low";
+export type Effort = "high" | "medium" | "low";
+export type Impact = "high" | "medium" | "low";
+export type TaskStatus = "not_started" | "in_progress" | "completed";
 
 export interface ESGPlan {
   id: string;
@@ -35,9 +42,9 @@ export interface ESGRecommendation {
   description: string;
   framework: string;
   indicator: string;
-  priority: "high" | "medium" | "low";
-  effort: "high" | "medium" | "low";
-  impact: "high" | "medium" | "low";
+  priority: Priority;
+  effort: Effort;
+  impact: Impact;
 }
 
 export interface ImplementationPhase {
@@ -52,7 +59,7 @@ export interface ImplementationTask {
   id: string;
   title: string;
   description: string;
-  status: "not_started" | "in_progress" | "completed";
+  status: TaskStatus;
 }
 
 export interface QuestionnaireData {

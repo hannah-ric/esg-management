@@ -9,21 +9,13 @@ import {
   Legend,
   ChartOptions,
 } from "chart.js";
+import { MaterialityTopic as AppContextMaterialityTopic } from "./AppContext";
 
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend);
 
-interface MaterialityTopic {
-  id: string;
-  name: string;
-  category: "environmental" | "social" | "governance";
-  stakeholderImpact: number;
-  businessImpact: number;
-  description: string;
-}
-
 interface MaterialityMatrixChartProps {
-  topics: MaterialityTopic[];
-  onTopicClick?: (topic: MaterialityTopic) => void;
+  topics: AppContextMaterialityTopic[];
+  onTopicClick?: (topic: AppContextMaterialityTopic) => void;
   selectedTopicId?: string;
 }
 
@@ -40,11 +32,11 @@ const MaterialityMatrixChart: React.FC<MaterialityMatrixChartProps> = ({
         .filter((topic) => topic.category === "environmental")
         .map((topic) => ({
           x: topic.businessImpact,
-          y: topic.stakeholderImpact,
+          y: topic.stakeholderImportance,
           id: topic.id,
           name: topic.name,
           category: topic.category,
-          description: topic.description,
+          description: topic.description || "",
         })),
       backgroundColor: "rgba(34, 197, 94, 0.8)",
       borderColor: "rgba(34, 197, 94, 1)",
@@ -58,11 +50,11 @@ const MaterialityMatrixChart: React.FC<MaterialityMatrixChartProps> = ({
         .filter((topic) => topic.category === "social")
         .map((topic) => ({
           x: topic.businessImpact,
-          y: topic.stakeholderImpact,
+          y: topic.stakeholderImportance,
           id: topic.id,
           name: topic.name,
           category: topic.category,
-          description: topic.description,
+          description: topic.description || "",
         })),
       backgroundColor: "rgba(59, 130, 246, 0.8)",
       borderColor: "rgba(59, 130, 246, 1)",
@@ -76,11 +68,11 @@ const MaterialityMatrixChart: React.FC<MaterialityMatrixChartProps> = ({
         .filter((topic) => topic.category === "governance")
         .map((topic) => ({
           x: topic.businessImpact,
-          y: topic.stakeholderImpact,
+          y: topic.stakeholderImportance,
           id: topic.id,
           name: topic.name,
           category: topic.category,
-          description: topic.description,
+          description: topic.description || "",
         })),
       backgroundColor: "rgba(168, 85, 247, 0.8)",
       borderColor: "rgba(168, 85, 247, 1)",

@@ -105,7 +105,7 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     searchResources();
   };
 
-  const generateAIRecommendations = async () => {
+  const handleGenerateAIRecommendations = async () => {
     setIsGeneratingAI(true);
     setError(null);
 
@@ -286,7 +286,7 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
                 assessment.
               </p>
               <Button
-                onClick={generateAIRecommendations}
+                onClick={handleGenerateAIRecommendations}
                 disabled={isGeneratingAI}
                 className="w-full"
               >

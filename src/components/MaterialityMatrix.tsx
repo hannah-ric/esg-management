@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppContext } from "./AppContext";
-import { analyzeMaterialityTopics } from "@/lib/ai-services";
+import { useAppContext, MaterialityTopic as AppContextMaterialityTopic } from "./AppContext";
+import { analyzeMaterialityTopics, AIAssistantResponse } from "@/lib/ai-services";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/components/ui/use-toast";
 import { useErrorHandler } from "@/lib/error-utils";
@@ -33,6 +33,7 @@ import {
   Sparkles,
   Loader2,
   AlertCircle,
+  X,
 } from "lucide-react";
 import {
   Tooltip,
@@ -42,27 +43,18 @@ import {
 } from "@/components/ui/tooltip";
 import MaterialityMatrixChart from "./MaterialityMatrixChart";
 
-interface MaterialityTopic {
-  id: string;
-  name: string;
-  category: "environmental" | "social" | "governance";
-  stakeholderImpact: number;
-  businessImpact: number;
-  description: string;
-}
-
 interface MaterialityMatrixProps {
-  topics?: MaterialityTopic[];
-  onTopicUpdate?: (topics: MaterialityTopic[]) => void;
+  topics?: AppContextMaterialityTopic[];
+  onTopicUpdate?: (topics: AppContextMaterialityTopic[]) => void;
   readOnly?: boolean;
 }
 
-const defaultTopics: MaterialityTopic[] = [
+const defaultTopics: AppContextMaterialityTopic[] = [
   {
     id: "1",
     name: "Climate Change",
     category: "environmental",
-    stakeholderImpact: 0.8,
+    stakeholderImportance: 0.8,
     businessImpact: 0.7,
     description:
       "Addressing greenhouse gas emissions and climate adaptation strategies",
@@ -71,7 +63,7 @@ const defaultTopics: MaterialityTopic[] = [
     id: "2",
     name: "Water Management",
     category: "environmental",
-    stakeholderImpact: 0.6,
+    stakeholderImportance: 0.6,
     businessImpact: 0.5,
     description: "Water usage, conservation, and quality management",
   },
@@ -79,7 +71,7 @@ const defaultTopics: MaterialityTopic[] = [
     id: "3",
     name: "Waste & Hazardous Materials",
     category: "environmental",
-    stakeholderImpact: 0.5,
+    stakeholderImportance: 0.5,
     businessImpact: 0.6,
     description:
       "Waste reduction, recycling, and hazardous materials management",
@@ -88,7 +80,7 @@ const defaultTopics: MaterialityTopic[] = [
     id: "4",
     name: "Diversity & Inclusion",
     category: "social",
-    stakeholderImpact: 0.7,
+    stakeholderImportance: 0.7,
     businessImpact: 0.6,
     description: "Workforce diversity, equity, and inclusion practices",
   },
@@ -96,7 +88,7 @@ const defaultTopics: MaterialityTopic[] = [
     id: "5",
     name: "Labor Practices",
     category: "social",
-    stakeholderImpact: 0.5,
+    stakeholderImportance: 0.5,
     businessImpact: 0.7,
     description:
       "Fair labor practices, working conditions, and employee rights",
@@ -105,7 +97,7 @@ const defaultTopics: MaterialityTopic[] = [
     id: "6",
     name: "Data Privacy & Security",
     category: "governance",
-    stakeholderImpact: 0.9,
+    stakeholderImportance: 0.9,
     businessImpact: 0.8,
     description: "Protection of sensitive data and cybersecurity measures",
   },
@@ -113,7 +105,7 @@ const defaultTopics: MaterialityTopic[] = [
     id: "7",
     name: "Board Composition",
     category: "governance",
-    stakeholderImpact: 0.4,
+    stakeholderImportance: 0.4,
     businessImpact: 0.6,
     description: "Board diversity, independence, and expertise",
   },
@@ -121,11 +113,21 @@ const defaultTopics: MaterialityTopic[] = [
     id: "8",
     name: "Business Ethics",
     category: "governance",
-    stakeholderImpact: 0.7,
+    stakeholderImportance: 0.7,
     businessImpact: 0.9,
     description: "Ethical business conduct, anti-corruption, and transparency",
   },
 ];
+
+// Placeholder for the actual response type from getTailoredRecommendations
+interface TailoredRecommendationsResponse {
+  success: boolean;
+  error?: string;
+  recommendations?: {
+    content: string; // Assuming content holds the topics as a JSON string
+  };
+  // Add other fields if known
+}
 
 const MaterialityMatrix = ({
   topics = defaultTopics,
@@ -136,8 +138,8 @@ const MaterialityMatrix = ({
   const materialityAppContext = useAppContext();
   const { toast } = useToast();
   const { handleAsync } = useErrorHandler();
-  const [matrixTopics, setMatrixTopics] = useState<MaterialityTopic[]>(topics);
-  const [selectedTopic, setSelectedTopic] = useState<MaterialityTopic | null>(
+  const [matrixTopics, setMatrixTopics] = useState<AppContextMaterialityTopic[]>(topics);
+  const [selectedTopic, setSelectedTopic] = useState<AppContextMaterialityTopic | null>(
     null,
   );
   const [filter, setFilter] = useState<
@@ -148,20 +150,46 @@ const MaterialityMatrix = ({
   const [aiError, setAiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  
+  // Use refs to prevent stale closures in event handlers
+  const matrixTopicsRef = useRef(matrixTopics);
+  const isUnmountedRef = useRef(false);
 
+  // Update ref when state changes
   useEffect(() => {
-    setMatrixTopics(topics);
+    matrixTopicsRef.current = matrixTopics;
+  }, [matrixTopics]);
+
+  // Set up cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
+
+  // Synchronize topics prop with state
+  useEffect(() => {
+    if (!isUnmountedRef.current) {
+      setMatrixTopics(topics);
+    }
   }, [topics]);
 
-  // Save material topics
-  const handleSave = async () => {
+  // Save material topics with proper state management
+  const handleSave = useCallback(async () => {
+    if (isUnmountedRef.current) return;
+    
     setIsSaving(true);
     
     const result = await handleAsync(
       async () => {
-        materialityAppContext.updateMaterialityTopics(matrixTopics);
+        materialityAppContext.updateMaterialityTopics(matrixTopicsRef.current.map(topic => ({
+          ...topic,
+          category: topic.category as string,
+        })));
         await materialityAppContext.saveMaterialityTopics();
-        setIsSaved(true);
+        if (!isUnmountedRef.current) {
+          setIsSaved(true);
+        }
         return true;
       },
       {
@@ -172,37 +200,53 @@ const MaterialityMatrix = ({
       }
     );
     
-    setIsSaving(false);
-  };
-
-  // Function to proceed to plan generator
-  const handleProceedToPlan = useCallback(() => {
-    materialityAppContext.updateMaterialityTopics(matrixTopics);
-    navigate("/plan-generator");
-  }, [materialityAppContext, matrixTopics, navigate]);
-
-  const handleTopicUpdate = useCallback((updatedTopic: MaterialityTopic) => {
-    setMatrixTopics(prevTopics => 
-      prevTopics.map(topic => topic.id === updatedTopic.id ? updatedTopic : topic)
-    );
-    setSelectedTopic(updatedTopic);
-    if (onTopicUpdate) {
-      onTopicUpdate(matrixTopics.map(topic => 
-        topic.id === updatedTopic.id ? updatedTopic : topic
-      ));
+    if (!isUnmountedRef.current) {
+      setIsSaving(false);
     }
-  }, [onTopicUpdate, matrixTopics]);
+  }, [materialityAppContext, handleAsync]);
+
+  // Function to proceed to plan generator with state safety
+  const handleProceedToPlan = useCallback(() => {
+    materialityAppContext.updateMaterialityTopics(matrixTopicsRef.current.map(topic => ({
+      ...topic,
+      category: topic.category as string,
+    })));
+    navigate("/plan");
+  }, [materialityAppContext, navigate]);
+
+  // Memoize topic update handler to prevent unnecessary rerenders
+  const handleTopicUpdate = useCallback((updatedTopic: AppContextMaterialityTopic) => {
+    if (isUnmountedRef.current) return;
+    
+    setMatrixTopics(prevTopics => {
+      const newTopics = prevTopics.map(topic => 
+        topic.id === updatedTopic.id ? updatedTopic : topic
+      );
+      
+      // Only call onTopicUpdate if we're actually providing the callback
+      if (onTopicUpdate) {
+        onTopicUpdate(newTopics);
+      }
+      
+      return newTopics;
+    });
+    
+    setSelectedTopic(updatedTopic);
+  }, [onTopicUpdate]);
 
   const filteredTopics = matrixTopics.filter((topic) =>
     filter === "all" ? true : topic.category === filter,
   );
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
+    if (isUnmountedRef.current) return;
     setZoom(1);
     setFilter("all");
-  };
+  }, []);
 
-  const generateAITopics = async () => {
+  const generateAITopics = useCallback(async () => {
+    if (isUnmountedRef.current) return;
+    
     setIsGeneratingTopics(true);
     setAiError(null);
 
@@ -222,19 +266,28 @@ const MaterialityMatrix = ({
         const { getTailoredRecommendations, parseRecommendations } =
           await import("@/lib/tailored-recommendations");
 
-        const response = await getTailoredRecommendations({
+        const response: TailoredRecommendationsResponse = await getTailoredRecommendations({
           surveyAnswers: materialityAppContext.questionnaireData || {},
-          materialityTopics: matrixTopics || [],
+          materialityTopics: matrixTopicsRef.current || [],
         });
 
-        if (response.success && !response.error) {
+        if (isUnmountedRef.current) return;
+
+        if (response.success && !response.error && response.recommendations?.content) {
           const parsed = parseRecommendations(response.recommendations.content);
 
           if (parsed.materialityTopics && parsed.materialityTopics.length > 0) {
-            // Update the topics
-            setMatrixTopics(parsed.materialityTopics);
+            const typedTopics = parsed.materialityTopics.map((t: any, i: number) => ({
+              id: t.id || `ai-tailored-${i + 1}`,
+              name: t.name || "Unnamed Topic",
+              category: t.category || "general",
+              stakeholderImportance: t.stakeholderImportance || t.stakeholderImpact || 0.5,
+              businessImpact: t.businessImpact || 0.5,
+              description: t.description || "",
+            })) as AppContextMaterialityTopic[];
+            setMatrixTopics(typedTopics);
             if (onTopicUpdate) {
-              onTopicUpdate(parsed.materialityTopics);
+              onTopicUpdate(typedTopics);
             }
             setIsGeneratingTopics(false);
             return;
@@ -246,93 +299,57 @@ const MaterialityMatrix = ({
       }
 
       // Fall back to the original method
-      const result = await analyzeMaterialityTopics(industry, size, region);
-
-      if (result.error) {
-        setAiError(result.error);
-        return;
-      }
-
-      // Parse the AI response to extract topics
-      // This is a simplified implementation - in a real app, you'd want more robust parsing
-      try {
-        // Extract topics from the AI response text
-        // This is a very basic implementation and would need to be enhanced
-        const content = result.content;
-        const topicMatches = content.match(
-          /([\w\s&]+)\s*-\s*Stakeholder Impact:\s*([0-9.]+)\s*,\s*Business Impact:\s*([0-9.]+)/g,
-        );
-
-        if (topicMatches && topicMatches.length > 0) {
-          const newTopics = topicMatches.map((match, index) => {
-            const nameMatch = match.match(/([\w\s&]+)\s*-/);
-            const stakeholderMatch = match.match(
-              /Stakeholder Impact:\s*([0-9.]+)/,
-            );
-            const businessMatch = match.match(/Business Impact:\s*([0-9.]+)/);
-            const descriptionMatch = match.match(/- (.+)$/);
-
-            const name = nameMatch ? nameMatch[1].trim() : `Topic ${index + 1}`;
-            const stakeholderImpact = stakeholderMatch
-              ? parseFloat(stakeholderMatch[1])
-              : 0.5;
-            const businessImpact = businessMatch
-              ? parseFloat(businessMatch[1])
-              : 0.5;
-            const description = descriptionMatch
-              ? descriptionMatch[1].trim()
-              : "";
-
-            // Determine category based on topic name
-            let category: "environmental" | "social" | "governance" =
-              "environmental";
-            if (
-              /diversity|employee|human|community|social|health|safety/i.test(
-                name,
-              )
-            ) {
-              category = "social";
-            } else if (/governance|board|ethics|compliance|risk/i.test(name)) {
-              category = "governance";
-            }
-
-            return {
-              id: `ai-${index}`,
-              name,
-              category,
-              stakeholderImpact,
-              businessImpact,
-              description:
-                description ||
-                `${name} is an important ESG topic for your industry.`,
-            };
-          });
-
-          // Update the topics
-          if (newTopics.length > 0) {
-            setMatrixTopics(newTopics);
+      const result: AIAssistantResponse = await analyzeMaterialityTopics(industry, size, region);
+      
+      if (isUnmountedRef.current) return;
+      
+      if (!result.error && result.content) {
+        // Parse the topic data
+        try {
+          const topicsData = JSON.parse(result.content);
+          if (
+            Array.isArray(topicsData) &&
+            topicsData.length > 0 &&
+            topicsData[0].name
+          ) {
+            // Ensure each topic has an ID and matches AppContextMaterialityTopic
+            const topicsWithIds = topicsData.map((topic: any, index: number) => ({
+              ...topic,
+              id: topic.id || `ai-${index + 1}`,
+              stakeholderImportance: topic.stakeholderImportance || topic.stakeholderImpact || 0.5,
+              description: topic.description || "",
+              category: topic.category || "general",
+            })) as AppContextMaterialityTopic[];
+            setMatrixTopics(topicsWithIds);
             if (onTopicUpdate) {
-              onTopicUpdate(newTopics);
+              onTopicUpdate(topicsWithIds);
             }
+          } else {
+            throw new Error("Invalid topics data format");
           }
-        } else {
+        } catch (parseError) {
           setAiError(
-            "Could not extract topics from AI response. Please try again.",
+            "Failed to parse AI-generated topics. Please try again later.",
           );
+          logger.error("Error parsing AI topics:", parseError);
         }
-      } catch (parseError) {
-        logger.error("Error parsing AI response", parseError);
-        setAiError("Error parsing AI recommendations. Please try again.");
+      } else {
+        setAiError(
+          result.error ||
+            "Failed to generate topics. Please try again later.",
+        );
       }
-    } catch (err) {
-      logger.error("Error generating AI topics", err);
-      setAiError(
-        err.message || "Failed to generate AI topics. Please try again.",
-      );
+    } catch (error) {
+      if (!isUnmountedRef.current) {
+        setAiError("An unexpected error occurred. Please try again later.");
+        logger.error("Error generating AI topics:", error);
+      }
     } finally {
-      setIsGeneratingTopics(false);
+      if (!isUnmountedRef.current) {
+        setIsGeneratingTopics(false);
+      }
     }
-  };
+  }, [materialityAppContext, onTopicUpdate]);
 
   const categoryColors = {
     environmental: "bg-green-500",
@@ -358,6 +375,7 @@ const MaterialityMatrix = ({
                     variant="outline"
                     size="icon"
                     onClick={() => setZoom(Math.min(zoom + 0.2, 1.5))}
+                    aria-label="Zoom In"
                   >
                     <ZoomIn className="h-4 w-4" />
                   </Button>
@@ -375,6 +393,7 @@ const MaterialityMatrix = ({
                     variant="outline"
                     size="icon"
                     onClick={() => setZoom(Math.max(zoom - 0.2, 0.5))}
+                    aria-label="Zoom Out"
                   >
                     <ZoomOut className="h-4 w-4" />
                   </Button>
@@ -388,7 +407,7 @@ const MaterialityMatrix = ({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={handleReset}>
+                  <Button variant="outline" size="icon" onClick={handleReset} aria-label="Reset View">
                     <RefreshCw className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -401,7 +420,7 @@ const MaterialityMatrix = ({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon">
+                  <Button variant="outline" size="icon" aria-label="Download Matrix">
                     <Download className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -419,6 +438,7 @@ const MaterialityMatrix = ({
                     size="icon"
                     onClick={generateAITopics}
                     disabled={isGeneratingTopics}
+                    aria-label="Generate AI Topics"
                   >
                     <Sparkles className="h-4 w-4" />
                   </Button>
@@ -525,7 +545,7 @@ const MaterialityMatrix = ({
                     className={`absolute cursor-pointer rounded-full flex items-center justify-center ${selectedTopic?.id === topic.id ? "ring-2 ring-offset-2 ring-blue-500" : ""}`}
                     style={{
                       left: `${topic.businessImpact * 100}%`,
-                      bottom: `${topic.stakeholderImpact * 100}%`,
+                      bottom: `${topic.stakeholderImportance * 100}%`,
                       width: "40px",
                       height: "40px",
                       transform: "translate(-50%, 50%)",
@@ -579,8 +599,9 @@ const MaterialityMatrix = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedTopic(null)}
+                  aria-label="Close topic details"
                 >
-                  Close
+                  Close <X className="h-4 w-4 ml-1" />
                 </Button>
               )}
             </div>
@@ -591,18 +612,18 @@ const MaterialityMatrix = ({
                   <div className="flex justify-between mb-1">
                     <label className="text-sm font-medium">
                       Stakeholder Impact:{" "}
-                      {selectedTopic.stakeholderImpact.toFixed(1)}
+                      {selectedTopic.stakeholderImportance.toFixed(1)}
                     </label>
                   </div>
                   <Slider
-                    value={[selectedTopic.stakeholderImpact * 100]}
+                    value={[selectedTopic.stakeholderImportance * 100]}
                     min={0}
                     max={100}
                     step={5}
                     onValueChange={(value) => {
                       handleTopicUpdate({
                         ...selectedTopic,
-                        stakeholderImpact: value[0] / 100,
+                        stakeholderImportance: value[0] / 100,
                       });
                     }}
                   />
