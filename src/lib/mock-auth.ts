@@ -5,7 +5,7 @@
 
 // Mock user data
 export const mockUser = {
-  id: "mock_user_id",
+  id: "00000000-0000-0000-0000-000000000000",
   email: "demo@example.com",
   user_metadata: {
     first_name: "Demo",

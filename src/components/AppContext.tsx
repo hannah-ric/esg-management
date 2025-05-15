@@ -251,7 +251,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         const { data: planData, error: planError } = await supabase
           .from("esg_plans")
           .select(
-            "*, recommendations:esg_recommendations(*), implementation_phases:implementation_phases(*, tasks:implementation_tasks(*))",
+            "*, recommendations:esg_recommendations(*), implementation_phases:esg_plan_implementation_phases(*, tasks:esg_plan_implementation_tasks(*))",
           )
           .eq("user_id", user.id)
           .single();
