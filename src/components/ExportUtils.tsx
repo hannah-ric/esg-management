@@ -1,6 +1,5 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 
 export const exportToPDF = async (

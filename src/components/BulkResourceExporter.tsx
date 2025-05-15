@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { exportToMultipleSheets } from "./ExportUtils";
+import { exportToMultipleSheets, exportToPDF } from "./ExportUtils";
 import {
   FileDown,
   FileText,
@@ -55,7 +55,15 @@ interface ResourceItem {
   selected?: boolean;
 }
 
-const BulkResourceExporter: React.FC = () => {
+interface BulkResourceExporterProps {
+  onExportComplete?: (success: boolean, format: string) => void;
+  className?: string;
+}
+
+const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
+  onExportComplete,
+  className = "",
+}) => {
   const navigate = useNavigate();
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
@@ -65,6 +73,7 @@ const BulkResourceExporter: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [exportFormat, setExportFormat] = useState<"excel" | "pdf">("excel");
 
   useEffect(() => {
     const fetchResources = async () => {
@@ -114,7 +123,7 @@ const BulkResourceExporter: React.FC = () => {
     }
   };
 
-  const handleExportToExcel = async () => {
+  const handleExport = async () => {
     if (selectedResources.length === 0) return;
 
     setIsExporting(true);
@@ -152,56 +161,159 @@ const BulkResourceExporter: React.FC = () => {
         }
       }
 
-      // Prepare data for Excel export
-      const excelData: Record<string, any[]> = {
-        resources: selectedResourcesData.map((resource) => ({
-          Title: resource.title,
-          Description: resource.description,
-          Category: resource.category,
-          Type: resource.type,
-          URL: resource.url,
-          Source: resource.source,
-          DateAdded: resource.date_added,
-        })),
-      };
+      let success = false;
 
-      // Add data points sheet
-      const allDataPoints = selectedResourcesData.flatMap((resource) =>
-        resource.dataPoints.map((dataPoint: any) => ({
-          ResourceTitle: resource.title,
-          MetricID: dataPoint.metric_id,
-          Value: dataPoint.value,
-          Framework: dataPoint.framework_id || "N/A",
-          Disclosure: dataPoint.disclosure_id || "N/A",
-          Confidence: dataPoint.confidence || "N/A",
-        })),
-      );
+      if (exportFormat === "excel") {
+        // Prepare data for Excel export
+        const excelData: Record<string, any[]> = {
+          resources: selectedResourcesData.map((resource) => ({
+            Title: resource.title,
+            Description: resource.description,
+            Category: resource.category,
+            Type: resource.type,
+            URL: resource.url,
+            Source: resource.source,
+            DateAdded: resource.date_added,
+          })),
+        };
 
-      if (allDataPoints.length > 0) {
-        excelData.dataPoints = allDataPoints;
+        // Add data points sheet
+        const allDataPoints = selectedResourcesData.flatMap((resource) =>
+          resource.dataPoints.map((dataPoint: any) => ({
+            ResourceTitle: resource.title,
+            MetricID: dataPoint.metric_id,
+            Value: dataPoint.value,
+            Framework: dataPoint.framework_id || "N/A",
+            Disclosure: dataPoint.disclosure_id || "N/A",
+            Confidence: dataPoint.confidence || "N/A",
+          })),
+        );
+
+        if (allDataPoints.length > 0) {
+          excelData.dataPoints = allDataPoints;
+        }
+
+        // Add framework mappings sheet
+        const allMappings = selectedResourcesData.flatMap((resource) =>
+          resource.frameworkMappings.map((mapping: any) => ({
+            ResourceTitle: resource.title,
+            Framework: mapping.framework_id,
+            Disclosure: mapping.disclosure_id,
+          })),
+        );
+
+        if (allMappings.length > 0) {
+          excelData.frameworkMappings = allMappings;
+        }
+
+        // Export to Excel
+        success = await exportToMultipleSheets(
+          excelData,
+          `ESG_Resources_Export_${new Date().toISOString().split("T")[0]}.xlsx`,
+        );
+      } else if (exportFormat === "pdf") {
+        // For PDF, we'll create a temporary div with the content
+        const tempDiv = document.createElement("div");
+        tempDiv.id = "pdf-export-container";
+        tempDiv.style.padding = "20px";
+        tempDiv.style.fontFamily = "Arial, sans-serif";
+
+        // Add title
+        const title = document.createElement("h1");
+        title.textContent = "ESG Resources Export";
+        tempDiv.appendChild(title);
+
+        // Group resources by category
+        const resourcesByCategory: Record<string, any[]> = {};
+        selectedResourcesData.forEach((resource) => {
+          const category = resource.category || "Uncategorized";
+          if (!resourcesByCategory[category]) {
+            resourcesByCategory[category] = [];
+          }
+          resourcesByCategory[category].push(resource);
+        });
+
+        // Create sections for each category
+        Object.entries(resourcesByCategory).forEach(
+          ([category, categoryResources]) => {
+            const categoryHeader = document.createElement("h2");
+            categoryHeader.textContent =
+              category.charAt(0).toUpperCase() + category.slice(1);
+            tempDiv.appendChild(categoryHeader);
+
+            categoryResources.forEach((resource) => {
+              const resourceDiv = document.createElement("div");
+              resourceDiv.style.marginBottom = "15px";
+              resourceDiv.style.padding = "10px";
+              resourceDiv.style.border = "1px solid #ddd";
+
+              const resourceTitle = document.createElement("h3");
+              resourceTitle.textContent = resource.title;
+              resourceDiv.appendChild(resourceTitle);
+
+              const resourceDesc = document.createElement("p");
+              resourceDesc.textContent = resource.description;
+              resourceDiv.appendChild(resourceDesc);
+
+              const resourceType = document.createElement("p");
+              resourceType.innerHTML = `<strong>Type:</strong> ${resource.type}`;
+              resourceDiv.appendChild(resourceType);
+
+              const resourceUrl = document.createElement("p");
+              resourceUrl.innerHTML = `<strong>URL:</strong> ${resource.url}`;
+              resourceDiv.appendChild(resourceUrl);
+
+              // Add data points if available
+              if (resource.dataPoints && resource.dataPoints.length > 0) {
+                const dataPointsTitle = document.createElement("h4");
+                dataPointsTitle.textContent = "ESG Data Points";
+                resourceDiv.appendChild(dataPointsTitle);
+
+                const dataPointsList = document.createElement("ul");
+                resource.dataPoints.forEach((dataPoint: any) => {
+                  const dataPointItem = document.createElement("li");
+                  dataPointItem.textContent = `${dataPoint.metric_id}: ${dataPoint.value} (${dataPoint.framework_id || "N/A"} ${dataPoint.disclosure_id || "N/A"})`;
+                  dataPointsList.appendChild(dataPointItem);
+                });
+                resourceDiv.appendChild(dataPointsList);
+              }
+
+              tempDiv.appendChild(resourceDiv);
+            });
+          },
+        );
+
+        // Append to body temporarily (hidden)
+        tempDiv.style.position = "absolute";
+        tempDiv.style.left = "-9999px";
+        document.body.appendChild(tempDiv);
+
+        // Export to PDF
+        success = await exportToPDF(
+          "pdf-export-container",
+          `ESG_Resources_Export_${new Date().toISOString().split("T")[0]}.pdf`,
+        );
+
+        // Remove the temporary div
+        document.body.removeChild(tempDiv);
       }
 
-      // Add framework mappings sheet
-      const allMappings = selectedResourcesData.flatMap((resource) =>
-        resource.frameworkMappings.map((mapping: any) => ({
-          ResourceTitle: resource.title,
-          Framework: mapping.framework_id,
-          Disclosure: mapping.disclosure_id,
-        })),
-      );
-
-      if (allMappings.length > 0) {
-        excelData.frameworkMappings = allMappings;
+      if (onExportComplete) {
+        onExportComplete(success, exportFormat);
       }
 
-      // Export to Excel
-      exportToMultipleSheets(
-        excelData,
-        `ESG_Resources_Export_${new Date().toISOString().split("T")[0]}.xlsx`,
-      );
+      if (success) {
+        setExportError(null);
+      } else {
+        setExportError("Failed to export resources. Please try again.");
+      }
     } catch (error) {
-      console.error("Error exporting to Excel:", error);
+      console.error("Error exporting resources:", error);
       setExportError("Failed to export resources. Please try again.");
+
+      if (onExportComplete) {
+        onExportComplete(false, exportFormat);
+      }
     } finally {
       setIsExporting(false);
     }
@@ -236,7 +348,7 @@ const BulkResourceExporter: React.FC = () => {
   };
 
   return (
-    <div className="w-full bg-background p-6">
+    <div className={`w-full bg-background p-6 ${className}`}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -261,8 +373,32 @@ const BulkResourceExporter: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-2">
+            <Select
+              value={exportFormat}
+              onValueChange={(value) =>
+                setExportFormat(value as "excel" | "pdf")
+              }
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Export Format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="excel">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Excel (.xlsx)
+                  </div>
+                </SelectItem>
+                <SelectItem value="pdf">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    PDF (.pdf)
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <Button
-              onClick={handleExportToExcel}
+              onClick={handleExport}
               disabled={isExporting || selectedResources.length === 0}
             >
               {isExporting ? (
@@ -272,7 +408,7 @@ const BulkResourceExporter: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  <FileDown className="mr-2 h-4 w-4" />
                   Export {selectedResources.length} Resources
                 </>
               )}
@@ -338,7 +474,8 @@ const BulkResourceExporter: React.FC = () => {
                   size="sm"
                   onClick={toggleAllResources}
                 >
-                  {selectedResources.length === filteredResources.length ? (
+                  {selectedResources.length === filteredResources.length &&
+                  filteredResources.length > 0 ? (
                     <>
                       <XSquare className="h-4 w-4 mr-2" />
                       Deselect All
@@ -421,7 +558,7 @@ const BulkResourceExporter: React.FC = () => {
               selected
             </p>
             <Button
-              onClick={handleExportToExcel}
+              onClick={handleExport}
               disabled={isExporting || selectedResources.length === 0}
             >
               {isExporting ? (
@@ -431,7 +568,11 @@ const BulkResourceExporter: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  {exportFormat === "excel" ? (
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  ) : (
+                    <FileText className="mr-2 h-4 w-4" />
+                  )}
                   Export Selected
                 </>
               )}
