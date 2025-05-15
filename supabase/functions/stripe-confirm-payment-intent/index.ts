@@ -1,12 +1,4 @@
 import { corsHeaders } from "@shared/cors.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import axios from "https://esm.sh/axios@1.6.7";
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_KEY") || "";
-const picaSecretKey = Deno.env.get("PICA_SECRET_KEY") || "";
-const picaStripeConnectionKey =
-  Deno.env.get("PICA_STRIPE_CONNECTION_KEY") || "";
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -15,47 +7,98 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing Supabase environment variables");
+    // Get PICA environment variables
+    const picaSecretKey = Deno.env.get("PICA_SECRET_KEY");
+    const picaConnectionKey = Deno.env.get("PICA_STRIPE_CONNECTION_KEY");
+
+    if (!picaSecretKey || !picaConnectionKey) {
+      console.error("Missing PICA environment variables");
+      return new Response(
+        JSON.stringify({
+          error: "PICA configuration is invalid or missing",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        },
+      );
     }
 
-    if (!picaSecretKey || !picaStripeConnectionKey) {
-      throw new Error("Missing Pica environment variables");
+    // Parse request body
+    const { paymentIntentId } = await req.json();
+
+    // Validate required parameters
+    if (!paymentIntentId) {
+      return new Response(
+        JSON.stringify({
+          error: "Missing required parameter: paymentIntentId",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        },
+      );
     }
 
-    // Get request body
-    const requestData = await req.json();
-    const { id, payment_method } = requestData;
-
-    if (!id) {
-      throw new Error("Missing required parameter: id");
-    }
-
-    // Retrieve the payment intent to get the client_secret
-    const retrieveResponse = await axios.get(
-      `https://api.picaos.com/v1/passthrough/payment_intents/${id}`,
+    // Call PICA API to retrieve payment intent
+    const response = await fetch(
+      `https://api.picaos.com/v1/passthrough/payment_intents/${paymentIntentId}`,
       {
+        method: "GET",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
           "x-pica-secret": picaSecretKey,
-          "x-pica-connection-key": picaStripeConnectionKey,
+          "x-pica-connection-key": picaConnectionKey,
           "x-pica-action-id":
-            "conn_mod_def::GCmLP3yB4Mg::rCRiTSApTyy-gb44BkTwPw",
+            "conn_mod_def::GCmOAuPP5MQ::O0MeKcobRza5lZQrIkoqBA",
         },
       },
     );
 
-    const paymentIntent = retrieveResponse.data;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("PICA API error:", response.status, errorText);
+      return new Response(
+        JSON.stringify({
+          error: "Failed to confirm payment intent through PICA API",
+          status: response.status,
+          details: errorText,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: response.status,
+        },
+      );
+    }
 
-    return new Response(JSON.stringify(paymentIntent), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    // Parse and return the response
+    const paymentIntent = await response.json();
+
+    return new Response(
+      JSON.stringify({
+        id: paymentIntent.id,
+        status: paymentIntent.status,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+        success: paymentIntent.status === "succeeded",
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
   } catch (error) {
-    console.error("Error confirming payment intent:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error confirming payment intent:", errorMessage);
+
+    return new Response(
+      JSON.stringify({
+        error: "Failed to confirm payment intent",
+        details: errorMessage,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      },
+    );
   }
 });

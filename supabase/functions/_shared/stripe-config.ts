@@ -8,26 +8,47 @@ export const stripeConfig = {
   webhookSecret: Deno.env.get("STRIPE_WEBHOOK_SECRET") || "",
 };
 
-// Validate required configuration
+// Validate required configuration with enhanced diagnostics
 export function validateStripeConfig(): boolean {
+  const validationIssues = [];
+  const diagnosticInfo = {
+    secretKeyExists: !!stripeConfig.secretKey,
+    secretKeyFormat: stripeConfig.secretKey
+      ? stripeConfig.secretKey.startsWith("sk_")
+        ? "valid"
+        : "invalid"
+      : "missing",
+    publishableKeyExists: !!stripeConfig.publishableKey,
+    publishableKeyFormat: stripeConfig.publishableKey
+      ? stripeConfig.publishableKey.startsWith("pk_")
+        ? "valid"
+        : "invalid"
+      : "missing",
+    environment: Deno.env.get("DENO_ENV") || "unknown",
+  };
+
   if (!stripeConfig.secretKey) {
-    console.error("Missing STRIPE_SECRET_KEY environment variable");
-    return false;
+    validationIssues.push("Missing STRIPE_SECRET_KEY environment variable");
+  } else if (!stripeConfig.secretKey.startsWith("sk_")) {
+    validationIssues.push(
+      "Invalid STRIPE_SECRET_KEY format - must start with 'sk_'",
+    );
   }
 
   if (!stripeConfig.publishableKey) {
-    console.error("Missing STRIPE_PUBLISHABLE_KEY environment variable");
-    return false;
-  }
-
-  // Check publishable key format if present
-  if (
-    stripeConfig.publishableKey &&
-    !stripeConfig.publishableKey.startsWith("pk_")
-  ) {
-    console.error(
+    validationIssues.push(
+      "Missing STRIPE_PUBLISHABLE_KEY environment variable",
+    );
+  } else if (!stripeConfig.publishableKey.startsWith("pk_")) {
+    validationIssues.push(
       "Invalid STRIPE_PUBLISHABLE_KEY format - must start with 'pk_'",
     );
+  }
+
+  // Log all validation issues with diagnostic information
+  if (validationIssues.length > 0) {
+    console.error("Stripe configuration validation failed:", validationIssues);
+    console.error("Diagnostic information:", diagnosticInfo);
     return false;
   }
 

@@ -1,76 +1,31 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 export const exportToPDF = async (
   elementId: string,
-  filename: string = "esg-plan.pdf",
-  options: { margin?: number; quality?: number } = {},
+  filename: string = "document.pdf",
 ) => {
-  const element = document.getElementById(elementId);
-  if (!element) {
-    console.error(`Element with ID ${elementId} not found`);
-    return false;
-  }
-
   try {
-    // Apply default options
-    const margin = options.margin ?? 15; // Default 15mm margin
-    const quality = options.quality ?? 2; // Default scale factor of 2
-
-    // Create a canvas from the element
-    const canvas = await html2canvas(element, {
-      scale: quality, // Higher scale for better quality
-      useCORS: true, // Allow loading of images from other domains
-      logging: false,
-      allowTaint: true, // Allow cross-origin images
-      backgroundColor: "#ffffff", // Ensure white background
-    });
-
-    // Calculate dimensions to maintain aspect ratio
-    const imgWidth = 210 - margin * 2; // A4 width in mm minus margins
-    const pageHeight = 297 - margin * 2; // A4 height in mm minus margins
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    const pdf = new jsPDF("p", "mm", "a4");
-    let pageData = canvas.toDataURL("image/png", 1.0);
-
-    // Add metadata
-    pdf.setProperties({
-      title: filename.replace(".pdf", ""),
-      creator: "ESG Plan Generator",
-      creationDate: new Date(),
-    });
-
-    // Add first page
-    pdf.addImage(
-      pageData,
-      "PNG",
-      margin,
-      margin + position,
-      imgWidth,
-      imgHeight,
-    );
-    heightLeft -= pageHeight;
-
-    // Add new pages if content overflows
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(
-        pageData,
-        "PNG",
-        margin,
-        margin + position,
-        imgWidth,
-        imgHeight,
-      );
-      heightLeft -= pageHeight;
+    const element = document.getElementById(elementId);
+    if (!element) {
+      console.error(`Element with ID ${elementId} not found`);
+      return false;
     }
 
+    const canvas = await html2canvas(element);
+    const imgData = canvas.toDataURL("image/png");
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "px",
+      format: [canvas.width, canvas.height],
+    });
+
+    pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
     pdf.save(filename);
+
     return true;
   } catch (error) {
     console.error("Error exporting to PDF:", error);
@@ -78,23 +33,35 @@ export const exportToPDF = async (
   }
 };
 
-export const exportToExcel = (
-  data: any,
-  filename: string = "esg-plan.xlsx",
-  sheetName: string = "ESG Plan",
-) => {
+export const exportToExcel = (data: any[], filename: string = "data.xlsx") => {
   try {
-    // Create a new workbook
-    const wb = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Sheet1");
 
-    // Convert data to worksheet format
-    const ws = XLSX.utils.json_to_sheet(data);
+    // Add headers
+    if (data.length > 0) {
+      const headers = Object.keys(data[0]);
+      worksheet.addRow(headers);
 
-    // Add the worksheet to the workbook
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      // Add data rows
+      data.forEach((row) => {
+        worksheet.addRow(Object.values(row));
+      });
+    }
 
-    // Write the workbook and trigger a download
-    XLSX.writeFile(wb, filename);
+    // Write to file and trigger download
+    workbook.xlsx.writeBuffer().then((buffer) => {
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+
     return true;
   } catch (error) {
     console.error("Error exporting to Excel:", error);
@@ -102,60 +69,29 @@ export const exportToExcel = (
   }
 };
 
-export const prepareExcelData = (
-  questionnaireData: any,
-  materialityTopics: any[],
-  frameworks: any[],
-  implementationPhases: any[],
-  resourceRequirements: any[],
-) => {
-  // Company Profile Sheet
-  const companyProfile = [
-    {
-      "Company Name": questionnaireData.companyName || "",
-      Industry: questionnaireData.industry || "",
-      Size: questionnaireData.size || "",
-      Region: questionnaireData.region || "",
-      "Current ESG Reporting": questionnaireData.currentReporting || "",
-    },
-  ];
+/**
+ * Prepares data for Excel export by formatting and structuring it
+ * @param data Raw data to be prepared for Excel export
+ * @returns Formatted data ready for Excel export
+ */
+export const prepareExcelData = (data: any[]): any[] => {
+  // If data is already in the right format, return it as is
+  if (!data || data.length === 0) return [];
 
-  // Material Topics Sheet
-  const materialTopics = materialityTopics.map((topic) => ({
-    "Topic Name": topic.name,
-    Category: topic.category,
-    "Stakeholder Impact": topic.stakeholderImpact,
-    "Business Impact": topic.businessImpact,
-    Description: topic.description,
-  }));
+  // Ensure all objects have the same keys for consistent columns
+  const allKeys = new Set<string>();
+  data.forEach((item) => {
+    Object.keys(item).forEach((key) => allKeys.add(key));
+  });
 
-  // Framework Recommendations Sheet
-  const frameworkRecommendations = frameworks.map((framework) => ({
-    Framework: framework.name,
-    Coverage: `${framework.coverage}%`,
-  }));
-
-  // Implementation Roadmap Sheet
-  const implementationRoadmap = implementationPhases.map((phase) => ({
-    Phase: phase.name,
-    Duration: phase.duration,
-    Status: phase.status,
-  }));
-
-  // Resource Requirements Sheet
-  const resources = resourceRequirements.map((resource) => ({
-    Type: resource.type,
-    Description: resource.description,
-    Estimate: resource.estimate,
-  }));
-
-  return {
-    companyProfile,
-    materialTopics,
-    frameworkRecommendations,
-    implementationRoadmap,
-    resources,
-  };
+  // Create a standardized array with all possible keys
+  return data.map((item) => {
+    const standardizedItem: Record<string, any> = {};
+    Array.from(allKeys).forEach((key) => {
+      standardizedItem[key] = item[key] !== undefined ? item[key] : "";
+    });
+    return standardizedItem;
+  });
 };
 
 export const exportToMultipleSheets = (
@@ -164,18 +100,37 @@ export const exportToMultipleSheets = (
 ) => {
   try {
     // Create a new workbook
-    const wb = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
 
     // Add each dataset as a separate sheet
     Object.entries(data).forEach(([sheetName, sheetData]) => {
       if (sheetData && sheetData.length > 0) {
-        const ws = XLSX.utils.json_to_sheet(sheetData);
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        const worksheet = workbook.addWorksheet(sheetName);
+
+        // Add headers
+        const headers = Object.keys(sheetData[0]);
+        worksheet.addRow(headers);
+
+        // Add data rows
+        sheetData.forEach((row: any) => {
+          worksheet.addRow(Object.values(row));
+        });
       }
     });
 
-    // Write the workbook and trigger a download
-    XLSX.writeFile(wb, filename);
+    // Write to file and trigger download
+    workbook.xlsx.writeBuffer().then((buffer) => {
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+
     return true;
   } catch (error) {
     console.error("Error exporting to Excel with multiple sheets:", error);

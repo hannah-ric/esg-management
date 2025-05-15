@@ -9,17 +9,18 @@ interface StripeKeyContextType {
   isMockMode: boolean;
 }
 
-const StripeKeyContext = createContext<StripeKeyContextType | undefined>(
-  undefined,
-);
+const StripeKeyContext = createContext<StripeKeyContextType>({
+  publishableKey: null,
+  loading: true,
+  error: null,
+  isMockMode: false,
+});
 
 type StripeKeyProviderProps = {
   children: React.ReactNode;
 };
 
-export const StripeKeyProvider: React.FC<StripeKeyProviderProps> = ({
-  children,
-}) => {
+export function StripeKeyProvider({ children }: StripeKeyProviderProps) {
   const [publishableKey, setPublishableKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,23 +37,34 @@ export const StripeKeyProvider: React.FC<StripeKeyProviderProps> = ({
           },
         );
 
-        if (error) throw new Error(error.message);
-        if (!data || !data.publishableKey)
-          throw new Error("Stripe key not found");
+        if (error) {
+          logger.error("Supabase function error:", error);
+          throw new Error(`Edge function error: ${error.message}`);
+        }
+
+        if (!data) {
+          throw new Error("No data returned from edge function");
+        }
+
+        if (!data.publishableKey) {
+          throw new Error("Stripe key not found in response");
+        }
 
         logger.info("Retrieved Stripe key", { source: data.source });
         setPublishableKey(data.publishableKey);
-        setIsMockMode(false);
+        setIsMockMode(data.publishableKey.includes("pk_test_"));
+        setError(null); // Clear any previous errors
       } catch (err) {
-        logger.error("Error fetching Stripe key", err);
-        setError("Failed to load payment system. Please try again later.");
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        logger.error("Error fetching Stripe key", errorMessage);
+        setError(`Payment system error: ${errorMessage}`);
 
         // Fallback to environment variable as last resort
         const fallbackKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
         if (fallbackKey && !fallbackKey.includes("mock-key")) {
           logger.info("Using fallback key from environment variables");
           setPublishableKey(fallbackKey);
-          setIsMockMode(false);
+          setIsMockMode(fallbackKey.includes("pk_test_"));
         } else {
           // If no valid key is found, fall back to mock mode
           logger.info("Falling back to mock mode due to missing valid key");
@@ -68,16 +80,20 @@ export const StripeKeyProvider: React.FC<StripeKeyProviderProps> = ({
   }, []);
 
   return (
-    <StripeKeyContext.Provider value={{ publishableKey, loading, error, isMockMode }}>
+    <StripeKeyContext.Provider
+      value={{ publishableKey, loading, error, isMockMode }}
+    >
       {children}
     </StripeKeyContext.Provider>
   );
-};
+}
 
-export const useStripeKey = () => {
+// Export the hook directly as a named function
+// This improves HMR compatibility
+export function useStripeKey() {
   const context = useContext(StripeKeyContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useStripeKey must be used within a StripeKeyProvider");
   }
   return context;
-};
+}

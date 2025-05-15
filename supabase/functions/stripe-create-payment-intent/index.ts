@@ -1,80 +1,112 @@
-import { corsHeaders, handleCors } from "@shared/cors.ts";
-import qs from "https://cdn.skypack.dev/qs@6.11.0";
+import { corsHeaders } from "@shared/cors.ts";
 
 Deno.serve(async (req) => {
-  // Handle CORS
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders, status: 200 });
+  }
 
   try {
-    const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
-    const PICA_STRIPE_CONNECTION_KEY = Deno.env.get(
-      "PICA_STRIPE_CONNECTION_KEY",
-    );
+    // Get PICA environment variables
+    const picaSecretKey = Deno.env.get("PICA_SECRET_KEY");
+    const picaConnectionKey = Deno.env.get("PICA_STRIPE_CONNECTION_KEY");
 
-    if (!PICA_SECRET_KEY || !PICA_STRIPE_CONNECTION_KEY) {
-      throw new Error("Missing required environment variables");
+    if (!picaSecretKey || !picaConnectionKey) {
+      console.error("Missing PICA environment variables");
+      return new Response(
+        JSON.stringify({
+          error: "PICA configuration is invalid or missing",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        },
+      );
     }
 
     // Parse request body
     const requestData = await req.json();
 
-    // Validate required fields
-    if (!requestData.amount || !requestData.currency) {
-      throw new Error(
-        "Missing required fields: amount and currency are required",
-      );
+    // Prepare form data for PICA API
+    const formData = new FormData();
+    formData.append("amount", requestData.amount.toString());
+    formData.append("currency", requestData.currency);
+
+    if (requestData.description) {
+      formData.append("description", requestData.description);
     }
 
-    // Prepare form data
-    const formData = {
-      amount: requestData.amount,
-      currency: requestData.currency,
-    };
-
-    // Add optional fields if they exist
-    if (requestData.customer) formData.customer = requestData.customer;
-    if (requestData.description) formData.description = requestData.description;
-    if (requestData.metadata) formData.metadata = requestData.metadata;
-    if (requestData.receipt_email)
-      formData.receipt_email = requestData.receipt_email;
-    if (requestData.automatic_payment_methods) {
-      formData.automatic_payment_methods =
-        requestData.automatic_payment_methods;
+    if (requestData.receipt_email) {
+      formData.append("receipt_email", requestData.receipt_email);
     }
 
-    // Make request to Stripe via Pica
+    if (requestData.metadata) {
+      Object.entries(requestData.metadata).forEach(([key, value]) => {
+        formData.append(`metadata[${key}]`, value as string);
+      });
+    }
+
+    // Add automatic payment methods
+    formData.append("automatic_payment_methods[enabled]", "true");
+
+    // Call PICA API
     const response = await fetch(
       "https://api.picaos.com/v1/passthrough/payment_intents",
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "x-pica-secret": PICA_SECRET_KEY,
-          "x-pica-connection-key": PICA_STRIPE_CONNECTION_KEY,
+          "x-pica-secret": picaSecretKey,
+          "x-pica-connection-key": picaConnectionKey,
           "x-pica-action-id":
             "conn_mod_def::GCmOAuPP5MQ::O0MeKcobRza5lZQrIkoqBA",
         },
-        body: qs.stringify(formData),
+        body: formData,
       },
     );
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Stripe API error: ${JSON.stringify(errorData)}`);
+      const errorText = await response.text();
+      console.error("PICA API error:", response.status, errorText);
+      return new Response(
+        JSON.stringify({
+          error: "Failed to create payment intent through PICA API",
+          status: response.status,
+          details: errorText,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: response.status,
+        },
+      );
     }
 
-    const data = await response.json();
+    // Parse and return the response
+    const paymentIntent = await response.json();
 
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    return new Response(
+      JSON.stringify({
+        clientSecret: paymentIntent.client_secret,
+        id: paymentIntent.id,
+        status: paymentIntent.status,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
   } catch (error) {
-    console.error("Error creating payment intent:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error creating payment intent:", errorMessage);
+
+    return new Response(
+      JSON.stringify({
+        error: "Failed to create payment intent",
+        details: errorMessage,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      },
+    );
   }
 });
