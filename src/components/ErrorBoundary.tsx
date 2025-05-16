@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { logger } from "../lib/logger";
+import ErrorFallback from "./ErrorFallback";
 
 interface Props {
   children: ReactNode;
@@ -12,36 +12,42 @@ interface State {
 }
 
 class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+    };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return {
+      hasError: true,
+      error,
+    };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.error("Error caught by ErrorBoundary:", error, errorInfo);
+    // Here you could send the error to an error reporting service
+    // Example: logErrorToService(error, errorInfo);
+  }
+
+  resetErrorBoundary = () => {
+    this.setState({ hasError: false, error: null });
   };
 
-  public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
-  }
-
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error("Uncaught error in component", error, { errorInfo });
-  }
-
-  public render() {
+  render(): ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
       }
-      
+
       return (
-        <div className="p-4 bg-red-50 text-red-700 rounded-md">
-          <h2 className="text-lg font-bold mb-2">Something went wrong</h2>
-          <p>Please try refreshing the page or contact support if the problem persists.</p>
-          <button 
-            onClick={() => this.setState({ hasError: false, error: null })}
-            className="mt-2 px-3 py-1 bg-red-100 text-red-800 rounded-md"
-          >
-            Try Again
-          </button>
-        </div>
+        <ErrorFallback
+          error={this.state.error || new Error("Unknown error")}
+          resetErrorBoundary={this.resetErrorBoundary}
+        />
       );
     }
 
@@ -49,4 +55,4 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export default ErrorBoundary; 
+export default ErrorBoundary;

@@ -1,31 +1,44 @@
-import { Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Route, useRoutes, Routes } from "react-router-dom";
 import { AppProvider } from "./components/AppContext";
 import { Toaster } from "./components/ui/toaster";
-import { useRoutes, Routes } from "react-router-dom";
 import routes from "tempo-routes";
 import { StripeKeyProvider } from "./lib/stripe-key-provider";
 import ErrorBoundary from "./components/ErrorBoundary";
+import LoadingSpinner from "./components/LoadingSpinner";
 
 // Import components
 import Layout from "./components/Layout";
 import Home from "./components/home";
-import Questionnaire from "./components/Questionnaire";
-import MaterialityMatrix from "./components/MaterialityMatrix";
-import PlanGenerator from "./components/PlanGenerator";
-import ResourceLibrary from "./components/ResourceLibrary";
-import ResourceAdmin from "./components/ResourceAdmin";
-import ESGDataDashboard from "./components/ESGDataDashboard";
-import ESGDataEditor from "./components/ESGDataEditor";
-import ESGDataVisualization from "./components/ESGDataVisualization";
-import ESGDataInsights from "./components/ESGDataInsights";
-import ESGHistoricalAnalysis from "./components/ESGHistoricalAnalysis";
-import ComparativeAnalysis from "./components/ComparativeAnalysis";
-import TailoredRecommendations from "./components/TailoredRecommendations";
-import SubscriptionPlans from "./components/SubscriptionPlans";
-import PaymentForm from "./components/PaymentForm";
-import PaymentHistory from "./components/PaymentHistory";
-import AdvisoryServices from "./components/AdvisoryServices";
-import ImplementationSupport from "./components/ImplementationSupport";
+
+// Lazy load non-critical components
+const Questionnaire = lazy(() => import("./components/Questionnaire"));
+const MaterialityMatrix = lazy(() => import("./components/MaterialityMatrix"));
+const PlanGenerator = lazy(() => import("./components/PlanGenerator"));
+const ResourceLibrary = lazy(() => import("./components/ResourceLibrary"));
+const ResourceAdmin = lazy(() => import("./components/ResourceAdmin"));
+const ESGDataDashboard = lazy(() => import("./components/ESGDataDashboard"));
+const ESGDataEditor = lazy(() => import("./components/ESGDataEditor"));
+const ESGDataVisualization = lazy(
+  () => import("./components/ESGDataVisualization"),
+);
+const ESGDataInsights = lazy(() => import("./components/ESGDataInsights"));
+const ESGHistoricalAnalysis = lazy(
+  () => import("./components/ESGHistoricalAnalysis"),
+);
+const ComparativeAnalysis = lazy(
+  () => import("./components/ComparativeAnalysis"),
+);
+const TailoredRecommendations = lazy(
+  () => import("./components/TailoredRecommendations"),
+);
+const SubscriptionPlans = lazy(() => import("./components/SubscriptionPlans"));
+const PaymentForm = lazy(() => import("./components/PaymentForm"));
+const PaymentHistory = lazy(() => import("./components/PaymentHistory"));
+const AdvisoryServices = lazy(() => import("./components/AdvisoryServices"));
+const ImplementationSupport = lazy(
+  () => import("./components/ImplementationSupport"),
+);
 
 // Import auth components
 import LoginForm from "./components/auth/LoginForm";
@@ -63,13 +76,15 @@ function App() {
               }
             />
 
-            {/* Protected routes */}
+            {/* Protected routes with Suspense added to all lazy-loaded components */}
             <Route
               path="questionnaire"
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <Questionnaire />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <Questionnaire />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -79,7 +94,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <MaterialityMatrix />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <MaterialityMatrix />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -89,7 +106,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <PlanGenerator />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <PlanGenerator />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -99,7 +118,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <ResourceLibrary />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ResourceLibrary />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -109,7 +130,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <ResourceAdmin />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ResourceAdmin />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -119,7 +142,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <ESGDataDashboard />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ESGDataDashboard />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -129,7 +154,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <ESGDataEditor />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ESGDataEditor />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -139,7 +166,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <ESGDataVisualization />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ESGDataVisualization />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -149,7 +178,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <ESGDataInsights />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ESGDataInsights />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -159,7 +190,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <ESGHistoricalAnalysis />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ESGHistoricalAnalysis />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -169,7 +202,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <ComparativeAnalysis />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ComparativeAnalysis />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -179,7 +214,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <TailoredRecommendations />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <TailoredRecommendations />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -189,7 +226,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <SubscriptionPlans />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <SubscriptionPlans />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -199,7 +238,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <PaymentForm />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <PaymentForm />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -209,7 +250,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <PaymentHistory />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <PaymentHistory />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -219,7 +262,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <AdvisoryServices />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <AdvisoryServices />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }
@@ -229,7 +274,9 @@ function App() {
               element={
                 <AuthGuard>
                   <ErrorBoundary>
-                    <ImplementationSupport />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ImplementationSupport />
+                    </Suspense>
                   </ErrorBoundary>
                 </AuthGuard>
               }

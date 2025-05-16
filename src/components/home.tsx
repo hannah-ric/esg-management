@@ -1,4 +1,4 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
@@ -52,6 +52,7 @@ const Home = () => {
               src="https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&q=80"
               alt="ESG Dashboard Preview"
               className="w-full h-auto rounded-xl"
+              loading="lazy"
             />
           </motion.div>
         </div>
