@@ -1,6 +1,9 @@
 import { supabase } from "./supabase";
 import { logger } from "./logger";
-import { getFrameworkRecommendations, getResourceRecommendations } from "./ai-services";
+import {
+  getFrameworkRecommendations,
+  getResourceRecommendations,
+} from "./ai-services";
 
 /**
  * Analyze external content via URL to enhance ESG plan
@@ -20,7 +23,10 @@ export async function analyzeExternalContent(url: string) {
     return { success: true, data };
   } catch (err) {
     logger.error("Error analyzing URL", err);
-    return { success: false, error: err.message || "Failed to analyze the URL" };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to analyze the URL",
+    };
   }
 }
 
@@ -56,7 +62,7 @@ export async function generateAIRecommendations(
   companyName: string = "",
   industry: string = "",
   materialityTopics: any[] = [],
-  esgPlan: any = null
+  esgPlan: any = null,
 ) {
   try {
     // Prepare company profile data
@@ -68,33 +74,53 @@ export async function generateAIRecommendations(
     };
 
     // Get AI-powered framework recommendations
-    const recommendations = await getFrameworkRecommendations(
+    const frameworkResponse = await getFrameworkRecommendations(
       companyProfile,
       materialityTopics || [],
     );
 
+    if (!frameworkResponse.success) {
+      throw new Error(
+        frameworkResponse.error || "Failed to get framework recommendations",
+      );
+    }
+
     // Get AI-powered resource recommendations if esgPlan is available
-    let resourceRecs = null;
+    let resourceResponse = null;
     if (esgPlan) {
-      resourceRecs = await getResourceRecommendations(
+      resourceResponse = await getResourceRecommendations(
         esgPlan,
         companyProfile,
+        materialityTopics || [],
       );
+
+      if (!resourceResponse.success) {
+        logger.warn(
+          "Failed to get resource recommendations",
+          resourceResponse.error,
+        );
+        // Continue execution even if resource recommendations fail
+      }
     }
 
     return {
       success: true,
       data: {
-        frameworks: recommendations,
-        resources: resourceRecs,
-      }
+        frameworks: frameworkResponse.content || frameworkResponse.data,
+        resources: resourceResponse?.success
+          ? resourceResponse.content || resourceResponse.data
+          : null,
+      },
     };
   } catch (err) {
     logger.error("Error generating AI recommendations", err);
     return {
       success: false,
-      error: err.message || "Failed to generate AI recommendations",
-      data: null
+      error:
+        err instanceof Error
+          ? err.message
+          : "Failed to generate AI recommendations",
+      data: null,
     };
   }
-} 
+}

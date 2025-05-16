@@ -42,6 +42,19 @@ Deno.serve(async (req) => {
       .single();
 
     if (error) {
+      if (error.code === "PGRST116") {
+        // No rows returned
+        return new Response(
+          JSON.stringify({
+            profile: null,
+            message: "User profile not found",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 404,
+          },
+        );
+      }
       throw new Error(`Error fetching user profile: ${error.message}`);
     }
 

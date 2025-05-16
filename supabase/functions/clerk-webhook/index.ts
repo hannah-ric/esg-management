@@ -152,6 +152,41 @@ Deno.serve(async (req) => {
         const email = email_addresses?.[0]?.email_address;
         const companyName = public_metadata?.company_name || "";
 
+        // Check if user exists before updating
+        const { data: existingUser, error: checkError } = await supabase
+          .from("users")
+          .select("id")
+          .eq("id", id)
+          .single();
+
+        if (checkError && checkError.code !== "PGRST116") {
+          console.error("Error checking for existing user:", checkError);
+          throw checkError;
+        }
+
+        if (!existingUser) {
+          console.log(`User ${id} not found, creating instead of updating`);
+          const { error } = await supabase.from("users").insert({
+            id,
+            email,
+            first_name,
+            last_name,
+            avatar_url: image_url || "",
+            company_name: companyName,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            is_admin: false, // Default to non-admin
+          });
+
+          if (error) {
+            console.error("Error creating user in database:", error);
+            throw error;
+          }
+
+          console.log(`User ${id} created successfully`);
+          break;
+        }
+
         const { error } = await supabase
           .from("users")
           .update({

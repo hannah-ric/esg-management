@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       {
         method: "PATCH",
         headers: getClerkHeaders(
-          "conn_mod_def::GCT_3Iy-Ixs::Yx-Yx-ORQnCQXXXXXXXXXX",
+          "conn_mod_def::GCT_3Iy-Ixs::Yx-Yx-ORQnCQXXXXXXXXXX", // TODO: Replace with actual action ID
         ),
         body: JSON.stringify(updateData),
       },

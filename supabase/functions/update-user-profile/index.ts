@@ -47,13 +47,64 @@ Deno.serve(async (req) => {
     if (companyName !== undefined) updateData.company_name = companyName;
     if (avatarUrl !== undefined) updateData.avatar_url = avatarUrl;
 
-    // Update user profile in database
-    const { data: profile, error } = await supabase
+    // Check if user exists before updating
+    const { data: existingUser, error: checkError } = await supabase
       .from("users")
-      .update(updateData)
+      .select("id")
       .eq("auth_user_id", userId)
-      .select()
       .single();
+
+    let profile;
+    let error = null;
+
+    if (checkError) {
+      if (checkError.code === "PGRST116") {
+        // No rows returned
+        console.log(
+          `User with auth_user_id ${userId} not found, creating new profile`,
+        );
+        // Create new user profile
+        const newUserData = {
+          auth_user_id: userId,
+          ...updateData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const { data: newProfile, error: createError } = await supabase
+          .from("users")
+          .insert(newUserData)
+          .select()
+          .single();
+
+        if (createError) {
+          throw new Error(
+            `Error creating user profile: ${createError.message}`,
+          );
+        }
+
+        // Use the newly created profile
+        profile = newProfile;
+      } else {
+        throw new Error(
+          `Error checking for existing user: ${checkError.message}`,
+        );
+      }
+    } else {
+      // Update existing user profile
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from("users")
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("auth_user_id", userId)
+        .select()
+        .single();
+
+      profile = updatedProfile;
+      error = updateError;
+    }
 
     if (error) {
       throw new Error(`Error updating user profile: ${error.message}`);

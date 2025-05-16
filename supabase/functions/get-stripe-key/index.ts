@@ -1,86 +1,69 @@
-import { corsHeaders } from "@shared/cors.ts";
-import { stripeConfig, validateStripeConfig } from "@shared/stripe-config.ts";
+import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@12.15.0";
 
-Deno.serve(async (req) => {
+import { corsHeaders } from "@shared/cors.ts";
+
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders, status: 200 });
+    return new Response("ok", {
+      headers: corsHeaders,
+      status: 200,
+    });
   }
 
+  // Standard headers for all responses
+  const responseHeaders = {
+    ...corsHeaders,
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store, max-age=0", // Prevent caching of sensitive data
+  };
+
   try {
-    // Validate Stripe configuration with enhanced error handling
-    if (!validateStripeConfig()) {
-      // Collect detailed diagnostic information
-      const diagnosticInfo = {
-        hasSecretKey: !!stripeConfig.secretKey,
-        secretKeyPrefix: stripeConfig.secretKey
-          ? stripeConfig.secretKey.substring(0, 3) + "..."
-          : "missing",
-        hasPublishableKey: !!stripeConfig.publishableKey,
-        publishableKeyPrefix: stripeConfig.publishableKey
-          ? stripeConfig.publishableKey.substring(0, 3) + "..."
-          : "missing",
-        environment: Deno.env.get("DENO_ENV") || "unknown",
-        timestamp: new Date().toISOString(),
-      };
+    // Retrieve Stripe keys from environment variables
+    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+    const stripePublishableKey = Deno.env.get("STRIPE_PUBLISHABLE_KEY");
 
-      console.error(
-        "Stripe configuration validation failed with diagnostics:",
-        diagnosticInfo,
-      );
-
+    if (!stripeSecretKey || !stripePublishableKey) {
+      console.error("Stripe keys not configured in environment variables");
       return new Response(
         JSON.stringify({
-          error: "Stripe configuration is invalid or missing",
-          timestamp: diagnosticInfo.timestamp,
+          error: "Stripe keys not configured",
+          details: "Please check environment variables configuration",
         }),
         {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 500,
+          headers: responseHeaders,
         },
       );
     }
 
-    // Return the publishable key
+    // Initialize Stripe client
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: "2022-11-15",
+    });
+
+    // Return the publishable key which is safe to expose to the client
     return new Response(
       JSON.stringify({
-        publishableKey: stripeConfig.publishableKey,
-        source: "supabase-environment",
-        isMockMode: stripeConfig.publishableKey.includes("test"),
-        timestamp: new Date().toISOString(),
+        publishableKey: stripePublishableKey,
+        success: true,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
+        headers: responseHeaders,
       },
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error retrieving Stripe key:", errorMessage);
-
-    // Log additional diagnostic information
-    console.error("Environment check:", {
-      hasSecretKey: !!stripeConfig.secretKey,
-      hasPublishableKey: !!stripeConfig.publishableKey,
-      publishableKeyFormat: stripeConfig.publishableKey
-        ? stripeConfig.publishableKey.startsWith("pk_")
-          ? "valid"
-          : "invalid"
-        : "missing",
-      errorStack:
-        error instanceof Error ? error.stack : "No stack trace available",
-      timestamp: new Date().toISOString(),
-    });
-
+    console.error("Error in get-stripe-key function:", error);
     return new Response(
       JSON.stringify({
-        error: "Failed to retrieve Stripe publishable key",
-        details: errorMessage,
-        timestamp: new Date().toISOString(),
+        error: error.message || "Internal Server Error",
+        success: false,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
+        headers: responseHeaders,
       },
     );
   }
