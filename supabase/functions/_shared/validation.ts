@@ -4,10 +4,10 @@
  * @param requiredFields Array of required field names
  * @returns Error message if validation fails, null if successful
  */
-export function validateRequiredFields(
+export const validateRequiredFields = (
   data: Record<string, any>,
   requiredFields: string[],
-): string | null {
+): string | null => {
   if (!data || typeof data !== "object") {
     return "Request data is missing or invalid";
   }
@@ -26,4 +26,4 @@ export function validateRequiredFields(
   }
 
   return null;
-}
+};

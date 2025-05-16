@@ -259,10 +259,10 @@ export async function analyzeMaterialityImpactForPlan(
   }
 }
 
-export async function generateESGActionPlan(
+export const generateESGActionPlan = async (
   materialityTopics: any[],
   impactAnalysisContent: string,
-): Promise<AIAssistantResponse> {
+): Promise<AIAssistantResponse> => {
   let parsedImpactAnalysis = {};
   try {
     parsedImpactAnalysis = JSON.parse(impactAnalysisContent);
@@ -304,4 +304,4 @@ export async function generateESGActionPlan(
       success: false,
     };
   }
-}
+};

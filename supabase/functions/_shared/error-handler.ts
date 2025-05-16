@@ -70,14 +70,14 @@ export function handleError(error: unknown, status = 500): Response {
   });
 }
 
-export function handleValidationError(message: string): Response {
+export const handleValidationError = (message: string): Response => {
   return handleError({ message, code: "VALIDATION_ERROR" }, 400);
-}
+};
 
-export function handleNotFoundError(message: string): Response {
+export const handleNotFoundError = (message: string): Response => {
   return handleError({ message, code: "NOT_FOUND" }, 404);
-}
+};
 
-export function handleAuthError(message: string): Response {
+export const handleAuthError = (message: string): Response => {
   return handleError({ message, code: "UNAUTHORIZED" }, 401);
-}
+};
