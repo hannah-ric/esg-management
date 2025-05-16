@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { logger } from "./logger";
 
-interface PaymentIntentParams {
+export interface PaymentIntentParams {
   amount: number;
   currency: string;
   description?: string;
@@ -9,11 +9,29 @@ interface PaymentIntentParams {
   metadata?: Record<string, string>;
 }
 
-interface SubscriptionParams {
+export interface SubscriptionParams {
   customerId: string;
   priceId: string;
   metadata?: Record<string, string>;
   trialPeriodDays?: number;
+}
+
+export interface CancelSubscriptionParams {
+  subscriptionId: string;
+  invoice_now?: boolean;
+  prorate?: boolean;
+  cancellation_details?: {
+    comment?: string;
+    feedback?:
+      | "customer_service"
+      | "low_quality"
+      | "missing_features"
+      | "other"
+      | "switched_service"
+      | "too_complex"
+      | "too_expensive"
+      | "unused";
+  };
 }
 
 /**
@@ -77,6 +95,34 @@ export async function createSubscription(params: SubscriptionParams) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     logger.error("Error in createSubscription:", errorMessage);
     throw new Error(`Subscription creation failed: ${errorMessage}`);
+  }
+}
+
+/**
+ * Cancels a subscription
+ * @param params Cancellation parameters
+ * @returns The cancellation result
+ */
+export async function cancelSubscription(params: CancelSubscriptionParams) {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-stripe-cancel-subscription",
+      {
+        method: "POST",
+        body: params,
+      },
+    );
+
+    if (error) {
+      logger.error("Error canceling subscription:", error);
+      throw new Error(`Failed to cancel subscription: ${error.message}`);
+    }
+
+    return data;
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    logger.error("Error in cancelSubscription:", errorMessage);
+    throw new Error(`Subscription cancellation failed: ${errorMessage}`);
   }
 }
 

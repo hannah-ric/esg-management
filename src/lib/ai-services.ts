@@ -198,12 +198,12 @@ export async function getPeerBenchmarking(
   }
 }
 
-export async function getESGDataInsights(
+export const getESGDataInsights = async (
   userId: string,
   resourceId?: string,
   metricId?: string,
   timeframe: string = "month",
-): Promise<any> {
+): Promise<any> => {
   try {
     const { data, error } = await supabase.functions.invoke(
       "supabase-functions-esg-data-insights",
@@ -223,11 +223,11 @@ export async function getESGDataInsights(
     logger.error("Error getting ESG data insights:", error);
     return { error: error.message, success: false };
   }
-}
+};
 
-export async function analyzeMaterialityImpactForPlan(
+export const analyzeMaterialityImpactForPlan = async (
   materialityTopics: any[],
-): Promise<AIAssistantResponse> {
+): Promise<AIAssistantResponse> => {
   try {
     const { data, error } = await supabase.functions.invoke(
       "supabase-functions-esg-ai-assistant",
@@ -257,7 +257,7 @@ export async function analyzeMaterialityImpactForPlan(
       success: false,
     };
   }
-}
+};
 
 export const generateESGActionPlan = async (
   materialityTopics: any[],

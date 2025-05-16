@@ -1,4 +1,4 @@
-import { corsHeaders } from "@shared/cors.index";
+import { corsHeaders, handleCors } from "@shared/cors.index";
 import {
   handleError,
   handleValidationError,
@@ -6,9 +6,8 @@ import {
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders, status: 200 });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     // Get PICA environment variables
@@ -33,7 +32,7 @@ Deno.serve(async (req) => {
       return handleValidationError("Invalid JSON in request body");
     }
 
-    const { paymentIntentId, payment_method_id, return_url } = requestData;
+    const { paymentIntentId, cancellation_reason } = requestData;
 
     // Validate required parameters
     if (!paymentIntentId) {
@@ -50,29 +49,26 @@ Deno.serve(async (req) => {
       return handleValidationError("Invalid payment intent ID format");
     }
 
-    // Prepare request for confirming payment intent
-    const formData = new FormData();
+    // Prepare request for canceling payment intent
+    const formData = new URLSearchParams();
 
-    if (payment_method_id) {
-      formData.append("payment_method", payment_method_id);
+    if (cancellation_reason) {
+      formData.append("cancellation_reason", cancellation_reason);
     }
 
-    if (return_url) {
-      formData.append("return_url", return_url);
-    }
-
-    // Call PICA API to confirm payment intent
+    // Call PICA API to cancel payment intent
     let response;
     try {
       response = await fetch(
-        `https://api.picaos.com/v1/passthrough/payment_intents/${encodeURIComponent(paymentIntentId)}/confirm`,
+        `https://api.picaos.com/v1/passthrough/payment_intents/${encodeURIComponent(paymentIntentId)}/cancel`,
         {
           method: "POST",
           headers: {
             "x-pica-secret": picaSecretKey,
             "x-pica-connection-key": picaConnectionKey,
             "x-pica-action-id":
-              "conn_mod_def::GCmLRYqDIUI::uzwgAbl3RFeFxdmPV_koDw",
+              "conn_mod_def::GCmLQS4UamM::jfaFq3gOS5KTpn9wv1_O_A",
+            "Content-Type": "application/x-www-form-urlencoded",
           },
           body: formData,
         },
@@ -100,7 +96,7 @@ Deno.serve(async (req) => {
       console.error("PICA API error:", response.status, errorText);
       return handleError(
         {
-          message: "Failed to confirm payment intent through PICA API",
+          message: "Failed to cancel payment intent through PICA API",
           code: "PICA_API_ERROR",
           details: {
             status: response.status,
@@ -126,27 +122,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate the payment intent data
-    if (!paymentIntent.id || !paymentIntent.status) {
-      console.error("Invalid payment intent data:", paymentIntent);
-      return handleError(
-        {
-          message: "Invalid payment intent data received",
-          code: "INVALID_DATA",
-        },
-        500,
-      );
-    }
-
     return new Response(
       JSON.stringify({
         id: paymentIntent.id,
         status: paymentIntent.status,
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency,
-        client_secret: paymentIntent.client_secret,
-        next_action: paymentIntent.next_action,
-        success: paymentIntent.status === "succeeded",
+        canceled_at: paymentIntent.canceled_at,
+        cancellation_reason: paymentIntent.cancellation_reason,
+        success: paymentIntent.status === "canceled",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

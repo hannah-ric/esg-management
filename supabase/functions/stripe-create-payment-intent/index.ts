@@ -1,11 +1,13 @@
-import { corsHeaders } from "@shared/cors.ts";
-import { handleError, handleValidationError } from "@shared/error-handler.ts";
+import { corsHeaders, handleCors } from "@shared/cors.index";
+import {
+  handleError,
+  handleValidationError,
+} from "@shared/error-handler.index";
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders, status: 200 });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     // Get PICA environment variables
@@ -30,45 +32,56 @@ Deno.serve(async (req) => {
       return handleValidationError("Invalid JSON in request body");
     }
 
-    // Prepare form data for PICA API
-    const formData = new FormData();
+    const { amount, currency, description, receipt_email, metadata } =
+      requestData;
 
-    // Validate required fields
-    if (!requestData.amount || !requestData.currency) {
+    // Validate required parameters
+    if (!amount || !currency) {
       return handleValidationError(
-        "Missing required parameters: amount and currency are required",
+        "Missing required parameters: amount and currency",
       );
     }
 
-    // Validate amount is a positive number
-    const amount = Number(requestData.amount);
-    if (isNaN(amount) || amount <= 0) {
-      return handleValidationError("Amount must be a positive number");
+    // Validate amount (must be a positive integer)
+    if (
+      typeof amount !== "number" ||
+      amount <= 0 ||
+      !Number.isInteger(amount)
+    ) {
+      return handleValidationError(
+        "Invalid amount: must be a positive integer",
+      );
     }
 
-    formData.append("amount", amount.toString());
-    formData.append("currency", requestData.currency.toLowerCase());
-
-    if (requestData.description) {
-      formData.append("description", requestData.description);
+    // Validate currency (must be a 3-letter ISO code)
+    if (typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency)) {
+      return handleValidationError(
+        "Invalid currency: must be a 3-letter ISO currency code",
+      );
     }
 
-    if (requestData.receipt_email) {
-      formData.append("receipt_email", requestData.receipt_email);
+    // Prepare form data for creating payment intent
+    const params = new URLSearchParams();
+    params.append("amount", amount.toString());
+    params.append("currency", currency);
+
+    // Add optional parameters
+    if (description) {
+      params.append("description", description);
     }
 
-    if (requestData.metadata && typeof requestData.metadata === "object") {
-      Object.entries(requestData.metadata).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          formData.append(`metadata[${key}]`, String(value));
-        }
+    if (receipt_email) {
+      params.append("receipt_email", receipt_email);
+    }
+
+    // Add metadata if provided
+    if (metadata && typeof metadata === "object") {
+      Object.entries(metadata).forEach(([key, value]) => {
+        params.append(`metadata[${key}]`, value as string);
       });
     }
 
-    // Add automatic payment methods
-    formData.append("automatic_payment_methods[enabled]", "true");
-
-    // Call PICA API
+    // Call PICA API to create payment intent
     let response;
     try {
       response = await fetch(
@@ -76,12 +89,13 @@ Deno.serve(async (req) => {
         {
           method: "POST",
           headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
             "x-pica-secret": picaSecretKey,
             "x-pica-connection-key": picaConnectionKey,
             "x-pica-action-id":
-              "conn_mod_def::GCmLRYqDIUI::uzwgAbl3RFeFxdmPV_koDw",
+              "conn_mod_def::GCmLQS4UamM::jfaFq3gOS5KTpn9wv1_O_A",
           },
-          body: formData,
+          body: params,
         },
       );
     } catch (fetchError) {
@@ -135,10 +149,11 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        clientSecret: paymentIntent.client_secret,
         id: paymentIntent.id,
+        clientSecret: paymentIntent.client_secret,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
         status: paymentIntent.status,
-        success: true,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1,6 +1,9 @@
-import { corsHeaders } from "@shared/cors.ts";
+import { corsHeaders, handleCors } from "@shared/cors.index";
+import {
+  handleError,
+  handleValidationError,
+} from "@shared/error-handler.index";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import axios from "https://esm.sh/axios@1.6.7";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_KEY") || "";
@@ -10,99 +13,177 @@ const picaStripeConnectionKey =
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders, status: 200 });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing Supabase environment variables");
-    }
-
     if (!picaSecretKey || !picaStripeConnectionKey) {
-      throw new Error("Missing Pica environment variables");
-    }
-
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get request body
-    const requestData = await req.json();
-    const { id, cancel_at_period_end = true, comment, feedback } = requestData;
-
-    if (!id) {
-      throw new Error("Missing required parameter: id");
-    }
-
-    // Prepare form data for Stripe API
-    const params = new URLSearchParams();
-
-    // Add optional parameters
-    if (comment) {
-      params.append("cancellation_details[comment]", comment);
-    }
-
-    if (feedback) {
-      params.append("cancellation_details[feedback]", feedback);
-    }
-
-    // Call Stripe API via Pica passthrough
-    const response = await axios.delete(
-      `https://api.picaos.com/v1/passthrough/subscriptions/${id}`,
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "x-pica-secret": picaSecretKey,
-          "x-pica-connection-key": picaStripeConnectionKey,
-          "x-pica-action-id":
-            "conn_mod_def::GCmLJuvsIqw::qCRnEtxAR3ivKx1u05c7QQ",
+      return handleError(
+        {
+          message: "PICA configuration is invalid or missing",
+          code: "CONFIG_ERROR",
         },
-        data: params.toString(),
-      },
-    );
+        500,
+      );
+    }
 
-    const subscription = response.data;
+    // Parse request body
+    let requestData;
+    try {
+      requestData = await req.json();
+    } catch (parseError) {
+      return handleValidationError("Invalid JSON in request body");
+    }
 
-    // Update subscription in database
-    const { data: existingSubscription, error: fetchError } = await supabase
-      .from("subscriptions")
-      .select("user_id")
-      .eq("subscription_id", id)
-      .single();
+    const { subscriptionId, ...cancelOptions } = requestData;
 
-    if (!fetchError && existingSubscription) {
-      const { error } = await supabase
-        .from("subscriptions")
-        .update({
-          status: subscription.status,
-          canceled_at: subscription.canceled_at
-            ? new Date(subscription.canceled_at * 1000).toISOString()
-            : new Date().toISOString(),
-          cancel_at_period_end: cancel_at_period_end,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("subscription_id", id);
+    // Validate required parameters
+    if (!subscriptionId) {
+      return handleValidationError(
+        "Missing required parameter: subscriptionId",
+      );
+    }
 
-      if (error) {
-        console.error("Error updating subscription:", error);
-      } else {
-        // Update user subscription status
+    // Validate subscription ID format (basic check)
+    if (
+      typeof subscriptionId !== "string" ||
+      !subscriptionId.startsWith("sub_")
+    ) {
+      return handleValidationError("Invalid subscription ID format");
+    }
+
+    // Prepare form data for cancellation options
+    const formData = new URLSearchParams();
+
+    // Add optional cancellation parameters
+    if (cancelOptions.invoice_now !== undefined) {
+      formData.append(
+        "invoice_now",
+        cancelOptions.invoice_now ? "true" : "false",
+      );
+    }
+
+    if (cancelOptions.prorate !== undefined) {
+      formData.append("prorate", cancelOptions.prorate ? "true" : "false");
+    }
+
+    if (cancelOptions.cancellation_details?.comment) {
+      formData.append(
+        "cancellation_details[comment]",
+        cancelOptions.cancellation_details.comment,
+      );
+    }
+
+    if (cancelOptions.cancellation_details?.feedback) {
+      formData.append(
+        "cancellation_details[feedback]",
+        cancelOptions.cancellation_details.feedback,
+      );
+    }
+
+    // Call PICA API to cancel subscription
+    let response;
+    try {
+      response = await fetch(
+        `https://api.picaos.com/v1/passthrough/subscriptions/${encodeURIComponent(subscriptionId)}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "x-pica-secret": picaSecretKey,
+            "x-pica-connection-key": picaStripeConnectionKey,
+            "x-pica-action-id":
+              "conn_mod_def::GCmLJuvsIqw::qCRnEtxAR3ivKx1u05c7QQ",
+          },
+          body: formData,
+        },
+      );
+    } catch (fetchError) {
+      console.error("Network error calling PICA API:", fetchError);
+      return handleError(
+        {
+          message: "Network error when calling PICA API",
+          code: "NETWORK_ERROR",
+          details: { error: fetchError.message },
+        },
+        503,
+      );
+    }
+
+    if (!response.ok) {
+      let errorText;
+      try {
+        errorText = await response.text();
+      } catch (e) {
+        errorText = "Could not read error response";
+      }
+
+      console.error("PICA API error:", response.status, errorText);
+      return handleError(
+        {
+          message: "Failed to cancel subscription through PICA API",
+          code: "PICA_API_ERROR",
+          details: {
+            status: response.status,
+            response: errorText,
+          },
+        },
+        response.status,
+      );
+    }
+
+    // Parse and return the response
+    let subscription;
+    try {
+      subscription = await response.json();
+    } catch (parseError) {
+      console.error("Error parsing PICA API response:", parseError);
+      return handleError(
+        {
+          message: "Invalid response from PICA API",
+          code: "INVALID_RESPONSE",
+        },
+        500,
+      );
+    }
+
+    // Update subscription in database if we have Supabase credentials
+    if (supabaseUrl && supabaseServiceKey && subscription.id) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
         await supabase
-          .from("users")
-          .update({ subscription_status: "canceled" })
-          .eq("id", existingSubscription.user_id);
+          .from("subscriptions")
+          .update({
+            status: subscription.status,
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            canceled_at: subscription.canceled_at
+              ? new Date(subscription.canceled_at * 1000).toISOString()
+              : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("subscription_id", subscription.id);
+      } catch (dbError) {
+        console.error("Error updating subscription in database:", dbError);
+        // Continue execution even if database update fails
       }
     }
 
-    return new Response(JSON.stringify(subscription), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    return new Response(
+      JSON.stringify({
+        id: subscription.id,
+        status: subscription.status,
+        canceled_at: subscription.canceled_at,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        success:
+          subscription.status === "canceled" ||
+          subscription.cancel_at_period_end,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
   } catch (error) {
-    console.error("Error canceling subscription:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return handleError(error);
   }
 });

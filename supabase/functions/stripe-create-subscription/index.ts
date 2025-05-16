@@ -1,6 +1,9 @@
-import { corsHeaders } from "@shared/cors.ts";
+import { corsHeaders, handleCors } from "@shared/cors.index";
+import {
+  handleError,
+  handleValidationError,
+} from "@shared/error-handler.index";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import axios from "https://esm.sh/axios@1.6.7";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_KEY") || "";
@@ -10,28 +13,44 @@ const picaStripeConnectionKey =
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders, status: 200 });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing Supabase environment variables");
+      return handleError(
+        {
+          message: "Missing Supabase environment variables",
+          code: "CONFIG_ERROR",
+        },
+        500,
+      );
     }
 
     if (!picaSecretKey || !picaStripeConnectionKey) {
-      throw new Error("Missing Pica environment variables");
+      return handleError(
+        { message: "Missing Pica environment variables", code: "CONFIG_ERROR" },
+        500,
+      );
     }
 
     // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get request body
-    const requestData = await req.json();
+    let requestData;
+    try {
+      requestData = await req.json();
+    } catch (parseError) {
+      return handleValidationError("Invalid JSON in request body");
+    }
+
     const { customerId, priceId, metadata, trialPeriodDays } = requestData;
 
     if (!customerId || !priceId) {
-      throw new Error("Missing required parameters: customerId and priceId");
+      return handleValidationError(
+        "Missing required parameters: customerId and priceId",
+      );
     }
 
     // Prepare form data for Stripe API
@@ -52,21 +71,70 @@ Deno.serve(async (req) => {
     }
 
     // Call Stripe API via Pica passthrough
-    const response = await axios.post(
-      "https://api.picaos.com/v1/passthrough/subscriptions",
-      params,
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "x-pica-secret": picaSecretKey,
-          "x-pica-connection-key": picaStripeConnectionKey,
-          "x-pica-action-id":
-            "conn_mod_def::GCmLLKb3SYA::G12brmc7RrivZndckTk7rQ",
+    let response;
+    try {
+      response = await fetch(
+        "https://api.picaos.com/v1/passthrough/subscriptions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "x-pica-secret": picaSecretKey,
+            "x-pica-connection-key": picaStripeConnectionKey,
+            "x-pica-action-id":
+              "conn_mod_def::GCmLLKb3SYA::G12brmc7RrivZndckTk7rQ",
+          },
+          body: params,
         },
-      },
-    );
+      );
+    } catch (fetchError) {
+      console.error("Network error calling PICA API:", fetchError);
+      return handleError(
+        {
+          message: "Network error when calling PICA API",
+          code: "NETWORK_ERROR",
+          details: { error: fetchError.message },
+        },
+        503,
+      );
+    }
 
-    const subscription = response.data;
+    if (!response.ok) {
+      let errorText;
+      try {
+        errorText = await response.text();
+      } catch (e) {
+        errorText = "Could not read error response";
+      }
+
+      console.error("PICA API error:", response.status, errorText);
+      return handleError(
+        {
+          message: "Failed to create subscription through PICA API",
+          code: "PICA_API_ERROR",
+          details: {
+            status: response.status,
+            response: errorText,
+          },
+        },
+        response.status,
+      );
+    }
+
+    // Parse and return the response
+    let subscription;
+    try {
+      subscription = await response.json();
+    } catch (parseError) {
+      console.error("Error parsing PICA API response:", parseError);
+      return handleError(
+        {
+          message: "Invalid response from PICA API",
+          code: "INVALID_RESPONSE",
+        },
+        500,
+      );
+    }
 
     // Store subscription in database
     if (metadata?.user_id) {
@@ -105,10 +173,6 @@ Deno.serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    console.error("Error creating subscription:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return handleError(error);
   }
 });

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@12.15.0";
 
-import { corsHeaders } from "@shared/cors.ts";
+import { corsHeaders } from "@shared/cors.index";
 
 serve(async (req) => {
   // Handle CORS preflight requests

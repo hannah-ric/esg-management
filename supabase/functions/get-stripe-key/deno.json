@@ -1,6 +1,5 @@
 {
   "imports": {
-    "@shared/": "../_shared/",
-    "stripe": "https://esm.sh/stripe@12.15.0"
+    "@shared/": "../_shared/"
   }
 }

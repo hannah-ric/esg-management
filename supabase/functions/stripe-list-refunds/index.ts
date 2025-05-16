@@ -1,5 +1,8 @@
-import { corsHeaders, handleCors } from "@shared/cors.ts";
-import qs from "https://cdn.skypack.dev/qs@6.11.0";
+import { corsHeaders, handleCors } from "@shared/cors.index";
+import {
+  handleError,
+  handleValidationError,
+} from "@shared/error-handler.index";
 
 Deno.serve(async (req) => {
   // Handle CORS
@@ -29,9 +32,11 @@ Deno.serve(async (req) => {
     }
 
     // Construct URL with query parameters
-    const url = new URL("https://api.picaos.com/v1/passthrough/refunds");
+    const url = new URL("https://api.picaos.com/v1/passthrough/v1/refunds");
     if (Object.keys(queryParams).length > 0) {
-      url.search = qs.stringify(queryParams);
+      Object.entries(queryParams).forEach(([key, value]) => {
+        url.searchParams.append(key, String(value));
+      });
     }
 
     // Make request to Stripe via Pica
@@ -41,7 +46,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
         "x-pica-secret": PICA_SECRET_KEY,
         "x-pica-connection-key": PICA_STRIPE_CONNECTION_KEY,
-        "x-pica-action-id": "conn_mod_def::GCmLQnzEoaA::5fwjM7BiSaSHvJ8AZjhogQ",
+        "x-pica-action-id": "conn_mod_def::GCmLQ0ftzDc::u-8xXn-8T_uxtzMR6k3Ytg",
       },
     });
 
