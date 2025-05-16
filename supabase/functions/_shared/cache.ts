@@ -1,75 +1,61 @@
 /**
- * Simple in-memory cache implementation for edge functions
- * Note: This cache is per-instance and will be cleared when the function is redeployed
+ * Simple in-memory cache implementation for Edge Functions
  */
 
-interface CacheEntry<T> {
+interface CacheItem<T> {
   value: T;
-  expiry: number;
+  expiry: number | null; // Timestamp when the item expires, null for no expiry
 }
 
-class MemoryCache {
-  private cache: Map<string, CacheEntry<any>> = new Map();
-
-  /**
-   * Get a value from the cache
-   * @param key The cache key
-   * @returns The cached value or undefined if not found or expired
-   */
-  get<T>(key: string): T | undefined {
-    const entry = this.cache.get(key);
-
-    if (!entry) {
-      return undefined;
-    }
-
-    // Check if the entry has expired
-    if (entry.expiry < Date.now()) {
-      this.cache.delete(key);
-      return undefined;
-    }
-
-    return entry.value as T;
-  }
+class Cache {
+  private store: Map<string, CacheItem<any>> = new Map();
 
   /**
    * Set a value in the cache
-   * @param key The cache key
-   * @param value The value to cache
-   * @param ttlSeconds Time to live in seconds (default: 5 minutes)
+   * @param key Cache key
+   * @param value Value to store
+   * @param ttlSeconds Time to live in seconds (optional)
    */
-  set<T>(key: string, value: T, ttlSeconds = 300): void {
-    const expiry = Date.now() + ttlSeconds * 1000;
-    this.cache.set(key, { value, expiry });
+  set<T>(key: string, value: T, ttlSeconds?: number): void {
+    const expiry = ttlSeconds ? Date.now() + ttlSeconds * 1000 : null;
+    this.store.set(key, { value, expiry });
   }
 
   /**
-   * Remove a value from the cache
-   * @param key The cache key
+   * Get a value from the cache
+   * @param key Cache key
+   * @returns The cached value or undefined if not found or expired
+   */
+  get<T>(key: string): T | undefined {
+    const item = this.store.get(key);
+
+    // Return undefined if item doesn't exist
+    if (!item) return undefined;
+
+    // Check if the item has expired
+    if (item.expiry && item.expiry < Date.now()) {
+      this.store.delete(key);
+      return undefined;
+    }
+
+    return item.value as T;
+  }
+
+  /**
+   * Delete an item from the cache
+   * @param key Cache key
    */
   delete(key: string): void {
-    this.cache.delete(key);
+    this.store.delete(key);
   }
 
   /**
-   * Clear all expired entries from the cache
-   */
-  cleanup(): void {
-    const now = Date.now();
-    for (const [key, entry] of this.cache.entries()) {
-      if (entry.expiry < now) {
-        this.cache.delete(key);
-      }
-    }
-  }
-
-  /**
-   * Clear the entire cache
+   * Clear all items from the cache
    */
   clear(): void {
-    this.cache.clear();
+    this.store.clear();
   }
 }
 
 // Export a singleton instance
-export const cache = new MemoryCache();
+export const cache = new Cache();

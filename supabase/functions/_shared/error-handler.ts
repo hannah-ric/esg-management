@@ -1,5 +1,13 @@
 import { corsHeaders } from "./cors.ts";
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status = 500) {
+    super(message);
+    this.status = status;
+  }
+}
+
 export interface ErrorResponse {
   error: string;
   code?: string;
@@ -12,6 +20,13 @@ export function handleError(error: unknown, status = 500): Response {
   let errorMessage = "An unexpected error occurred";
   let errorCode = "INTERNAL_ERROR";
   let details = undefined;
+
+  if (error instanceof ApiError) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: error.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   if (error instanceof Error) {
     errorMessage = error.message;
@@ -27,7 +42,16 @@ export function handleError(error: unknown, status = 500): Response {
   } else if (typeof error === "string") {
     errorMessage = error;
   } else if (error && typeof error === "object") {
-    errorMessage = JSON.stringify(error);
+    if ("message" in error && typeof (error as any).message === "string") {
+      errorMessage = (error as any).message;
+    } else {
+      errorMessage = JSON.stringify(error);
+    }
+
+    if ("code" in error && typeof (error as any).code === "string") {
+      errorCode = (error as any).code;
+    }
+
     details = error;
   }
 
