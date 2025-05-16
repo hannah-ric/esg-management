@@ -555,7 +555,7 @@ const ESGMetricDashboard: React.FC<ESGMetricDashboardProps> = ({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {metric.historical_data
+                          {(metric.historical_data || [])
                             .sort((a, b) => b.year.localeCompare(a.year))
                             .map((hd, idx) => (
                               <TableRow key={idx}>

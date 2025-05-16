@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc ; vite build",
-    "build-no-errors": "tsc ; vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "types:supabase": "npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > src/types/supabase.ts"
+    "types:supabase": "npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > src/types/supabase.ts",
+    "start": "serve -s dist -l 3000",
+    "dev:debug": "node --inspect=0.0.0.0:9229 ./node_modules/vite/bin/vite.js --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.6.0",
@@ -58,6 +59,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "lucide-react": "^0.394.0",
+    "postgres": "^3.4.5",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.3.0",
     "react-day-picker": "^8.10.1",
@@ -67,6 +69,7 @@
     "react-resizable-panels": "^2.0.19",
     "react-router": "^6.23.1",
     "react-router-dom": "^6.30.0",
+    "serve": "^14.2.3",
     "stripe": "^18.1.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",

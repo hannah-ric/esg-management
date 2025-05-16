@@ -116,6 +116,10 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
   }, [resourceId, loadData]);
 
   const handleAddDataPoint = useCallback(async () => {
+    if (!resourceId) {
+      setError("A resource must be selected to add a data point.");
+      return;
+    }
     try {
       if (!newDataPoint.metric_id || !newDataPoint.value) {
         setError("Metric ID and value are required.");
@@ -170,6 +174,10 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
   }, [onDataChange]);
 
   const handleAddMapping = useCallback(async () => {
+    if (!resourceId) {
+      setError("A resource must be selected to add a framework mapping.");
+      return;
+    }
     try {
       if (!newMapping.framework_id || !newMapping.disclosure_id) {
         setError("Framework ID and disclosure ID are required.");

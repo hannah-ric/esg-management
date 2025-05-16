@@ -1,6 +1,3 @@
-// Export all named exports from error-utils.ts
-export * from "./error-utils";
-
 // Import the functions explicitly to include in the default export
 import {
   withErrorHandling,

@@ -321,20 +321,20 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
         <Button 
           variant="outline" 
           size="sm"
-          disabled={pagination.page <= 1}
-          onClick={() => handlePageChange(pagination.page - 1)}
+          disabled={(pagination.page || 1) <= 1}
+          onClick={() => handlePageChange((pagination.page || 1) - 1)}
           aria-label="Go to previous page of resource data"
         >
           <ChevronLeft className="h-4 w-4 mr-1" /> Previous
         </Button>
         <span className="text-sm">
-          Page {pagination.page} of {totalPages}
+          Page {pagination.page || 1} of {totalPages}
         </span>
         <Button 
           variant="outline" 
           size="sm"
-          disabled={pagination.page >= totalPages}
-          onClick={() => handlePageChange(pagination.page + 1)}
+          disabled={(pagination.page || 1) >= totalPages}
+          onClick={() => handlePageChange((pagination.page || 1) + 1)}
           aria-label="Go to next page of resource data"
         >
           Next <ChevronRight className="h-4 w-4 ml-1" />
@@ -351,20 +351,20 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
         <Button 
           variant="outline" 
           size="sm"
-          disabled={searchPagination.page <= 1 || isSearching}
-          onClick={() => handleSearchPageChange(searchPagination.page - 1)}
+          disabled={(searchPagination.page || 1) <= 1 || isSearching}
+          onClick={() => handleSearchPageChange((searchPagination.page || 1) - 1)}
           aria-label="Go to previous page of search results"
         >
           <ChevronLeft className="h-4 w-4 mr-1" /> Previous
         </Button>
         <span className="text-sm">
-          Page {searchPagination.page} of {searchTotalPages}
+          Page {searchPagination.page || 1} of {searchTotalPages}
         </span>
         <Button 
           variant="outline" 
           size="sm"
-          disabled={searchPagination.page >= searchTotalPages || isSearching}
-          onClick={() => handleSearchPageChange(searchPagination.page + 1)}
+          disabled={(searchPagination.page || 1) >= searchTotalPages || isSearching}
+          onClick={() => handleSearchPageChange((searchPagination.page || 1) + 1)}
           aria-label="Go to next page of search results"
         >
           Next <ChevronRight className="h-4 w-4 ml-1" />

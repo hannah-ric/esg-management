@@ -113,15 +113,19 @@ export const exportToExcel = async (data: any[], filename: string = "data.xlsx")
     // Style headers (optional)
     worksheet.getRow(1).font = { bold: true };
     worksheet.columns.forEach(column => {
-      // Estimate column width based on header and some sample data
-      let maxLength = 0;
-      column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
-        const columnLength = cell.value ? cell.value.toString().length : 10;
-        if (columnLength > maxLength) {
-          maxLength = columnLength;
-        }
-      });
-      column.width = maxLength < 10 ? 10 : maxLength > 50 ? 50 : maxLength + 2;
+      if (column && typeof column.eachCell === 'function') {
+        // Estimate column width based on header and some sample data
+        let maxLength = 0;
+        column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+          const columnLength = cell.value ? cell.value.toString().length : 10;
+          if (columnLength > maxLength) {
+            maxLength = columnLength;
+          }
+        });
+        column.width = maxLength < 10 ? 10 : maxLength > 50 ? 50 : maxLength + 2;
+      } else if (column) {
+        column.width = 20; // Default width if eachCell is not available but column is
+      }
     });
 
     // Write to buffer and trigger download
