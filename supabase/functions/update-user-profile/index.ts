@@ -39,13 +39,28 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prepare update data
-    const updateData: Record<string, any> = {};
+    // Prepare update data for your 'users' table
+    const userTableUpdateData: { 
+      first_name?: string; 
+      last_name?: string; 
+      company_name?: string; 
+      avatar_url?: string;
+      updated_at?: string; // Will be added later
+      auth_user_id?: string; // For insert case
+      created_at?: string; // For insert case
+    } = {};
 
-    if (firstName !== undefined) updateData.first_name = firstName;
-    if (lastName !== undefined) updateData.last_name = lastName;
-    if (companyName !== undefined) updateData.company_name = companyName;
-    if (avatarUrl !== undefined) updateData.avatar_url = avatarUrl;
+    if (firstName !== undefined) userTableUpdateData.first_name = firstName;
+    if (lastName !== undefined) userTableUpdateData.last_name = lastName;
+    if (companyName !== undefined) userTableUpdateData.company_name = companyName;
+    if (avatarUrl !== undefined) userTableUpdateData.avatar_url = avatarUrl;
+
+    // Prepare user_metadata for auth.users update
+    const userMetadataUpdate: Record<string, string | undefined> = {};
+    if (firstName !== undefined) userMetadataUpdate.first_name = firstName;
+    if (lastName !== undefined) userMetadataUpdate.last_name = lastName;
+    if (companyName !== undefined) userMetadataUpdate.company_name = companyName;
+    // avatar_url is not typically in user_metadata directly unless you customize it
 
     // Check if user exists before updating
     const { data: existingUser, error: checkError } = await supabase
@@ -66,7 +81,7 @@ Deno.serve(async (req) => {
         // Create new user profile
         const newUserData = {
           auth_user_id: userId,
-          ...updateData,
+          ...userTableUpdateData, // Use the typed object
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -95,7 +110,7 @@ Deno.serve(async (req) => {
       const { data: updatedProfile, error: updateError } = await supabase
         .from("users")
         .update({
-          ...updateData,
+          ...userTableUpdateData, // Use the typed object
           updated_at: new Date().toISOString(),
         })
         .eq("auth_user_id", userId)
@@ -114,11 +129,7 @@ Deno.serve(async (req) => {
     const { error: authError } = await supabase.auth.admin.updateUserById(
       userId,
       {
-        user_metadata: {
-          first_name: firstName,
-          last_name: lastName,
-          company_name: companyName,
-        },
+        user_metadata: userMetadataUpdate, // Use the typed object
       },
     );
 

@@ -31,8 +31,9 @@ export function handleError(error: unknown, status = 500): Response {
   if (error instanceof Error) {
     errorMessage = error.message;
     // Extract error code if available (e.g., from API responses)
-    if ("code" in error && typeof (error as any).code === "string") {
-      errorCode = (error as any).code;
+    const errAsObject = error as { code?: unknown };
+    if (typeof errAsObject.code === "string") {
+      errorCode = errAsObject.code;
     }
 
     // Include stack trace in development
@@ -42,14 +43,19 @@ export function handleError(error: unknown, status = 500): Response {
   } else if (typeof error === "string") {
     errorMessage = error;
   } else if (error && typeof error === "object") {
-    if ("message" in error && typeof (error as any).message === "string") {
-      errorMessage = (error as any).message;
+    const errAsObject = error as { message?: unknown; code?: unknown };
+    if (typeof errAsObject.message === "string") {
+      errorMessage = errAsObject.message;
     } else {
-      errorMessage = JSON.stringify(error);
+      try {
+        errorMessage = JSON.stringify(error);
+      } catch {
+        errorMessage = "Non-serializable error object";
+      }
     }
 
-    if ("code" in error && typeof (error as any).code === "string") {
-      errorCode = (error as any).code;
+    if (typeof errAsObject.code === "string") {
+      errorCode = errAsObject.code;
     }
 
     details = error;

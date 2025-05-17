@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback /*, ChangeEvent*/ } from "react";
 import { useDropzone } from "react-dropzone";
-import { motion } from "framer-motion";
+// import { motion } from "framer-motion"; // Unused
 import { supabase } from "@/lib/supabase";
 import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
@@ -32,10 +32,27 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge"; // Unused
+
+// Type for the resource data returned after DB insert
+export interface UploadedResourceData {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  category: string;
+  url: string;
+  file_type: string;
+  file_path: string;
+  source: string;
+  date_added: string; 
+  tags: string[];
+  user_id: string;
+  // Add any other fields returned by .select().single()
+}
 
 interface ResourceUploaderProps {
-  onResourceAdded?: (resource: any) => void;
+  onResourceAdded?: (resource: UploadedResourceData) => void; // Typed resource
 }
 
 const ResourceUploader: React.FC<ResourceUploaderProps> = ({
@@ -209,7 +226,13 @@ const ResourceUploader: React.FC<ResourceUploaderProps> = ({
       }
     } catch (err) {
       logger.error("Error uploading resource", err);
-      setError(err.message || "Failed to upload resource. Please try again.");
+      let message = "Failed to upload resource. Please try again.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      setError(message);
     } finally {
       setIsUploading(false);
     }

@@ -5,7 +5,7 @@ import { cache } from "@shared/cache.ts";
 
 interface AIAssistantRequest {
   prompt: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   task: string;
   maxTokens?: number;
   userId?: string;
@@ -25,7 +25,7 @@ interface AnthropicRequestBody {
   max_tokens: number;
   model: string;
   messages: Message[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   system?: string;
   stop_sequences?: string[];
   stream?: boolean;

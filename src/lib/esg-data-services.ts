@@ -405,12 +405,19 @@ async function searchESGDataPointsWithIlikeFallback(
     };
 }
 
+// Define a more specific type for framework recommendations
+export interface FrameworkRecItem {
+  framework: string;
+  disclosure: string;
+  description: string;
+}
+
 // Get framework recommendations based on metric data
 export async function getFrameworkRecommendations(metricData: {
   metricId: string;
   value: string;
   context?: string;
-}): Promise<any[]> {
+}): Promise<FrameworkRecItem[]> {
   try {
     // This is a simplified version - in a real app, you might call an AI service
     // or have a more sophisticated recommendation engine

@@ -1,7 +1,6 @@
 // Export all named exports from all lib modules
+export type { AIAssistantResponse, CompanyProfile } from "./ai-services";
 export {
-  AIAssistantResponse,
-  CompanyProfile,
   getFrameworkRecommendations,
   getResourceRecommendations,
   getMaterialityBasedResources,
@@ -11,16 +10,20 @@ export {
   analyzeMaterialityImpactForPlan,
   generateESGActionPlan
 } from "./ai-services";
+
 export { logger } from "./logger";
 export { cn, parseLocaleNumber, formatLocaleNumber } from "./utils";
 export { withErrorHandling, useErrorHandler, sanitizeInput, sanitizeObject } from "./error-utils";
 export { saveQuestionnaireData, getQuestionnaireData, getMockUser } from "./services";
-export {
+
+export type {
   ESGHistoricalDataPoint,
   ESGDataPoint,
   ESGFrameworkMapping,
   PaginationParams,
-  PaginatedResponse,
+  PaginatedResponse
+} from "./esg-data-services";
+export {
   getESGDataPoints,
   getAllESGDataPoints,
   getESGFrameworkMappings,
@@ -30,129 +33,100 @@ export {
   deleteESGFrameworkMapping,
   getUserESGDataPoints,
   searchESGDataPoints,
-  getFrameworkRecommendations as getMetricFrameworkRecommendations,
-  getFrameworkMappings as getFrameworkMappingsByFrameworkId
+  // getFrameworkRecommendations as getMetricFrameworkRecommendations, // Already exported from ai-services, avoid name clash or alias differently if needed
+  // getFrameworkMappings as getFrameworkMappingsByFrameworkId
 } from "./esg-data-services";
-export {
+
+export type {
   TailoredRecommendationsRequest,
   TailoredRecommendationsResponse,
   ParsedRecommendations,
   MaterialityTopic,
   FrameworkRecommendation,
   ImplementationStep,
-  ResourceRecommendation,
+  ResourceRecommendation
+} from "./tailored-recommendations";
+export { 
   getTailoredRecommendations,
   parseRecommendations
 } from "./tailored-recommendations";
+
 export { analyzeExternalContent, searchResourceLibrary, generateAIRecommendations } from "./plan-enhancement";
 export { StripeKeyProvider, useStripeKey } from "./stripe-key-provider";
 
-// Import the functions explicitly to include in the default export
-import {
-  getFrameworkRecommendations,
-  getResourceRecommendations,
-  getMaterialityBasedResources,
-  analyzeMaterialityTopics,
-  getPeerBenchmarking,
-  getESGDataInsights,
-  analyzeMaterialityImpactForPlan,
-  generateESGActionPlan,
+// Import all the values that will be part of the default export
+import { 
+    getFrameworkRecommendations as getFrameworkRecommendations_ai,
+    getResourceRecommendations as getResourceRecommendations_ai,
+    getMaterialityBasedResources as getMaterialityBasedResources_ai,
+    analyzeMaterialityTopics as analyzeMaterialityTopics_ai,
+    getPeerBenchmarking as getPeerBenchmarking_ai,
+    getESGDataInsights as getESGDataInsights_ai,
+    analyzeMaterialityImpactForPlan as analyzeMaterialityImpactForPlan_ai,
+    generateESGActionPlan as generateESGActionPlan_ai 
 } from "./ai-services";
-
-// Import other default exports
-import loggerExports from "./logger.index";
-import utilsExports from "./utils.index";
-import errorUtilsExports from "./error-utils.index";
-import servicesExports from "./services.index";
-import esgDataServicesExports from "./esg-data-services.index";
-import tailoredRecommendationsExports from "./tailored-recommendations.index";
-import planEnhancementExports from "./plan-enhancement.index";
-import * as stripeKeyExports from "./stripe-key-provider.index";
-
-// Imports for constructing the default export
+import { logger as logger_local } from "./logger";
+import { cn as cn_utils, parseLocaleNumber as parseLocaleNumber_utils, formatLocaleNumber as formatLocaleNumber_utils } from "./utils";
+import { withErrorHandling as withErrorHandling_errors, useErrorHandler as useErrorHandler_errors, sanitizeInput as sanitizeInput_errors, sanitizeObject as sanitizeObject_errors } from "./error-utils";
+import { saveQuestionnaireData as saveQuestionnaireData_services, getQuestionnaireData as getQuestionnaireData_services, getMockUser as getMockUser_services } from "./services";
 import {
-  AIAssistantResponse as AIResponseDefault, 
-  CompanyProfile as CompanyProfileDefault,
-  getFrameworkRecommendations as getFrameworkRecommendationsFromAI,
-  getResourceRecommendations as getResourceRecommendationsFromAI,
-  getMaterialityBasedResources as getMaterialityBasedResourcesFromAI,
-  analyzeMaterialityTopics as analyzeMaterialityTopicsFromAI,
-  getPeerBenchmarking as getPeerBenchmarkingFromAI,
-  getESGDataInsights as getESGDataInsightsFromAI,
-  analyzeMaterialityImpactForPlan as analyzeMaterialityImpactForPlanFromAI,
-  generateESGActionPlan as generateESGActionPlanFromAI,
-} from "./ai-services";
+    getESGDataPoints as getESGDataPoints_esg,
+    getAllESGDataPoints as getAllESGDataPoints_esg,
+    getESGFrameworkMappings as getESGFrameworkMappings_esg,
+    saveESGDataPoint as saveESGDataPoint_esg,
+    deleteESGDataPoint as deleteESGDataPoint_esg,
+    saveESGFrameworkMapping as saveESGFrameworkMapping_esg,
+    deleteESGFrameworkMapping as deleteESGFrameworkMapping_esg,
+    getUserESGDataPoints as getUserESGDataPoints_esg,
+    searchESGDataPoints as searchESGDataPoints_esg,
+    getFrameworkRecommendations as getMetricFrameworkRecommendations_esg, // Aliased from esg-data-services
+    getFrameworkMappings as getFrameworkMappingsByFrameworkId_esg      // Aliased from esg-data-services
+} from "./esg-data-services";
+import { 
+    getTailoredRecommendations as getTailoredRecommendations_tailored,
+    parseRecommendations as parseRecommendations_tailored 
+} from "./tailored-recommendations";
+import { analyzeExternalContent as analyzeExternalContent_plan, searchResourceLibrary as searchResourceLibrary_plan, generateAIRecommendations as generateAIRecommendations_plan } from "./plan-enhancement";
+import { StripeKeyProvider as StripeKeyProvider_stripe, useStripeKey as useStripeKey_stripe } from "./stripe-key-provider";
 
-import loggerExports from "./logger.index"; 
-import utilsExports from "./utils.index";
-import errorUtilsExports from "./error-utils.index"; 
-import servicesExports from "./services.index"; 
-import esgDataServicesExports from "./esg-data-services.index"; 
-import tailoredRecommendationsExports from "./tailored-recommendations.index"; 
-import planEnhancementExports from "./plan-enhancement.index"; 
-import { StripeKeyProvider as StripeKeyProviderDefault, useStripeKey as useStripeKeyDefault } from "./stripe-key-provider";
-
-// Create a default export for modules that need it
 const libExports = {
-  AIAssistantResponse: AIResponseDefault,
-  CompanyProfile: CompanyProfileDefault,
-  getFrameworkRecommendations: getFrameworkRecommendationsFromAI,
-  getResourceRecommendations: getResourceRecommendationsFromAI,
-  getMaterialityBasedResources: getMaterialityBasedResourcesFromAI,
-  analyzeMaterialityTopics: analyzeMaterialityTopicsFromAI,
-  getPeerBenchmarking: getPeerBenchmarkingFromAI,
-  getESGDataInsights: getESGDataInsightsFromAI,
-  analyzeMaterialityImpactForPlan: analyzeMaterialityImpactForPlanFromAI,
-  generateESGActionPlan: generateESGActionPlanFromAI,
-
-  logger: loggerExports.logger,
-
-  cn: utilsExports.cn,
-  parseLocaleNumber: utilsExports.parseLocaleNumber,
-  formatLocaleNumber: utilsExports.formatLocaleNumber,
-
-  withErrorHandling: errorUtilsExports.withErrorHandling,
-  useErrorHandler: errorUtilsExports.useErrorHandler,
-  sanitizeInput: errorUtilsExports.sanitizeInput,
-  sanitizeObject: errorUtilsExports.sanitizeObject,
-
-  saveQuestionnaireData: servicesExports.saveQuestionnaireData,
-  getQuestionnaireData: servicesExports.getQuestionnaireData,
-  getMockUser: servicesExports.getMockUser,
-
-  ESGHistoricalDataPoint: esgDataServicesExports.ESGHistoricalDataPoint,
-  ESGDataPoint: esgDataServicesExports.ESGDataPoint,
-  ESGFrameworkMapping: esgDataServicesExports.ESGFrameworkMapping,
-  PaginationParams: esgDataServicesExports.PaginationParams,
-  PaginatedResponse: esgDataServicesExports.PaginatedResponse,
-  getESGDataPoints: esgDataServicesExports.getESGDataPoints,
-  getAllESGDataPoints: esgDataServicesExports.getAllESGDataPoints,
-  getESGFrameworkMappings: esgDataServicesExports.getESGFrameworkMappings,
-  saveESGDataPoint: esgDataServicesExports.saveESGDataPoint,
-  deleteESGDataPoint: esgDataServicesExports.deleteESGDataPoint,
-  saveESGFrameworkMapping: esgDataServicesExports.saveESGFrameworkMapping,
-  deleteESGFrameworkMapping: esgDataServicesExports.deleteESGFrameworkMapping,
-  getUserESGDataPoints: esgDataServicesExports.getUserESGDataPoints,
-  searchESGDataPoints: esgDataServicesExports.searchESGDataPoints,
-  getMetricFrameworkRecommendations: esgDataServicesExports.getFrameworkRecommendations,
-  getFrameworkMappingsByFrameworkId: esgDataServicesExports.getFrameworkMappings,
-
-  TailoredRecommendationsRequest: tailoredRecommendationsExports.TailoredRecommendationsRequest,
-  TailoredRecommendationsResponse: tailoredRecommendationsExports.TailoredRecommendationsResponse,
-  ParsedRecommendations: tailoredRecommendationsExports.ParsedRecommendations,
-  MaterialityTopic: tailoredRecommendationsExports.MaterialityTopic,
-  FrameworkRecommendation: tailoredRecommendationsExports.FrameworkRecommendation,
-  ImplementationStep: tailoredRecommendationsExports.ImplementationStep,
-  ResourceRecommendation: tailoredRecommendationsExports.ResourceRecommendation,
-  getTailoredRecommendations: tailoredRecommendationsExports.getTailoredRecommendations,
-  parseRecommendations: tailoredRecommendationsExports.parseRecommendations,
-
-  analyzeExternalContent: planEnhancementExports.analyzeExternalContent,
-  searchResourceLibrary: planEnhancementExports.searchResourceLibrary,
-  generateAIRecommendations: planEnhancementExports.generateAIRecommendations,
-
-  StripeKeyProvider: StripeKeyProviderDefault,
-  useStripeKey: useStripeKeyDefault,
+  getFrameworkRecommendations: getFrameworkRecommendations_ai,
+  getResourceRecommendations: getResourceRecommendations_ai,
+  getMaterialityBasedResources: getMaterialityBasedResources_ai,
+  analyzeMaterialityTopics: analyzeMaterialityTopics_ai,
+  getPeerBenchmarking: getPeerBenchmarking_ai,
+  getESGDataInsights: getESGDataInsights_ai,
+  analyzeMaterialityImpactForPlan: analyzeMaterialityImpactForPlan_ai,
+  generateESGActionPlan: generateESGActionPlan_ai,
+  logger: logger_local,
+  cn: cn_utils,
+  parseLocaleNumber: parseLocaleNumber_utils,
+  formatLocaleNumber: formatLocaleNumber_utils,
+  withErrorHandling: withErrorHandling_errors,
+  useErrorHandler: useErrorHandler_errors,
+  sanitizeInput: sanitizeInput_errors,
+  sanitizeObject: sanitizeObject_errors,
+  saveQuestionnaireData: saveQuestionnaireData_services,
+  getQuestionnaireData: getQuestionnaireData_services,
+  getMockUser: getMockUser_services,
+  getESGDataPoints: getESGDataPoints_esg,
+  getAllESGDataPoints: getAllESGDataPoints_esg,
+  getESGFrameworkMappings: getESGFrameworkMappings_esg,
+  saveESGDataPoint: saveESGDataPoint_esg,
+  deleteESGDataPoint: deleteESGDataPoint_esg,
+  saveESGFrameworkMapping: saveESGFrameworkMapping_esg,
+  deleteESGFrameworkMapping: deleteESGFrameworkMapping_esg,
+  getUserESGDataPoints: getUserESGDataPoints_esg,
+  searchESGDataPoints: searchESGDataPoints_esg,
+  getMetricFrameworkRecommendations: getMetricFrameworkRecommendations_esg,
+  getFrameworkMappingsByFrameworkId: getFrameworkMappingsByFrameworkId_esg,
+  getTailoredRecommendations: getTailoredRecommendations_tailored,
+  parseRecommendations: parseRecommendations_tailored,
+  analyzeExternalContent: analyzeExternalContent_plan,
+  searchResourceLibrary: searchResourceLibrary_plan,
+  generateAIRecommendations: generateAIRecommendations_plan,
+  StripeKeyProvider: StripeKeyProvider_stripe,
+  useStripeKey: useStripeKey_stripe,
 };
 
 export default libExports;

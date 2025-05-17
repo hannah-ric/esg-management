@@ -1,8 +1,8 @@
-import { corsHeaders, handleCors } from "@shared/cors.index";
-import {
-  handleError,
-  handleValidationError,
-} from "@shared/error-handler.index";
+// import { Stripe } from "https://esm.sh/stripe@10.17.0?target=deno"; // Unused
+import { corsHeaders } from "@shared/cors.ts";
+// import { handleError } from "@shared/error-handler.ts"; // Unused
+// import { handleValidationError } from "@shared/validation.ts"; // Unused
+// import { StripeRefund } from "@shared/stripe-types.ts"; // Unused
 
 Deno.serve(async (req) => {
   // Handle CORS

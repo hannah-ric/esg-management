@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
     }
 
     // Fetch resources from the database
-    let query = supabase
+    const query = supabase
       .from("resources")
       .select(
         `

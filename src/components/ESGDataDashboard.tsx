@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense, memo } from "react";
+import React, { useState, useEffect, lazy, Suspense, memo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import {
   Loader2,
   Search,
   Download,
-  Filter,
   Plus,
   FileText,
   ChevronLeft,
@@ -39,9 +38,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  getUserESGDataPoints,
+  // getUserESGDataPoints, // Commented out as unused
   searchESGDataPoints,
-  getFrameworkMappings,
+  // getFrameworkMappings, // Commented out as unused
   saveESGDataPoint,
   ESGDataPoint,
   getESGDataPoints,
@@ -54,6 +53,38 @@ import ESGDataInsights from "./ESGDataInsights";
 import ESGMetricDashboard from "./ESGMetricDashboard";
 import { Label } from "@/components/ui/label";
 
+// Define specific types for data structures
+interface ResourceItemFromDB {
+  id: string;
+  title: string;
+  // Add all other fields expected from the 'resources' table
+  // Example:
+  description?: string;
+  type?: string;
+  category?: string;
+  file_type?: string;
+  url?: string;
+  date_added?: string;
+  user_id?: string;
+}
+
+interface ExtractedDataPoint {
+  value: string | number;
+  context?: string;
+  confidence?: number;
+  source?: string;
+  frameworkId?: string;
+  disclosureId?: string;
+  // Any other fields specific to extracted points
+}
+
+interface ESGFrameworkMappingFromDB {
+  id: string; // Assuming mappings have an id
+  framework_id: string;
+  disclosure_id: string;
+  // any other fields from esg_framework_mappings table
+}
+
 interface ESGDataDashboardProps {
   onSelectResource?: (resourceId: string) => void;
 }
@@ -61,16 +92,13 @@ interface ESGDataDashboardProps {
 const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
   onSelectResource,
 }) => {
-  const [dataByResource, setDataByResource] = useState<Record<string, any[]>>(
-    {},
-  );
-  const [frameworkMappingsByResource, setFrameworkMappingsByResource] = useState<Record<string, Record<string, any[]>>>({});
+  const [dataByResource, setDataByResource] = useState<Record<string, ESGDataPoint[]>>({});
+  const [frameworkMappingsByResource, setFrameworkMappingsByResource] = useState<Record<string, Record<string, ESGFrameworkMappingFromDB[]>>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("by-resource");
   const [extractedDataPoints, setExtractedDataPoints] = useState<
-    Record<string, any>
+    Record<string, ExtractedDataPoint>
   >({});
   const [isExtractDialogOpen, setIsExtractDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -81,20 +109,111 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [pagination, setPagination] = useState<PaginationParams>({ page: 1, pageSize: 20 });
   const [totalPages, setTotalPages] = useState(1);
-  const [resources, setResources] = useState<any[]>([]);
+  const [resources, setResources] = useState<ResourceItemFromDB[]>([]);
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
+
+  const loadResources = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) throw new Error("User not authenticated");
+
+      const { data: resourcesData, error: resourcesError } = await supabase
+        .from("resources")
+        .select("id, title")
+        .eq("user_id", userId);
+
+      if (resourcesError) throw resourcesError;
+      setResources(resourcesData || []);
+      if (resourcesData && resourcesData.length > 0) {
+        if (!selectedResourceId) {
+             setSelectedResourceId(resourcesData[0].id);
+        }
+      } else {
+        setLoading(false);
+        setDataByResource({}); // Clear data if no resources
+        setFrameworkMappingsByResource({});
+      }
+    } catch (err) {
+      console.error("Error loading resources:", err);
+      setError("Failed to load resources. Please try again.");
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadResources();
-  }, []);
+  }, [loadResources]);
+
+  const loadResourceDataAndMappings = useCallback(async (resourceId: string) => {
+    setLoading(true);
+    setError(null);
+
+    const resourceCacheKey = `resourceMappingsCache_${resourceId}`;
+    const CACHE_DURATION_MS_RESOURCE = 1000 * 60 * 30; // 30 minutes cache for specific resource mappings
+
+    try {
+      const dpResponse = await getESGDataPoints(resourceId, { page: pagination.page, pageSize: pagination.pageSize });
+      const resource = resources.find(r => r.id === resourceId);
+      const resourceTitle = resource ? resource.title : "Unknown Resource";
+      setDataByResource({ [resourceTitle]: dpResponse.data });
+      setTotalPages(dpResponse.totalPages);
+
+      let currentResourceMappings: Record<string, ESGFrameworkMappingFromDB[]> = {};
+      try {
+        const cached = localStorage.getItem(resourceCacheKey);
+        if (cached) {
+          const { timestamp, data: cachedData } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_DURATION_MS_RESOURCE) {
+            currentResourceMappings = cachedData;
+          } else {
+            localStorage.removeItem(resourceCacheKey); // Expired
+          }
+        }
+      } catch (e) { console.error("Error reading resource mappings cache", e); localStorage.removeItem(resourceCacheKey);}
+
+      if (Object.keys(currentResourceMappings).length === 0) { // Not in cache or expired
+        const { data: mappingsData, error: mappingsError } = await supabase
+          .from("esg_framework_mappings")
+          .select("*")
+          .eq("resource_id", resourceId);
+        
+        if (mappingsError) throw mappingsError;
+
+        const organizedMappings: Record<string, ESGFrameworkMappingFromDB[]> = {};
+        const frameworks = ["GRI", "SASB", "TCFD", "CDP", "SDG"]; // Consider making this dynamic or a constant
+        frameworks.forEach(framework => {
+          const frameworkSpecificMappings = mappingsData?.filter(
+            (mapping): mapping is ESGFrameworkMappingFromDB => mapping.framework_id === framework // Type guard
+          );
+          if (frameworkSpecificMappings?.length > 0) {
+            organizedMappings[framework] = frameworkSpecificMappings;
+          }
+        });
+        currentResourceMappings = organizedMappings;
+        try {
+            localStorage.setItem(resourceCacheKey, JSON.stringify({ timestamp: Date.now(), data: currentResourceMappings }));
+        } catch (e) { console.error("Error saving resource mappings to cache", e); }
+      }
+      
+      setFrameworkMappingsByResource(prev => ({ ...prev, [resourceId]: currentResourceMappings }));
+
+    } catch (err) {
+      console.error(`Error loading data for resource ${resourceId}:`, err);
+      setError("Failed to load ESG data or mappings. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination, resources]);
 
   useEffect(() => {
     if (selectedResourceId) {
       loadResourceDataAndMappings(selectedResourceId);
     }
-  }, [selectedResourceId, pagination]);
+  }, [selectedResourceId, loadResourceDataAndMappings, pagination]);
 
-  const handleDataExtracted = (dataPoints: Record<string, any>) => {
+  const handleDataExtracted = (dataPoints: Record<string, ExtractedDataPoint>) => {
     setExtractedDataPoints(dataPoints);
     setIsExtractDialogOpen(false);
     setActiveTab("extracted-data");
@@ -102,7 +221,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
 
   const handleAddExtractedDataPoint = async (
     metricId: string,
-    dataPoint: any,
+    dataPoint: ExtractedDataPoint,
   ) => {
     try {
       // Get the first resource ID or the selected resource
@@ -120,7 +239,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
       const newDataPoint: ESGDataPoint = {
         resource_id: resourceId,
         metric_id: metricId,
-        value: dataPoint.value,
+        value: String(dataPoint.value),
         context: dataPoint.context || "",
         confidence: dataPoint.confidence || 0.8,
         source: dataPoint.source || "Extracted data",
@@ -150,100 +269,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
     }
   };
 
-  const loadResources = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      if (!userId) throw new Error("User not authenticated");
-
-      const { data: resourcesData, error: resourcesError } = await supabase
-        .from("resources")
-        .select("id, title")
-        .eq("user_id", userId);
-
-      if (resourcesError) throw resourcesError;
-      setResources(resourcesData || []);
-      if (resourcesData && resourcesData.length > 0) {
-        if (!selectedResourceId) {
-             setSelectedResourceId(resourcesData[0].id);
-        }
-      } else {
-        setLoading(false);
-        setDataByResource({}); // Clear data if no resources
-        setFrameworkMappingsByResource({});
-      }
-    } catch (err) {
-      console.error("Error loading resources:", err);
-      setError("Failed to load resources. Please try again.");
-      setLoading(false);
-    }
-  };
-
-  const loadResourceDataAndMappings = async (resourceId: string) => {
-    setLoading(true);
-    setError(null);
-
-    const resourceCacheKey = `resourceMappingsCache_${resourceId}`;
-    const CACHE_DURATION_MS_RESOURCE = 1000 * 60 * 30; // 30 minutes cache for specific resource mappings
-
-    try {
-      // Load ESG Data Points (paginated)
-      const dpResponse = await getESGDataPoints(resourceId, pagination);
-      const resource = resources.find(r => r.id === resourceId);
-      const resourceTitle = resource ? resource.title : "Unknown Resource";
-      setDataByResource({ [resourceTitle]: dpResponse.data });
-      setTotalPages(dpResponse.totalPages);
-
-      // Load Framework Mappings for this specific resource with caching
-      let currentResourceMappings: Record<string, any[]> = {};
-      try {
-        const cached = localStorage.getItem(resourceCacheKey);
-        if (cached) {
-          const { timestamp, data: cachedData } = JSON.parse(cached);
-          if (Date.now() - timestamp < CACHE_DURATION_MS_RESOURCE) {
-            currentResourceMappings = cachedData;
-          } else {
-            localStorage.removeItem(resourceCacheKey); // Expired
-          }
-        }
-      } catch (e) { console.error("Error reading resource mappings cache", e); localStorage.removeItem(resourceCacheKey);}
-
-      if (Object.keys(currentResourceMappings).length === 0) { // Not in cache or expired
-        const { data: mappingsData, error: mappingsError } = await supabase
-          .from("esg_framework_mappings")
-          .select("*")
-          .eq("resource_id", resourceId); // Fetch only for the current resource
-        
-        if (mappingsError) throw mappingsError;
-
-        const organizedMappings: Record<string, any[]> = {};
-        const frameworks = ["GRI", "SASB", "TCFD", "CDP", "SDG"]; // Consider making this dynamic or a constant
-        frameworks.forEach(framework => {
-          const frameworkSpecificMappings = mappingsData?.filter(
-            mapping => mapping.framework_id === framework
-          );
-          if (frameworkSpecificMappings?.length > 0) {
-            organizedMappings[framework] = frameworkSpecificMappings;
-          }
-        });
-        currentResourceMappings = organizedMappings;
-        try {
-            localStorage.setItem(resourceCacheKey, JSON.stringify({ timestamp: Date.now(), data: currentResourceMappings }));
-        } catch (e) { console.error("Error saving resource mappings to cache", e); }
-      }
-      
-      setFrameworkMappingsByResource(prev => ({ ...prev, [resourceId]: currentResourceMappings }));
-
-    } catch (err) {
-      console.error(`Error loading data for resource ${resourceId}:`, err);
-      setError("Failed to load ESG data or mappings. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearch = async (newPage?: number) => {
+  const handleSearch = useCallback(async (newPage?: number) => {
     if (!searchQuery) {
       setSearchResults([]);
       setSearchTotalPages(1);
@@ -255,11 +281,11 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
     const currentPage = newPage || searchPagination.page;
 
     try {
-      const response = await searchESGDataPoints(searchQuery, { ...searchPagination, page: currentPage });
+      const response = await searchESGDataPoints(searchQuery, { page: currentPage, pageSize: searchPagination.pageSize });
       setSearchResults(response.data);
       setSearchTotalPages(response.totalPages);
       setSearchPagination(prev => ({ ...prev, page: currentPage }));
-      setActiveTab("search-results"); // Switch to search results tab
+      setActiveTab("search-results");
     } catch (err) {
       console.error("Error searching ESG data:", err);
       setError("Failed to search ESG data. Please try again.");
@@ -268,7 +294,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [searchQuery, searchPagination]);
   
   const handleSearchPageChange = (newPage: number) => {
     handleSearch(newPage);
@@ -551,7 +577,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
             {Object.keys(dataByResource).length > 0 ? (
               <div className="space-y-6">
                 {Object.entries(dataByResource).map(
-                  ([resourceName, dataPoints]) => (
+                  ([resourceName, dataPoints]: [string, ESGDataPoint[]]) => (
                     <div key={resourceName} className="border rounded-md p-4">
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="font-medium text-lg">{resourceName}</h3>
@@ -651,7 +677,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(frameworkSpecificMappings as any[]).map((mapping: any) => (
+                          {(frameworkSpecificMappings || []).map((mapping: ESGFrameworkMappingFromDB) => (
                             <TableRow key={mapping.id}>
                               <TableCell className="font-medium">
                                 {mapping.disclosure_id}
@@ -737,7 +763,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
             {!isSearching && searchResults.length === 0 && searchQuery && (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
-                  No results found for "{searchQuery}". Try a different search
+                  No results found for &quot;{searchQuery}&quot;. Try a different search
                   term.
                 </p>
               </div>
@@ -760,14 +786,14 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
                     Recently Extracted ESG Data
                   </h3>
                   <div className="text-sm text-muted-foreground">
-                    Click "Add to Dashboard" to incorporate data points into
+                    Click &quot;Add to Dashboard&quot; to incorporate data points into
                     your ESG dashboard
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   {Object.entries(extractedDataPoints).map(
-                    ([metricId, dataPoint]: [string, any]) => (
+                    ([metricId, dataPoint]: [string, ExtractedDataPoint]) => (
                       <div
                         key={metricId}
                         className="border rounded-md p-4 flex justify-between items-start"

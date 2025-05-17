@@ -1,6 +1,6 @@
 // src/workers/pdf.worker.ts
 import jsPDF from 'jspdf';
-// import html2canvas from 'html2canvas';
+// import html2canvas from 'html2canvas'; // Unused
 import * as htmlToImage from 'html-to-image';
 
 interface PDFWorkerMessage {
@@ -8,6 +8,13 @@ interface PDFWorkerMessage {
   htmlString: string; // Instead of elementId, pass the HTML string directly
   filename: string;
 }
+
+declare let self: DedicatedWorkerGlobalScope;
+export {}; // Ensure this is treated as a module
+
+// Define constants for default image dimensions if an image fails to load
+// const FAKE_IMG_WIDTH_IF_ERROR = 100; // Unused
+// const FAKE_IMG_HEIGHT_IF_ERROR = 100; // Unused
 
 self.onmessage = async (event: MessageEvent<PDFWorkerMessage>) => {
   const { action, htmlString, filename } = event.data;
@@ -57,8 +64,8 @@ self.onmessage = async (event: MessageEvent<PDFWorkerMessage>) => {
       const pdfPageHeight = pdf.internal.pageSize.getHeight();
 
       // To get image dimensions from data URL, we need to load it into an Image object
-      const FAKE_IMG_WIDTH_IF_ERROR = elementWidth * 2; // Assuming scale of 2 like html2canvas had
-      const FAKE_IMG_HEIGHT_IF_ERROR = elementHeight * 2;
+      // const FAKE_IMG_WIDTH_IF_ERROR = elementWidth * 2; // Assuming scale of 2 like html2canvas had
+      // const FAKE_IMG_HEIGHT_IF_ERROR = elementHeight * 2;
 
       const loadImage = (url: string): Promise<HTMLImageElement> => 
         new Promise((resolve, reject) => {
@@ -139,10 +146,13 @@ self.onmessage = async (event: MessageEvent<PDFWorkerMessage>) => {
       self.postMessage({ success: true, filename, pdfBlob });
     } catch (error) {
       console.error("Error in PDF worker:", error);
-      self.postMessage({ success: false, error: error.message, filename });
+      let errorMessage = "An unexpected error occurred while generating the PDF.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      self.postMessage({ success: false, error: errorMessage, filename });
     }
   }
-};
-
-// To satisfy TypeScript for a module worker, export an empty object.
-export {}; 
+}; 

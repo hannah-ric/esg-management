@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import React, { useState, useEffect /*, useMemo, useCallback*/ } from "react";
+// import { supabase } from "@/lib/supabase"; // Commented out unused import
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import {
   Loader2,
   Search,
   Download,
-  Filter,
+  // Filter, // Commented out unused import
   Plus,
   FileText,
   BarChart3,
@@ -64,13 +64,15 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface ESGMetricDashboardProps {
-  userId?: string;
-  onSelectMetric?: (metricId: string) => void;
+  resourceId?: string;
+  _metricId?: string; // Prefixed unused prop
+  _onSelectMetric?: (metricId: string) => void; // Prefixed if truly unused but part of interface
 }
 
 const ESGMetricDashboard: React.FC<ESGMetricDashboardProps> = ({
-  userId,
-  onSelectMetric,
+  resourceId,
+  _metricId, // Use prefixed prop
+  _onSelectMetric, // Use prefixed prop
 }) => {
   const [metrics, setMetrics] = useState<ESGDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,7 +91,7 @@ const ESGMetricDashboard: React.FC<ESGMetricDashboardProps> = ({
 
   useEffect(() => {
     loadMetrics();
-  }, [userId]);
+  }, [resourceId]);
 
   const loadMetrics = async () => {
     setLoading(true);

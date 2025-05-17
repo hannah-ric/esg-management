@@ -224,69 +224,7 @@ function processDiffbotResponse(
   };
 }
 
-async function generateAIEnhancedSummary(
-  resource: ESGResource,
-): Promise<string | null> {
-  try {
-    // Limit content length to avoid token limits
-    const contentToAnalyze = resource.rawContent?.substring(0, 10000) || "";
-    if (!contentToAnalyze) return null;
-
-    const promptText = `Analyze the following ESG content and provide a structured summary that includes:
-1. Key ESG topics covered
-2. Important metrics or data points mentioned
-3. Relevant frameworks referenced (like GRI, SASB, TCFD)
-4. Main sustainability initiatives described
-5. Recommendations for implementation based on the content
-
-Content to analyze:
-${contentToAnalyze}`;
-
-    const response = await fetch(
-      "https://api.picaos.com/v1/passthrough/messages",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-pica-secret": Deno.env.get("PICA_SECRET_KEY") || "",
-          "x-pica-connection-key":
-            Deno.env.get("PICA_ANTHROPIC_CONNECTION_KEY") || "",
-          "x-pica-action-id":
-            "conn_mod_def::F7wlcYnWg5g::t9i_QerkQwGYOnjy18DBvg",
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          max_tokens: 1000,
-          model: "claude-3-5-sonnet-20240620",
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: promptText,
-                },
-              ],
-            },
-          ],
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        `Anthropic API error: ${errorData.error || response.statusText}`,
-      );
-    }
-
-    const data = await response.json();
-    return data.content[0].text;
-  } catch (error) {
-    console.error("Error generating AI summary:", error);
-    return null;
-  }
-}
+// const generateAIEnhancedSummary = async (text: string, companyName: string, url: string) => { // Commented out
 
 async function extractESGDataPoints(
   resource: ESGResource,

@@ -51,9 +51,15 @@ const Layout = () => {
       setEmail("");
       setPassword("");
       navigate("/");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Login error:", err);
-      setError(err.message || "Invalid email or password. Please try again.");
+      let message = "Invalid email or password. Please try again.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -92,9 +98,15 @@ const Layout = () => {
         "Account created successfully! Please check your email to confirm your account before logging in.",
       );
       setAuthTab("login");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Signup error:", err);
-      setError(err.message || "Failed to create account. Please try again.");
+      let message = "Failed to create account. Please try again.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -315,7 +327,7 @@ const Layout = () => {
                               onClick={() => setAuthTab("signup")}
                               className="text-primary hover:underline"
                             >
-                              Don't have an account? Sign up
+                              Don&apos;t have an account? Sign up
                             </button>
                           </div>
                         </div>

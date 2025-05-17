@@ -19,9 +19,10 @@ import {
   ESGHistoricalDataPoint,
   saveESGDataPoint,
   getFrameworkRecommendations,
+  FrameworkRecItem
 } from "@/lib/esg-data-services";
-import { parseLocaleNumber, formatLocaleNumber } from '@/lib/utils';
-import { sanitizeInput } from '@/lib/error-utils';
+import { formatLocaleNumber } from '@/lib/utils';
+// import { sanitizeInput } from '@/lib/error-utils'; // Unused
 import { useToast } from "@/components/ui/use-toast";
 
 interface ESGMetricFormProps {
@@ -57,7 +58,7 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recommendedFrameworks, setRecommendedFrameworks] = useState<any[]>([]);
+  const [recommendedFrameworks, setRecommendedFrameworks] = useState<FrameworkRecItem[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] =
     useState(false);
 
@@ -73,17 +74,22 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
     });
   }, [initialData]);
 
-  const handleInputChange = useCallback((field: keyof ESGDataPoint, value: any) => {
-    const sanitizedValue = (typeof value === 'string' && field !== 'value')
-                            ? sanitizeInput(value) 
-                            : value;
-    setFormData(prev => ({ ...prev, [field]: sanitizedValue }));
-  }, []);
+  // const handleInputChange = useCallback((field: keyof ESGDataPoint, value: string | number | boolean | ESGHistoricalDataPoint[] | undefined) => {
+  //   let sanitizedValue: string | number | boolean | ESGHistoricalDataPoint[] | undefined | null = value;
+  //   if (typeof value === 'string' && (field === 'metric_id' || field === 'value' || field === 'context' || field === 'source')) {
+  //     sanitizedValue = sanitizeInput(value);
+  //   } else if (field === 'historical_data' && !Array.isArray(value)) {
+  //     sanitizedValue = []; // Ensure historical_data is an array
+  //   }
+  //   setFormData(prev => ({
+  //     ...prev,
+  //     [field]: sanitizedValue as ESGDataPoint[keyof ESGDataPoint]
+  //   }));
+  // }, []);
 
-  const handleNumericInputChange = useCallback((field: 'value', displayValue: string) => {
-    setDisplayValues(prev => ({ ...prev, [field]: displayValue }));
-    const parsed = parseLocaleNumber(displayValue);
-    setFormData(prev => ({ ...prev, [field]: displayValue }));
+  const handleNumericInputChange = useCallback((displayValue: string) => {
+    setDisplayValues(prev => ({ ...prev, value: displayValue }));
+    setFormData(prev => ({ ...prev, value: displayValue }));
   }, []);
 
   // Predefined metric options
@@ -169,7 +175,7 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
     try {
       const recommendations = await getFrameworkRecommendations({
         metricId: formData.metric_id,
-        value: formData.value,
+        value: String(formData.value),
         context: formData.context || "",
       });
 
@@ -193,12 +199,6 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    const numericValue = parseLocaleNumber(displayValues.value);
-
-    if (displayValues.value && isNaN(numericValue)) {
-        toast({ title: "Invalid Input", description: "Current value is not a valid number.", variant: "destructive" });
-        return;
-    }
 
     const finalMetric: Partial<ESGDataPoint> = {
         ...formData,
@@ -300,7 +300,7 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
             id="value"
             placeholder="e.g., 1000 tCO2e"
             value={displayValues.value}
-            onChange={(e) => handleNumericInputChange('value', e.target.value)}
+            onChange={(e) => handleNumericInputChange(e.target.value)}
           />
         </div>
 
@@ -502,7 +502,7 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
                 <p className="text-muted-foreground">
                   {isLoadingRecommendations
                     ? "Loading recommendations..."
-                    : "Click 'Get Recommendations' to see suggested framework alignments based on your metric data."}
+                    : "Click &quot;Get Recommendations&quot; to see suggested framework alignments based on your metric data."}
                 </p>
               </div>
             )}

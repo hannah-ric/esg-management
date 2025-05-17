@@ -10,7 +10,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -47,7 +46,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -56,15 +54,9 @@ import {
   Plus,
   Edit,
   Trash2,
-  Loader2,
   AlertCircle,
   Save,
-  X,
-  FileUp,
   ExternalLink,
-  Filter,
-  FileDown,
-  ArrowLeft,
 } from "lucide-react";
 
 interface ResourceItem {
@@ -183,7 +175,7 @@ const ResourceAdmin: React.FC = () => {
         ? formData.tags.split(",").map((tag) => tag.trim())
         : [];
 
-      const { data, error } = await supabase.from("resources").insert([
+      const { error } = await supabase.from("resources").insert([
         {
           title: formData.title,
           description: formData.description,

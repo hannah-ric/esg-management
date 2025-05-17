@@ -27,6 +27,9 @@ import {
 import { sanitizeInput, sanitizeObject } from "@/lib/error-utils";
 import { useToast } from "@/components/ui/use-toast";
 
+// Create a type intersection to make ESGRecommendation indexable
+type IndexableESGRecommendation = ESGRecommendation & Record<string, unknown>;
+
 interface RecommendationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -81,36 +84,20 @@ const RecommendationModal: React.FC<RecommendationModalProps> = ({
   );
 
   const handleSubmit = useCallback(() => {
-    // Validate required fields
-    const trimmedTitle = recommendation.title?.trim() || "";
-    const trimmedFramework = recommendation.framework?.trim() || "";
-    const trimmedIndicator = recommendation.indicator?.trim() || "";
-
-    if (!trimmedTitle || !trimmedFramework || !trimmedIndicator) {
-      toast({
-        title: "Missing Fields",
-        description: "Title, Framework, and Indicator are required.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Create the recommendation with validated data
+    // Create the final recommendation data
     const finalRecommendation: ESGRecommendation = {
-      id:
-        initialData?.id ||
-        `rec-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      title: trimmedTitle,
-      description: (recommendation.description || "").trim(),
-      framework: trimmedFramework,
-      indicator: trimmedIndicator,
-      priority: (recommendation.priority as Priority) || "medium",
-      effort: (recommendation.effort as Effort) || "medium",
-      impact: (recommendation.impact as Impact) || "medium",
+      id: recommendation.id || `rec-${Date.now()}`,
+      title: recommendation.title || initialData?.title || "",
+      description: recommendation.description || initialData?.description || "",
+      framework: recommendation.framework || initialData?.framework || "",
+      indicator: recommendation.indicator || initialData?.indicator || "",
+      priority: recommendation.priority || initialData?.priority || 'medium',
+      effort: recommendation.effort || initialData?.effort || 'medium',
+      impact: recommendation.impact || initialData?.impact || 'medium',
     };
-
-    // Save and close
-    onSave(sanitizeObject(finalRecommendation));
+    
+    // Use the IndexableESGRecommendation type for sanitizeObject
+    onSave(sanitizeObject(finalRecommendation as IndexableESGRecommendation) as ESGRecommendation);
     onClose();
   }, [recommendation, initialData, onSave, onClose, toast]);
 

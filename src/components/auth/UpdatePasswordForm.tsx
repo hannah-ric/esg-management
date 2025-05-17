@@ -45,11 +45,21 @@ export default function UpdatePasswordForm() {
         title: "Password updated",
         description: "Your password has been updated successfully.",
       });
-    } catch (error: any) {
-      console.error("Password update error:", error);
+      setPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("Update password error:", error);
+      let errorMessage = "Failed to update password. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof (error as { message?: string }).message === 'string') {
+        errorMessage = (error as { message: string }).message;
+      }
       toast({
-        title: "Update failed",
-        description: error.message || "Failed to update password",
+        title: "Update Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

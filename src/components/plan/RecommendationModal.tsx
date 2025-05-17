@@ -26,6 +26,9 @@ const defaultRec: Partial<ESGRecommendation> = {
   impact: 'medium',
 };
 
+// Create a type intersection to make ESGRecommendation indexable
+type IndexableESGRecommendation = ESGRecommendation & Record<string, unknown>;
+
 const RecommendationModal: React.FC<RecommendationModalProps> = ({
   isOpen,
   onClose,
@@ -42,11 +45,11 @@ const RecommendationModal: React.FC<RecommendationModalProps> = ({
   }, [isOpen, initialData]);
 
   const handleChange = useCallback((field: keyof ESGRecommendation, value: string) => {
-    setRecommendation(prev => ({ ...prev, [field]: sanitizeInput(value) }));
+    setRecommendation((prev: Partial<ESGRecommendation>) => ({ ...prev, [field]: sanitizeInput(value) }));
   }, []);
 
   const handleSelectChange = useCallback((field: keyof ESGRecommendation, value: Priority | Effort | Impact) => {
-    setRecommendation(prev => ({ ...prev, [field]: value }));
+    setRecommendation((prev: Partial<ESGRecommendation>) => ({ ...prev, [field]: value }));
   }, []);
 
   const handleSubmit = useCallback(() => {
@@ -68,7 +71,7 @@ const RecommendationModal: React.FC<RecommendationModalProps> = ({
       effort: recommendation.effort || 'medium',
       impact: recommendation.impact || 'medium',
     };
-    onSave(sanitizeObject(finalRec));
+    onSave(sanitizeObject(finalRec as IndexableESGRecommendation) as ESGRecommendation);
     onClose();
   }, [recommendation, initialData, onSave, onClose, toast]);
 

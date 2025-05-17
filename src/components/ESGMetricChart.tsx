@@ -12,6 +12,7 @@ import {
 } from "chart.js";
 import { Line, Bar } from "react-chartjs-2";
 import { ESGDataPoint } from "@/lib/esg-data-services";
+import type { TooltipItem } from 'chart.js';
 
 ChartJS.register(
   CategoryScale,
@@ -29,11 +30,30 @@ interface ESGMetricChartProps {
   chartType?: "line" | "bar";
 }
 
+// Define interfaces for Chart.js data structure
+interface ChartJsDataset {
+  label: string;
+  data: (number | string | null)[]; // Can be number, string (if not allNumeric), or null for gaps
+  borderColor: string;
+  backgroundColor: string;
+  tension?: number;
+  borderDash?: number[];
+  pointStyle?: string | false; // PointElement.pointStyle allow false.
+  pointRadius?: number;
+  pointHoverRadius?: number;
+  originalValues?: (string | number)[]; // For tooltip
+}
+
+interface ChartJsData {
+  labels: string[];
+  datasets: ChartJsDataset[];
+}
+
 const ESGMetricChart: React.FC<ESGMetricChartProps> = ({
   metrics,
   chartType = "line",
 }) => {
-  const [chartData, setChartData] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartJsData | null>(null);
 
   useEffect(() => {
     if (!metrics || metrics.length === 0) return;
@@ -79,9 +99,9 @@ const ESGMetricChart: React.FC<ESGMetricChartProps> = ({
     allDataPoints.sort((a, b) => a.year.localeCompare(b.year));
 
     // Check if all values are numeric
-    const allNumeric = allDataPoints.every(
-      (dp) => typeof dp.value === "number",
-    );
+    // const allNumeric = allDataPoints.every( // Commented out unused variable
+    //   (dp) => typeof dp.value === "number",
+    // );
 
     // Prepare chart data
     const labels = allDataPoints.map((dp) => dp.year);
@@ -177,15 +197,17 @@ const ESGMetricChart: React.FC<ESGMetricChartProps> = ({
       },
       tooltip: {
         callbacks: {
-          label: function (context: any) {
+          label: function (context: TooltipItem<"bar"> | TooltipItem<"line">) {
             let label = context.dataset.label || "";
             if (label) {
               label += ": ";
             }
             // Always use original value from dataset if available for better readability
             if (
+              'originalValues' in context.dataset &&
               context.dataset.originalValues &&
-              context.dataset.originalValues[context.dataIndex]
+              Array.isArray(context.dataset.originalValues) &&
+              context.dataset.originalValues[context.dataIndex] !== undefined
             ) {
               label += context.dataset.originalValues[context.dataIndex];
             } else if (context.parsed.y !== null) {

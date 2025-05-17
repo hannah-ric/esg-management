@@ -15,6 +15,19 @@ import { Check, Loader2 } from "lucide-react";
 import { createSubscription } from "@/lib/stripe-service";
 import { useNavigate } from "react-router-dom";
 import { toast } from "./ui/use-toast";
+// import type { Subscription, Plan as StripePlan } from "@stripe/stripe-js"; // StripePlan unused
+
+// Define our own Subscription type instead of importing from @stripe/stripe-js
+interface StripeSubscription {
+  id: string;
+  status?: string;
+  plan?: {
+    id: string;
+    amount?: number;
+    nickname?: string;
+  };
+  current_period_end: number;
+}
 
 interface SubscriptionPlan {
   id: string;
@@ -92,14 +105,46 @@ const defaultPlans: SubscriptionPlan[] = [
   },
 ];
 
+// Type for data fetched from your 'subscriptions' table
+interface CurrentSubscriptionData {
+  id?: string; // from your DB
+  user_id?: string;
+  plan_id: string; // FK to your subscription_plans table
+  stripe_subscription_id?: string;
+  status: string; // e.g., 'active', 'canceled', 'trialing'
+  current_period_end: string; // ISO date string
+  subscription_plans?: Partial<SubscriptionPlan>; // If you select joined data
+  // Add other relevant fields from your DB 'subscriptions' table
+}
+
+// CustomerObjectFromStripe was unused
+// interface CustomerObjectFromStripe {
+//   id: string; 
+//   subscriptions?: {
+//     data: Subscription[]; 
+//   };
+//   // Add other Stripe.Customer fields you might use
+// }
+
+// Type for data fetched from your own 'customers' table
+interface CustomerFromDB {
+  id: string; // Your DB customer ID
+  stripe_customer_id?: string | null;
+  // Add the subscriptions field
+  subscriptions?: {
+    data: StripeSubscription[]
+  };
+}
+
 export default function SubscriptionPlans() {
   const { user } = useAppContext();
   const navigate = useNavigate();
   const [plans, setPlans] = useState<SubscriptionPlan[]>(defaultPlans);
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [currentSubscription, setCurrentSubscription] = useState<any>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscriptionData | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customer, setCustomer] = useState<CustomerFromDB | null>(null);
 
   useEffect(() => {
     async function fetchPlans() {
@@ -126,43 +171,56 @@ export default function SubscriptionPlans() {
 
     async function fetchCurrentSubscription() {
       if (!user) return;
-
       try {
-        // First, check if the user has a customer ID
         const { data: userData, error: userError } = await supabase
           .from("users")
           .select("stripe_customer_id")
           .eq("id", user.id)
           .single();
-
         if (userError && userError.code !== "PGRST116") throw userError;
-
         if (userData?.stripe_customer_id) {
           setCustomerId(userData.stripe_customer_id);
         }
 
-        // Then fetch the subscription
         const { data, error } = await supabase
           .from("subscriptions")
           .select("*, subscription_plans(*)")
           .eq("user_id", user.id)
-          .eq("status", "active")
+          .in("status", ["active", "trialing"])
           .single();
 
         if (error && error.code !== "PGRST116") throw error;
-
         if (data) {
-          setCurrentSubscription(data);
+          setCurrentSubscription(data as CurrentSubscriptionData);
           setSelectedPlan(data.plan_id);
         }
-      } catch (error) {
-        console.error("Error fetching current subscription:", error);
+      } catch (fetchError) {
+        console.error("Error fetching current subscription:", fetchError);
+      }
+    }
+
+    async function fetchCustomer() {
+      if (!customerId) return;
+      try {
+        const { data, error } = await supabase
+          .from("customers")
+          .select("id, stripe_customer_id, /* other fields you store */")
+          .eq("stripe_customer_id", customerId)
+          .single();
+
+        if (error && error.code !== "PGRST116") throw error;
+        if (data) {
+          setCustomer(data as CustomerFromDB | null);
+        }
+      } catch (fetchError) {
+        console.error("Error fetching customer:", fetchError);
       }
     }
 
     fetchPlans();
     fetchCurrentSubscription();
-  }, [user]);
+    if (customerId) fetchCustomer();
+  }, [user, customerId]);
 
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     if (!user) {
@@ -278,28 +336,37 @@ export default function SubscriptionPlans() {
               </ul>
             </CardContent>
             <CardFooter>
-              <Button
-                className="w-full"
-                variant={plan.id === "professional" ? "default" : "outline"}
-                disabled={
-                  loading ||
-                  (currentSubscription &&
-                    currentSubscription.plan_id === plan.id)
-                }
-                onClick={() => handleSubscribe(plan)}
-              >
-                {loading && selectedPlan === plan.id ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : currentSubscription &&
-                  currentSubscription.plan_id === plan.id ? (
-                  "Current Plan"
-                ) : (
-                  `Subscribe${plan.trial_period_days ? ` (${plan.trial_period_days} days free)` : ""}`
-                )}
-              </Button>
+              {currentSubscription && currentSubscription.plan_id === plan.id ? (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() => handleSubscribe(plan)}
+                >
+                  {loading && selectedPlan === plan.id ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : "Manage Subscription"}
+                </Button>
+              ) : customer?.subscriptions && Array.isArray(customer.subscriptions.data) && 
+                 customer.subscriptions.data.some((sub) => sub.plan?.id === plan.id) ? (
+                <Badge variant="outline">Subscribed (Inactive)</Badge>
+              ) : (
+                <Button
+                  onClick={() => handleSubscribe(plan)}
+                  disabled={loading || Boolean(currentSubscription && currentSubscription.plan_id === plan.id)}
+                  className="w-full"
+                >
+                  {loading && selectedPlan === plan.id ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : "Subscribe"}
+                </Button>
+              )}
             </CardFooter>
           </Card>
         ))}
@@ -309,7 +376,7 @@ export default function SubscriptionPlans() {
         <div className="mt-8 p-4 border rounded-md bg-muted">
           <h3 className="font-medium">Your Current Subscription</h3>
           <p className="text-sm text-muted-foreground">
-            You are currently on the{" "}
+            You&apos;re currently on the{" "}
             <strong>
               {plans.find((p) => p.id === currentSubscription.plan_id)?.name ||
                 "Unknown"}

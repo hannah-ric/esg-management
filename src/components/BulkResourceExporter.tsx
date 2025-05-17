@@ -35,7 +35,6 @@ import {
   FileSpreadsheet,
   Loader2,
   Search,
-  Filter,
   CheckSquare,
   XSquare,
   ArrowLeft,
@@ -53,6 +52,29 @@ interface ResourceItem {
   url: string;
   dateAdded: string;
   selected?: boolean;
+}
+
+// Define types for data coming from DB if they differ from ResourceItem or context types
+interface ESGDataPointFromDB {
+  metric_id: string;
+  value: string | number;
+  framework_id?: string;
+  disclosure_id?: string;
+  confidence?: number;
+  // add other fields from your esg_data_points table
+}
+
+interface ESGFrameworkMappingFromDB {
+  framework_id: string;
+  disclosure_id: string;
+  // add other fields from your esg_framework_mappings table
+}
+
+interface EnrichedResourceItem extends ResourceItem { // Or use a more specific DB type for resourceData
+  dataPoints: ESGDataPointFromDB[];
+  frameworkMappings: ESGFrameworkMappingFromDB[];
+  source?: string; // Assuming source might come from DB
+  // Add any other fields that resourceData might have from the 'resources' table
 }
 
 interface BulkResourceExporterProps {
@@ -165,7 +187,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
 
       if (exportFormat === "excel") {
         // Prepare data for Excel export
-        const excelData: Record<string, any[]> = {
+        const excelData: Record<string, Record<string, string | number | undefined>[]> = {
           resources: selectedResourcesData.map((resource) => ({
             Title: resource.title,
             Description: resource.description,
@@ -179,7 +201,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
 
         // Add data points sheet
         const allDataPoints = selectedResourcesData.flatMap((resource) =>
-          resource.dataPoints.map((dataPoint: any) => ({
+          resource.dataPoints.map((dataPoint: ESGDataPointFromDB) => ({
             ResourceTitle: resource.title,
             MetricID: dataPoint.metric_id,
             Value: dataPoint.value,
@@ -195,7 +217,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
 
         // Add framework mappings sheet
         const allMappings = selectedResourcesData.flatMap((resource) =>
-          resource.frameworkMappings.map((mapping: any) => ({
+          resource.frameworkMappings.map((mapping: ESGFrameworkMappingFromDB) => ({
             ResourceTitle: resource.title,
             Framework: mapping.framework_id,
             Disclosure: mapping.disclosure_id,
@@ -224,7 +246,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
         tempDiv.appendChild(title);
 
         // Group resources by category
-        const resourcesByCategory: Record<string, any[]> = {};
+        const resourcesByCategory: Record<string, EnrichedResourceItem[]> = {};
         selectedResourcesData.forEach((resource) => {
           const category = resource.category || "Uncategorized";
           if (!resourcesByCategory[category]) {
@@ -235,7 +257,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
 
         // Create sections for each category
         Object.entries(resourcesByCategory).forEach(
-          ([category, categoryResources]) => {
+          ([category, categoryResources]: [string, EnrichedResourceItem[]]) => {
             const categoryHeader = document.createElement("h2");
             categoryHeader.textContent =
               category.charAt(0).toUpperCase() + category.slice(1);
@@ -270,7 +292,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
                 resourceDiv.appendChild(dataPointsTitle);
 
                 const dataPointsList = document.createElement("ul");
-                resource.dataPoints.forEach((dataPoint: any) => {
+                resource.dataPoints.forEach((dataPoint: ESGDataPointFromDB) => {
                   const dataPointItem = document.createElement("li");
                   dataPointItem.textContent = `${dataPoint.metric_id}: ${dataPoint.value} (${dataPoint.framework_id || "N/A"} ${dataPoint.disclosure_id || "N/A"})`;
                   dataPointsList.appendChild(dataPointItem);

@@ -1,4 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
+// import React, { Component, ErrorInfo, ReactNode } from "react"; // Commented out React
+import { Component, ErrorInfo, ReactNode } from "react";
 import ErrorFallback from "./ErrorFallback";
 
 interface Props {

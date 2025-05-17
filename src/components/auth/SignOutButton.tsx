@@ -45,11 +45,19 @@ export default function SignOutButton({
         description: "You have been signed out successfully.",
       });
       navigate("/");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Sign out error:", error);
+      let errorMessage = "Failed to sign out. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof (error as { message?: string }).message === 'string') {
+        errorMessage = (error as { message: string }).message;
+      }
       toast({
         title: "Sign out failed",
-        description: error.message || "Failed to sign out",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,13 +13,18 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import QuestionnaireStep from "./QuestionnaireStep";
+import type { Question } from "./QuestionnaireStep";
 import { useAppContext } from "./AppContext";
 import { saveQuestionnaireData } from "@/lib/services";
-import { toast } from "@/components/ui/use-toast";
+// import { toast } from "@/components/ui/use-toast"; // Commented out unused toast
+
+// Define a type for the form data structure
+type StepAnswers = Record<string, unknown>; // Answers for a single step
+type QuestionnaireFormData = Record<string, StepAnswers>; // All steps data
 
 interface QuestionnaireProps {
-  onComplete?: (data: any) => void;
-  initialData?: any;
+  onComplete?: (data: QuestionnaireFormData) => void; // Typed data
+  initialData?: QuestionnaireFormData; // Typed initialData
 }
 
 const Questionnaire = ({
@@ -29,7 +34,7 @@ const Questionnaire = ({
   const navigate = useNavigate();
   const { updateQuestionnaireData } = useAppContext();
   const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState(initialData);
+  const [formData, setFormData] = useState<QuestionnaireFormData>(initialData);
   const [isSaving, setIsSaving] = useState(false);
 
   // Define the steps in the questionnaire
@@ -523,7 +528,7 @@ const Questionnaire = ({
     }
   };
 
-  const handleStepDataChange = (stepId: string, data: any) => {
+  const handleStepDataChange = (stepId: string, data: StepAnswers) => {
     setFormData({
       ...formData,
       [stepId]: data,
@@ -567,14 +572,14 @@ const Questionnaire = ({
               description={steps[currentStep].description}
               questions={steps[currentStep].fields.map((field) => ({
                 id: field.id,
-                type: field.type,
+                type: field.type as Question['type'],
                 question: field.label,
                 options: field.options,
                 required: field.required,
               }))}
               currentStep={currentStep + 1}
               totalSteps={steps.length}
-              onNext={(answers) => {
+              onNext={(answers: StepAnswers) => {
                 handleStepDataChange(steps[currentStep].id, answers);
                 handleNext();
               }}

@@ -62,11 +62,19 @@ export default function SignUpForm() {
           variant: "destructive",
         });
       }
-    } catch (error: any) {
-      console.error("Signup error:", error);
+    } catch (error) {
+      console.error("Sign up error:", error);
+      let errorMessage = "Failed to sign up. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof (error as { message?: string }).message === 'string') {
+        errorMessage = (error as { message: string }).message;
+      }
       toast({
-        title: "Signup failed",
-        description: error.message || "Failed to create account",
+        title: "Sign up failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

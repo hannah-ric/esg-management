@@ -57,6 +57,44 @@ interface AnalysisResponse {
   groupBy: string;
 }
 
+// Define interfaces for raw and processed data structures
+interface RawHistoricalDataItemMetrics {
+  name?: string;
+  category?: string;
+  description?: string;
+}
+
+interface RawHistoricalDataItem {
+  id: string; 
+  metric_id: string;
+  value: string; 
+  unit: string;
+  timestamp: string;
+  source: string;
+  metrics?: RawHistoricalDataItemMetrics; 
+}
+
+interface ProcessedMetricPoint {
+  timestamp: string;
+  groupKey: string;
+  value: number; 
+  source: string;
+}
+
+interface MetricGroupAccumulatorValue {
+  metricId: string;
+  metricName: string;
+  category: string;
+  unit: string;
+  dataPoints: ProcessedMetricPoint[];
+}
+
+interface GroupedDataPointAccumulatorValue {
+  groupKey: string;
+  values: number[];
+  sources: Set<string>;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -167,7 +205,7 @@ Deno.serve(async (req) => {
 
     const queryPromise = query;
 
-    // @ts-ignore - TypeScript doesn't like the race between different promise types
+    // @ts-expect-error - TypeScript might not fully resolve the race between different promise types correctly here.
     const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
     if (error) {
@@ -207,14 +245,14 @@ Deno.serve(async (req) => {
 });
 
 // Helper function to process and group historical data
-function processHistoricalData(data: any[], groupBy: string): MetricGroup[] {
+function processHistoricalData(data: RawHistoricalDataItem[], groupBy: string): MetricGroup[] {
   if (!data || data.length === 0) {
     return [];
   }
 
   // Group data by metric
   const metricGroups = data.reduce(
-    (groups, item) => {
+    (groups: Record<string, MetricGroupAccumulatorValue>, item: RawHistoricalDataItem) => {
       const metricId = item.metric_id;
       if (!groups[metricId]) {
         groups[metricId] = {
@@ -231,28 +269,34 @@ function processHistoricalData(data: any[], groupBy: string): MetricGroup[] {
       let groupKey;
 
       switch (groupBy) {
-        case "day":
+        case "day": {
           groupKey = date.toISOString().split("T")[0]; // YYYY-MM-DD
           break;
-        case "week":
+        }
+        case "week": {
           // Get the first day of the week (Sunday)
           const firstDay = new Date(date);
           const day = date.getDay();
           firstDay.setDate(date.getDate() - day);
           groupKey = firstDay.toISOString().split("T")[0];
           break;
-        case "month":
+        }
+        case "month": {
           groupKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
           break;
-        case "quarter":
+        }
+        case "quarter": {
           const quarter = Math.floor(date.getMonth() / 3) + 1;
           groupKey = `${date.getFullYear()}-Q${quarter}`;
           break;
-        case "year":
+        }
+        case "year": {
           groupKey = `${date.getFullYear()}`;
           break;
-        default:
+        }
+        default: {
           groupKey = date.toISOString().split("T")[0];
+        }
       }
 
       // Add data point to the metric group
@@ -265,48 +309,51 @@ function processHistoricalData(data: any[], groupBy: string): MetricGroup[] {
 
       return groups;
     },
-    {} as Record<string, any>,
+    {} as Record<string, MetricGroupAccumulatorValue>,
   );
 
   // Convert to array and aggregate data points by groupKey
-  return Object.values(metricGroups).map((metric: any) => {
+  return Object.values(metricGroups).map((metric: MetricGroupAccumulatorValue) => {
     // Group data points by groupKey and calculate average
     const groupedDataPoints = metric.dataPoints.reduce(
-      (groups: Record<string, any>, point: any) => {
-        if (!groups[point.groupKey]) {
-          groups[point.groupKey] = {
+      (accGroups: Record<string, GroupedDataPointAccumulatorValue>, point: ProcessedMetricPoint) => {
+        if (!accGroups[point.groupKey]) {
+          accGroups[point.groupKey] = {
             groupKey: point.groupKey,
             values: [],
-            sources: new Set(),
+            sources: new Set<string>(),
           };
         }
-        groups[point.groupKey].values.push(point.value);
-        if (point.source) groups[point.groupKey].sources.add(point.source);
-        return groups;
+        accGroups[point.groupKey].values.push(point.value);
+        if (point.source) accGroups[point.groupKey].sources.add(point.source);
+        return accGroups;
       },
-      {},
+      {} as Record<string, GroupedDataPointAccumulatorValue>,
     );
 
     // Calculate averages and prepare final data points
     const aggregatedDataPoints = Object.values(groupedDataPoints).map(
-      (group: any) => {
+      (group: GroupedDataPointAccumulatorValue) => {
         const sum = group.values.reduce((a: number, b: number) => a + b, 0);
-        const average = sum / group.values.length;
+        const average = group.values.length > 0 ? sum / group.values.length : 0;
         return {
           groupKey: group.groupKey,
           value: parseFloat(average.toFixed(2)),
           sources: Array.from(group.sources),
-        };
+        } as MetricDataPoint;
       },
     );
 
     // Sort by groupKey
-    aggregatedDataPoints.sort((a: any, b: any) =>
+    aggregatedDataPoints.sort((a: MetricDataPoint, b: MetricDataPoint) =>
       a.groupKey.localeCompare(b.groupKey),
     );
 
     return {
-      ...metric,
+      metricId: metric.metricId,
+      metricName: metric.metricName,
+      category: metric.category,
+      unit: metric.unit,
       dataPoints: aggregatedDataPoints,
     };
   });

@@ -10,19 +10,30 @@ import {
   ChartOptions,
 } from "chart.js";
 import { MaterialityTopic as AppContextMaterialityTopic } from "./AppContext";
+import type { Chart } from 'chart.js';
 
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend);
 
 interface MaterialityMatrixChartProps {
   topics: AppContextMaterialityTopic[];
   onTopicClick?: (topic: AppContextMaterialityTopic) => void;
-  selectedTopicId?: string;
+  _selectedTopicId?: string;
+}
+
+// Define interface for the chart point data structure
+interface ChartPointData {
+  x: number;
+  y: number;
+  id: string;
+  name: string;
+  category: "environmental" | "social" | "governance";
+  description: string;
 }
 
 const MaterialityMatrixChart: React.FC<MaterialityMatrixChartProps> = ({
   topics,
   onTopicClick,
-  selectedTopicId,
+  _selectedTopicId,
 }) => {
   // Transform topics into chart data
   const datasets = [
@@ -113,7 +124,7 @@ const MaterialityMatrixChart: React.FC<MaterialityMatrixChartProps> = ({
       tooltip: {
         callbacks: {
           label: (context) => {
-            const point = context.raw as any;
+            const point = context.raw as ChartPointData;
             return `${point.name} (${point.category}): Business Impact: ${point.x.toFixed(
               2,
             )}, Stakeholder Impact: ${point.y.toFixed(2)}`;
@@ -124,7 +135,7 @@ const MaterialityMatrixChart: React.FC<MaterialityMatrixChartProps> = ({
         position: "bottom",
       },
     },
-    onClick: (event, elements) => {
+    onClick: (_event, elements) => {
       if (elements.length > 0) {
         const datasetIndex = elements[0].datasetIndex;
         const index = elements[0].index;
@@ -141,10 +152,10 @@ const MaterialityMatrixChart: React.FC<MaterialityMatrixChartProps> = ({
   // Add quadrant lines
   const plugins = [
     {
-      id: "quadrantLines",
-      beforeDraw(chart) {
-        const { ctx, chartArea } = chart;
-        const { left, top, right, bottom } = chartArea;
+      id: "quadrantLinesAndLabels",
+      beforeDraw(chart: Chart) {
+        const ctx = chart.ctx;
+        const { left, top, right, bottom } = chart.chartArea;
         const midX = (left + right) / 2;
         const midY = (top + bottom) / 2;
 

@@ -1,4 +1,4 @@
-import { Button } from "../components/ui/button";
+import type { Meta, StoryObj } from "@storybook/react";
 import {
   Drawer,
   DrawerClose,
@@ -8,28 +8,39 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "../components/ui/drawer";
+} from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
 
-const meta = {
-  title: "ui/Drawer",
+const meta: Meta<typeof Drawer> = {
+  title: "Components/Drawer",
   component: Drawer,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
-  argTypes: {},
 };
+
 export default meta;
 
-export const Base = {
-  render: (args: any) => (
+interface DrawerStoryArgs {
+  // Props for Drawer itself, if any are controlled by story args
+  // children is implicitly handled by Storybook
+}
+
+export const Default: StoryObj<DrawerStoryArgs> = {
+  render: (args) => (
     <Drawer {...args}>
-      <DrawerTrigger>Open</DrawerTrigger>
+      <DrawerTrigger asChild>
+        <Button variant="outline">Open Drawer</Button>
+      </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Are you sure absolutely sure?</DrawerTitle>
+          <DrawerTitle>Are you absolutely sure?</DrawerTitle>
           <DrawerDescription>This action cannot be undone.</DrawerDescription>
         </DrawerHeader>
         <DrawerFooter>
           <Button>Submit</Button>
-          <DrawerClose>
+          <DrawerClose asChild>
             <Button variant="outline">Cancel</Button>
           </DrawerClose>
         </DrawerFooter>

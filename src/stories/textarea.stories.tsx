@@ -1,60 +1,83 @@
 // [build] library: 'shadcn'
-import { Button } from "../components/ui/button";
-import { Label } from "../components/ui/label";
-import { Textarea } from "../components/ui/textarea";
+import type { Meta, StoryObj } from "@storybook/react";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
-const meta = {
-  title: "ui/Textarea",
+const meta: Meta<typeof Textarea> = {
+  title: "Components/Textarea",
   component: Textarea,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
-  argTypes: {},
 };
+
 export default meta;
 
-export const Default = {
-  render: (args: any) => <Textarea {...args} />,
+interface TextareaStoryArgs {
+  placeholder?: string;
+  disabled?: boolean;
+  id?: string;
+  label?: string;
+  text?: string;
+  buttonLabel?: string;
+  className?: string;
+  // Add other Textarea props if used
+}
+
+export const Default: StoryObj<TextareaStoryArgs> = {
   args: {
     placeholder: "Type your message here.",
   },
 };
 
-export const Disabled = {
-  render: (args: any) => <Textarea {...args} />,
+export const Disabled: StoryObj<TextareaStoryArgs> = {
   args: {
-    ...Default.args,
+    placeholder: "Type your message here.",
     disabled: true,
   },
 };
 
-export const WithLabel = {
-  render: (args: any) => (
+export const WithLabel: StoryObj<TextareaStoryArgs> = {
+  args: {
+    id: "message-label",
+    label: "Your Message",
+    placeholder: "Type your message here.",
+  },
+  render: (args) => (
     <div className="grid w-full gap-1.5">
-      <Label htmlFor="message">Your message</Label>
-      <Textarea {...args} id="message" />
+      <Label htmlFor={args.id}>{args.label}</Label>
+      <Textarea placeholder={args.placeholder} id={args.id} />
     </div>
   ),
-  args: { ...Default.args },
 };
 
-export const WithText = {
-  render: (args: any) => (
+export const WithText: StoryObj<TextareaStoryArgs> = {
+  args: {
+    id: "message-text",
+    label: "Your Message",
+    text: "This will be a public comment.",
+    placeholder: "Type your message here.",
+  },
+  render: (args) => (
     <div className="grid w-full gap-1.5">
-      <Label htmlFor="message-2">Your Message</Label>
-      <Textarea {...args} id="message-2" />
-      <p className="text-sm text-slate-500">
-        Your message will be copied to the support team.
-      </p>
+      <Label htmlFor={args.id}>{args.label}</Label>
+      <Textarea placeholder={args.placeholder} id={args.id} />
+      <p className="text-sm text-slate-500">{args.text}</p>
     </div>
   ),
-  args: { ...Default.args },
 };
 
-export const WithButton = {
-  render: (args: any) => (
+export const WithButton: StoryObj<TextareaStoryArgs> = {
+  args: {
+    placeholder: "Type your message here.",
+    buttonLabel: "Send message",
+  },
+  render: (args) => (
     <div className="grid w-full gap-2">
-      <Textarea {...args} />
-      <Button>Send message</Button>
+      <Textarea placeholder={args.placeholder} />
+      <Button>{args.buttonLabel}</Button>
     </div>
   ),
-  args: { ...Default.args },
 };

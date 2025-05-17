@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+  // CardContent, // Unused
+  // CardDescription, // Unused
+  // CardFooter, // Unused
+  // CardHeader, // Unused
+  // CardTitle, // Unused
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
   FileSpreadsheet,
   Download,
   ExternalLink,
-  Filter,
+  // Filter, // Unused
   Plus,
   Sparkles,
   Loader2,
@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+// import { Separator } from "@/components/ui/separator"; // Unused
 import ResourceAnalyzer from "./ResourceAnalyzer";
 import ResourceUploader from "./ResourceUploader";
 import ResourceExporter from "./ResourceExporter";
@@ -55,21 +55,150 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAppContext } from "./AppContext";
+import type { AnalyzedContentResult } from "@/lib/plan-enhancement";
+
+interface UploadedResourceData {
+  id?: string;
+  title: string;
+  description: string;
+  type: string;
+  category: string;
+  fileType?: string;
+  url: string;
+  file_path?: string;
+  tags?: string[];
+  rawContent?: string;
+}
+
+// Sample resource data as fallback - MOVED OUTSIDE COMPONENT
+const sampleResources: ResourceItem[] = [
+  {
+    id: "1",
+    title: "GRI Standards Implementation Guide",
+    description:
+      "Comprehensive guide to implementing the Global Reporting Initiative (GRI) Standards in your ESG reporting.",
+    type: "guide",
+    category: "general",
+    framework: "GRI",
+    fileType: "pdf",
+    url: "#",
+    dateAdded: "2023-06-15",
+  },
+  {
+    id: "2",
+    title: "Carbon Emissions Calculation Template",
+    description:
+      "Excel template for calculating and tracking Scope 1, 2, and 3 greenhouse gas emissions.",
+    type: "template",
+    category: "environmental",
+    framework: "GHG Protocol",
+    fileType: "xlsx",
+    url: "#",
+    dateAdded: "2023-07-22",
+  },
+  {
+    id: "3",
+    title: "SASB Industry Standards - Manufacturing",
+    description:
+      "Sustainability Accounting Standards Board (SASB) disclosure topics and metrics for the manufacturing sector.",
+    type: "framework",
+    category: "general",
+    framework: "SASB",
+    fileType: "pdf",
+    url: "#",
+    dateAdded: "2023-05-10",
+  },
+  {
+    id: "4",
+    title: "Diversity & Inclusion Policy Template",
+    description:
+      "Customizable template for creating a comprehensive diversity and inclusion policy for your organization.",
+    type: "template",
+    category: "social",
+    fileType: "docx",
+    url: "#",
+    dateAdded: "2023-08-05",
+  },
+  {
+    id: "5",
+    title: "ESG Data Collection Methodology",
+    description:
+      "Best practices for establishing robust ESG data collection processes and systems.",
+    type: "guide",
+    category: "general",
+    fileType: "pdf",
+    url: "#",
+    dateAdded: "2023-09-12",
+  },
+  {
+    id: "6",
+    title: "TCFD Climate Risk Assessment Framework",
+    description:
+      "Task Force on Climate-related Financial Disclosures (TCFD) framework for assessing and reporting climate-related risks.",
+    type: "framework",
+    category: "environmental",
+    framework: "TCFD",
+    fileType: "pdf",
+    url: "#",
+    dateAdded: "2023-04-18",
+  },
+  {
+    id: "7",
+    title: "Board ESG Oversight Guide",
+    description:
+      "Guide for establishing effective board oversight of ESG matters and integrating sustainability into governance.",
+    type: "guide",
+    category: "governance",
+    fileType: "pdf",
+    url: "#",
+    dateAdded: "2023-07-30",
+  },
+  {
+    id: "8",
+    title: "Sustainable Supply Chain Case Study",
+    description:
+      "Case study on implementing sustainable practices throughout the supply chain in a manufacturing company.",
+    type: "case-study",
+    category: "environmental",
+    fileType: "pdf",
+    url: "#",
+    dateAdded: "2023-08-22",
+  },
+];
 
 interface ResourceItem {
   id: string;
   title: string;
   description: string;
-  type: "guide" | "template" | "framework" | "case-study";
-  category: "environmental" | "social" | "governance" | "general";
+  type: "guide" | "template" | "framework" | "case-study" | "article" | "unknown";
+  category: "environmental" | "social" | "governance" | "general" | "unknown";
   framework?: string;
-  fileType: "pdf" | "xlsx" | "docx" | "url";
+  fileType?: "pdf" | "xlsx" | "docx" | "url" | "unknown";
   url: string;
   dateAdded: string;
+  source?: string;
+  file_path?: string;
+  tags?: string[];
+  rawContent?: string;
+}
+
+interface ResourceItemFromDB {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  category: string;
+  framework?: string;
+  file_type?: string;
+  url: string;
+  date_added?: string;
+  source?: string;
+  tags?: string[];
+  rawContent?: string;
 }
 
 // Helper functions moved outside of component to be accessible by ResourceCard
-const getFileTypeIcon = (fileType: string) => {
+const getFileTypeIcon = (fileType: string | undefined) => {
   switch (fileType) {
     case "pdf":
       return <FileText className="h-4 w-4" />;
@@ -140,155 +269,112 @@ const ResourceLibrary: React.FC = () => {
   >([]);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  // Sample resource data as fallback
-  const sampleResources: ResourceItem[] = [
-    {
-      id: "1",
-      title: "GRI Standards Implementation Guide",
-      description:
-        "Comprehensive guide to implementing the Global Reporting Initiative (GRI) Standards in your ESG reporting.",
-      type: "guide",
-      category: "general",
-      framework: "GRI",
-      fileType: "pdf",
-      url: "#",
-      dateAdded: "2023-06-15",
-    },
-    {
-      id: "2",
-      title: "Carbon Emissions Calculation Template",
-      description:
-        "Excel template for calculating and tracking Scope 1, 2, and 3 greenhouse gas emissions.",
-      type: "template",
-      category: "environmental",
-      framework: "GHG Protocol",
-      fileType: "xlsx",
-      url: "#",
-      dateAdded: "2023-07-22",
-    },
-    {
-      id: "3",
-      title: "SASB Industry Standards - Manufacturing",
-      description:
-        "Sustainability Accounting Standards Board (SASB) disclosure topics and metrics for the manufacturing sector.",
-      type: "framework",
-      category: "general",
-      framework: "SASB",
-      fileType: "pdf",
-      url: "#",
-      dateAdded: "2023-05-10",
-    },
-    {
-      id: "4",
-      title: "Diversity & Inclusion Policy Template",
-      description:
-        "Customizable template for creating a comprehensive diversity and inclusion policy for your organization.",
-      type: "template",
-      category: "social",
-      fileType: "docx",
-      url: "#",
-      dateAdded: "2023-08-05",
-    },
-    {
-      id: "5",
-      title: "ESG Data Collection Methodology",
-      description:
-        "Best practices for establishing robust ESG data collection processes and systems.",
-      type: "guide",
-      category: "general",
-      fileType: "pdf",
-      url: "#",
-      dateAdded: "2023-09-12",
-    },
-    {
-      id: "6",
-      title: "TCFD Climate Risk Assessment Framework",
-      description:
-        "Task Force on Climate-related Financial Disclosures (TCFD) framework for assessing and reporting climate-related risks.",
-      type: "framework",
-      category: "environmental",
-      framework: "TCFD",
-      fileType: "pdf",
-      url: "#",
-      dateAdded: "2023-04-18",
-    },
-    {
-      id: "7",
-      title: "Board ESG Oversight Guide",
-      description:
-        "Guide for establishing effective board oversight of ESG matters and integrating sustainability into governance.",
-      type: "guide",
-      category: "governance",
-      fileType: "pdf",
-      url: "#",
-      dateAdded: "2023-07-30",
-    },
-    {
-      id: "8",
-      title: "Sustainable Supply Chain Case Study",
-      description:
-        "Case study on implementing sustainable practices throughout the supply chain in a manufacturing company.",
-      type: "case-study",
-      category: "environmental",
-      fileType: "pdf",
-      url: "#",
-      dateAdded: "2023-08-22",
-    },
-  ];
-
   useEffect(() => {
     const fetchResources = async () => {
       setIsLoading(true);
       try {
-        // Try to fetch resources from the database
         const { data, error } = await supabase.from("resources").select("*");
-
         if (error) throw error;
 
         if (data && data.length > 0) {
-          // Map database resources to our ResourceItem format
-          const formattedResources = data.map((item) => ({
-            id: item.id,
-            title: item.title,
-            description: item.description,
-            type: item.type,
-            category: item.category,
-            framework: item.framework,
-            fileType: item.file_type || "url",
-            url: item.url,
-            dateAdded: new Date(item.date_added).toLocaleDateString(),
-          }));
+          const formattedResources = (data as ResourceItemFromDB[]).map((item): ResourceItem => {
+            const allowedTypes: ResourceItem['type'][] = ["guide", "template", "framework", "case-study", "article"];
+            const allowedCategories: ResourceItem['category'][] = ["environmental", "social", "governance", "general"];
+            const allowedFileTypes: NonNullable<ResourceItem['fileType']>[] = ["pdf", "xlsx", "docx", "url"];
+
+            const validatedType = item.type && allowedTypes.includes(item.type as ResourceItem['type']) 
+              ? item.type as ResourceItem['type'] 
+              : "unknown";
+            const validatedCategory = item.category && allowedCategories.includes(item.category as ResourceItem['category']) 
+              ? item.category as ResourceItem['category'] 
+              : "unknown";
+            const validatedFileType = item.file_type && allowedFileTypes.includes(item.file_type as NonNullable<ResourceItem['fileType']>) 
+              ? item.file_type as NonNullable<ResourceItem['fileType']>
+              : "unknown";
+
+            return {
+              id: item.id,
+              title: item.title || "Untitled Resource",
+              description: item.description || "",
+              type: validatedType,
+              category: validatedCategory,
+              framework: item.framework || undefined,
+              fileType: validatedFileType,
+              url: item.url || "#",
+              dateAdded: item.date_added ? new Date(item.date_added).toLocaleDateString() : new Date().toLocaleDateString(),
+              source: item.source || undefined,
+              tags: item.tags || [],
+              rawContent: item.rawContent || undefined,
+            };
+          });
           setResources(formattedResources);
         } else {
-          // If no resources in database, use sample data
           setResources(sampleResources);
         }
-      } catch (error) {
-        console.error("Error fetching resources:", error);
-        // Fallback to sample data
+      } catch (fetchErr) {
+        console.error("Error fetching resources:", fetchErr);
         setResources(sampleResources);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchResources();
   }, []);
 
-  const handleResourceAdded = (newResource: any) => {
-    // Add the new resource to the list
+  const handleResourceAdded = (newResource: AnalyzedContentResult | UploadedResourceData) => {
+    let ft: string | undefined;
+    if ('fileType' in newResource && typeof newResource.fileType === 'string') {
+      ft = newResource.fileType;
+    } else if ('file_path' in newResource && typeof newResource.file_path === 'string') {
+      ft = newResource.file_path.split('.').pop() || "unknown";
+    }
+
+    let src: string | undefined;
+    if ('source' in newResource && typeof newResource.source === 'string') {
+      src = newResource.source;
+    } else if ('url' in newResource && typeof newResource.url === 'string') { 
+      src = newResource.url;
+    }
+
+    let addedDateStr: string | undefined;
+    if ('date_added' in newResource && typeof newResource.date_added === 'string') {
+        addedDateStr = newResource.date_added;
+    }
+    const dateAdded = addedDateStr ? new Date(addedDateStr).toLocaleDateString() : new Date().toLocaleDateString();
+    
+    const tagsArray = 'tags' in newResource && Array.isArray(newResource.tags) ? newResource.tags : [];
+    const frameworkStr = 'framework' in newResource && typeof newResource.framework === 'string' ? newResource.framework : undefined;
+
+    const allowedTypes: ResourceItem['type'][] = ["guide", "template", "framework", "case-study", "article"];
+    const allowedCategories: ResourceItem['category'][] = ["environmental", "social", "governance", "general"];
+    const allowedFileTypes: NonNullable<ResourceItem['fileType']>[] = ["pdf", "xlsx", "docx", "url"];
+
+    const validatedType = newResource.type && allowedTypes.includes(newResource.type as ResourceItem['type']) 
+      ? newResource.type as ResourceItem['type'] 
+      : "unknown";
+    const validatedCategory = newResource.category && allowedCategories.includes(newResource.category as ResourceItem['category']) 
+      ? newResource.category as ResourceItem['category'] 
+      : "unknown";
+    const validatedFileType = ft && allowedFileTypes.includes(ft as NonNullable<ResourceItem['fileType']>) 
+      ? ft as NonNullable<ResourceItem['fileType']>
+      : "unknown";
+
     const resourceItem: ResourceItem = {
       id: newResource.id || `new-${Date.now()}`,
-      title: newResource.title,
-      description: newResource.description,
-      type: newResource.type as any,
-      category: newResource.category as any,
-      fileType: newResource.fileType as any,
-      url: newResource.url,
-      dateAdded: new Date().toLocaleDateString(),
+      title: newResource.title || "Untitled Resource",
+      description: newResource.description || "",
+      type: validatedType, 
+      category: validatedCategory,
+      fileType: validatedFileType,
+      url: newResource.url || "#",
+      dateAdded: dateAdded,
+      source: src,
+      tags: tagsArray,
+      framework: frameworkStr,
+      rawContent: newResource.rawContent || undefined,
     };
 
-    setResources([resourceItem, ...resources]);
+    setResources((prevResources) => [resourceItem, ...prevResources]);
     setIsAnalyzerOpen(false);
     setIsUploaderOpen(false);
   };
@@ -349,6 +435,7 @@ const ResourceLibrary: React.FC = () => {
             fileType: item.file_type || "url",
             url: item.url,
             dateAdded: new Date(item.date_added).toLocaleDateString(),
+            rawContent: item.rawContent || undefined,
           }));
 
           setRecommendedResources(recommendedItems);
@@ -356,12 +443,79 @@ const ResourceLibrary: React.FC = () => {
       }
     } catch (err) {
       console.error("Error generating materiality recommendations:", err);
-      setAiError(
-        err.message ||
-          "Failed to generate recommendations based on materiality.",
-      );
+      let message = "Failed to generate recommendations based on materiality.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      setAiError(message);
     } finally {
       setIsGeneratingMaterialityRecommendations(false);
+    }
+  };
+
+  const generateAIRecommendations = async () => {
+    if (!questionnaireData) {
+      setAiError("Please complete the questionnaire first.");
+      return;
+    }
+
+    setIsGeneratingRecommendations(true);
+    setAiError(null);
+
+    try {
+      // Get company profile from context
+      const companyProfile = {
+        companyName:
+          questionnaireData?.["company-profile"]?.companyName ||
+          "Your Company",
+        industry:
+          questionnaireData?.["industry-selection"]?.industry ||
+          "General",
+        size:
+          questionnaireData?.["company-profile"]?.employeeCount ||
+          "Medium Enterprise",
+        region:
+          questionnaireData?.["regulatory-requirements"]
+            ?.primaryRegion || "Global",
+      };
+
+      // Cast esgPlan to Record<string, unknown> to satisfy the parameter type
+      const esgPlanAsRecord = esgPlan as unknown as Record<string, unknown>;
+
+      // Get AI-powered resource recommendations
+      const result = await getResourceRecommendations(
+        esgPlanAsRecord,
+        companyProfile,
+        materialityTopics,
+      );
+
+      if (result.error) {
+        setAiError(result.error);
+        return;
+      }
+
+      setAiRecommendations(result.content);
+
+      // Auto-search for the first recommended resource type
+      const match = result.content.match(
+        /recommend\s+([\w\s-]+)\s+resources/i,
+      );
+      if (match && match[1]) {
+        setSearchQuery(match[1]);
+      }
+    } catch (err) {
+      console.error("Error generating AI recommendations:", err);
+      let message = "Failed to generate AI recommendations. Please try again.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      setAiError(message);
+    } finally {
+      setIsGeneratingRecommendations(false);
     }
   };
 
@@ -401,59 +555,13 @@ const ResourceLibrary: React.FC = () => {
             <Button
               variant="outline"
               className="mt-4 md:mt-0"
-              onClick={async () => {
-                setIsGeneratingRecommendations(true);
-                setAiError(null);
-
-                try {
-                  // Get company profile from context
-                  const companyProfile = {
-                    companyName:
-                      questionnaireData?.["company-profile"]?.companyName ||
-                      "Your Company",
-                    industry:
-                      questionnaireData?.["industry-selection"]?.industry ||
-                      "General",
-                    size:
-                      questionnaireData?.["company-profile"]?.employeeCount ||
-                      "Medium Enterprise",
-                    region:
-                      questionnaireData?.["regulatory-requirements"]
-                        ?.primaryRegion || "Global",
-                  };
-
-                  // Get AI-powered resource recommendations
-                  const result = await getResourceRecommendations(
-                    esgPlan,
-                    companyProfile,
-                    materialityTopics,
-                  );
-
-                  if (result.error) {
-                    setAiError(result.error);
-                    return;
-                  }
-
-                  setAiRecommendations(result.content);
-
-                  // Auto-search for the first recommended resource type
-                  const match = result.content.match(
-                    /recommend\s+([\w\s-]+)\s+resources/i,
-                  );
-                  if (match && match[1]) {
-                    setSearchQuery(match[1]);
-                  }
-                } catch (err) {
-                  console.error("Error generating AI recommendations:", err);
-                  setAiError(
-                    err.message ||
-                      "Failed to generate AI recommendations. Please try again.",
-                  );
-                } finally {
-                  setIsGeneratingRecommendations(false);
-                }
-              }}
-              disabled={isGeneratingRecommendations}
+              onClick={generateAIRecommendations}
+              disabled={
+                isGeneratingRecommendations ||
+                !questionnaireData ||
+                !materialityTopics ||
+                materialityTopics.length === 0
+              }
             >
               {isGeneratingRecommendations ? (
                 <>
@@ -771,10 +879,19 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
                 <Download className="mr-2 h-4 w-4" />
                 {resource.fileType === "url"
                   ? "Open Link"
-                  : `Download ${resource.fileType.toUpperCase()}`}
+                  : `Download ${resource.fileType ? resource.fileType.toUpperCase() : 'FILE'}`}
               </Button>
             </div>
-            <ResourceExporter resource={resource} />
+            <ResourceExporter resource={{
+              id: resource.id || "",
+              title: resource.title || "",
+              description: resource.description || "",
+              type: resource.type || "article",
+              category: resource.category || "general",
+              fileType: resource.fileType || "pdf",
+              url: resource.url || "",
+              rawContent: resource.rawContent
+            }} />
           </div>
         </div>
       </div>

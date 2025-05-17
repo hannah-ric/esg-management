@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, PlusCircle, Edit3, CalendarDays, Info } from "lucide-react";
+import { Trash2, PlusCircle, Edit3, CalendarDays } from "lucide-react";
 import {
   ImplementationPhase,
   ImplementationTask,
@@ -135,9 +135,9 @@ const PlanImplementationPhases: React.FC<PlanImplementationPhasesProps> = ({
                     {phase.description}
                   </p>
                   {phase.tasks.length === 0 && !isEditing && (
-                    <p className="text-xs text-muted-foreground italic">
-                      No tasks defined for this phase.
-                    </p>
+                    <div className="text-sm text-muted-foreground italic px-4 pb-2">
+                      No tasks defined for &quot;{phase.title}&quot; yet.
+                    </div>
                   )}
                   {(phase.tasks.length > 0 || isEditing) && (
                     <Table>
@@ -227,8 +227,8 @@ const PlanImplementationPhases: React.FC<PlanImplementationPhasesProps> = ({
                       size="sm"
                       className="mt-4"
                     >
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Task to "
-                      {phase.title}"
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Task to &quot;
+                      {phase.title}&quot;
                     </Button>
                   )}
                 </AccordionContent>

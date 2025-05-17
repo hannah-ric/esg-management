@@ -1,32 +1,53 @@
 // [build] library: 'shadcn'
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
+import type { Meta, StoryObj } from "@storybook/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "../components/ui/tabs";
+} from "@/components/ui/tabs";
 
-const meta = {
-  title: "ui/Tabs",
+const meta: Meta<typeof Tabs> = {
+  title: "Components/Tabs",
   component: Tabs,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
-  argTypes: {},
+  argTypes: {
+    defaultValue: { control: "text" },
+    orientation: { control: "radio", options: ["horizontal", "vertical"] },
+    activationMode: { control: "radio", options: ["automatic", "manual"] },
+  },
 };
+
 export default meta;
 
-export const Base = {
-  render: (args: any) => (
-    <Tabs {...args} className="w-[400px]">
+interface TabsStoryArgs {
+  defaultValue?: string;
+  orientation?: "horizontal" | "vertical";
+  activationMode?: "automatic" | "manual";
+  className?: string;
+  children: React.ReactNode;
+}
+
+export const Default: StoryObj<TabsStoryArgs> = {
+  args: {
+    defaultValue: "account",
+    className: "w-[400px]",
+  },
+  render: (args) => (
+    <Tabs {...args}>
       <TabsList>
         <TabsTrigger value="account">Account</TabsTrigger>
         <TabsTrigger value="password">Password</TabsTrigger>
       </TabsList>
       <TabsContent value="account">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Make changes to your account here. Click save when you're done.
+          Make changes to your account here. Click save when you&apos;re done.
         </p>
         <div className="grid gap-2 py-4">
           <div className="space-y-1">
@@ -44,7 +65,7 @@ export const Base = {
       </TabsContent>
       <TabsContent value="password">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Change your password here. After saving, you'll be logged out.
+          Change your password here. After saving, you&apos;ll be logged out.
         </p>
         <div className="grid gap-2 py-4">
           <div className="space-y-1">
@@ -62,7 +83,4 @@ export const Base = {
       </TabsContent>
     </Tabs>
   ),
-  args: {
-    defaultValue: "account",
-  },
 };

@@ -36,6 +36,9 @@ const defaultTask: Partial<ImplementationTask> = {
   status: "not_started",
 };
 
+// Create a type intersection to make ImplementationTask indexable
+type IndexableImplementationTask = ImplementationTask & Record<string, unknown>;
+
 const TaskModal: React.FC<TaskModalProps> = ({
   isOpen,
   onClose,
@@ -54,13 +57,13 @@ const TaskModal: React.FC<TaskModalProps> = ({
 
   const handleChange = useCallback(
     (field: keyof Omit<ImplementationTask, "id">, value: string) => {
-      setTask((prev) => ({ ...prev, [field]: sanitizeInput(value) }));
+      setTask((prev: Partial<ImplementationTask>) => ({ ...prev, [field]: sanitizeInput(value) }));
     },
     [],
   );
 
   const handleStatusChange = useCallback((value: TaskStatus) => {
-    setTask((prev) => ({ ...prev, status: value }));
+    setTask((prev: Partial<ImplementationTask>) => ({ ...prev, status: value }));
   }, []);
 
   const handleSubmit = useCallback(() => {
@@ -95,7 +98,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
     };
 
     // Save and close
-    onSave(sanitizeObject(finalTask), phaseId);
+    onSave(sanitizeObject(finalTask as IndexableImplementationTask) as ImplementationTask, phaseId);
     onClose();
   }, [task, initialData, phaseId, onSave, onClose, toast]);
 
@@ -149,6 +152,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                 <SelectItem value="not_started">Not Started</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="blocked">Blocked</SelectItem>
               </SelectContent>
             </Select>
           </div>

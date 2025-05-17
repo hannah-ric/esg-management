@@ -38,11 +38,19 @@ export default function LoginForm() {
           variant: "destructive",
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Login error:", error);
+      let errorMessage = "Failed to sign in. Please check your credentials.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof (error as { message?: string }).message === 'string') {
+        errorMessage = (error as { message: string }).message;
+      }
       toast({
         title: "Login failed",
-        description: error.message || "Invalid email or password",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -90,7 +98,7 @@ export default function LoginForm() {
       </div>
       <div className="mt-6 text-center">
         <p className="text-sm">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <a
             href="#"
             onClick={(e) => {

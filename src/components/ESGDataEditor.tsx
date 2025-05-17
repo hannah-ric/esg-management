@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+// import { supabase } from "@/lib/supabase"; // Commented out unused supabase
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Save, Plus, Trash2, Search } from "lucide-react";
+import { Loader2, Save, Plus, Trash2, /* Search */ } from "lucide-react"; // Commented out unused Search from lucide
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Dialog,
@@ -229,14 +229,29 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
   }, [onDataChange]);
 
   // Memoize these functions to prevent unnecessary rerenders
-  const handleDataPointChange = useCallback((field: string, value: any) => {
-    setNewDataPoint(prev => ({
-      ...prev,
-      [field]: field === 'value' || field === 'context' ? sanitizeInput(value) : value
-    }));
+  const handleDataPointChange = useCallback((field: keyof Partial<ESGDataPoint>, value: string | number | boolean) => {
+    setNewDataPoint(prev => {
+      let processedValue: string | number | boolean | undefined = value;
+      if (field === 'context' || field === 'metric_id' || field === 'value' || field === 'source') {
+        processedValue = sanitizeInput(String(value));
+      } else if (field === 'confidence') {
+        processedValue = typeof value === 'number' ? value : parseFloat(String(value));
+        if (isNaN(processedValue as number)) processedValue = 0.8; // default if parse fails
+      } else if (field === 'is_edited') {
+        processedValue = typeof value === 'boolean' ? value : String(value).toLowerCase() === 'true';
+      }
+      // For other fields like 'id', 'resource_id', 'framework_id', 'disclosure_id', 'reporting_year', 'created_at', 'updated_at', 'user_id'
+      // they are typically strings or might be handled by specific setters if complex types.
+      // We assume 'value' passed for these would be string-like or correctly typed.
+
+      return {
+        ...prev,
+        [field]: processedValue as ESGDataPoint[keyof ESGDataPoint] 
+      };
+    });
   }, []);
 
-  const handleMappingChange = useCallback((field: string, value: string) => {
+  const handleMappingChange = useCallback((field: keyof Partial<ESGFrameworkMapping>, value: string) => {
     setNewMapping(prev => ({
       ...prev,
       [field]: sanitizeInput(value)
@@ -471,7 +486,7 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
           <TabsContent value="data-points">
             {dataPoints.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No data points added yet. Click "Add Data Point" to get started.
+                No data points added yet. Click &quot;Add Data Point&quot; to get started.
               </div>
             ) : (
               <Table>
@@ -512,7 +527,7 @@ const ESGDataEditor: React.FC<ESGDataEditorProps> = ({
           <TabsContent value="framework-mappings">
             {mappings.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No framework mappings added yet. Click "Add Framework Mapping" to
+                No framework mappings added yet. Click &quot;Add Framework Mapping&quot; to
                 get started.
               </div>
             ) : (

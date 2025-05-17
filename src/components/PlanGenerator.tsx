@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppContext, ESGPlan, ESGRecommendation, ImplementationPhase, ImplementationTask, Priority, Effort, Impact, TaskStatus } from "./AppContext";
+import { useAppContext, ESGPlan, ESGRecommendation, ImplementationPhase, ImplementationTask, TaskStatus } from "./AppContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Save, ArrowLeft, AlertCircle, Info, Edit, Trash, Eye, Download, Sparkles } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, /*CardDescription*/ } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, /*TabsContent*/ } from "@/components/ui/tabs";
+import { Loader2, Save, ArrowLeft, AlertCircle, Info, Edit, /*Trash,*/ Eye, Download, Sparkles } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { logger } from "@/lib/logger";
@@ -22,6 +22,18 @@ import RecommendationModal from './plan/RecommendationModal';
 import PhaseModal from './plan/PhaseModal';
 import TaskModal from './plan/TaskModal';
 
+// Define ToastVariantType for toast variant options
+type ToastVariantType = "default" | "destructive" | null;
+
+// Define a compatible toast wrapper type to match ToastOptions in ExportUtils.tsx
+import { type ReactNode } from "react";
+
+interface PdfToastOptions {
+  title?: ReactNode;
+  description?: ReactNode;
+  variant?: "default" | "destructive" | "success";
+}
+
 const PlanGenerator: React.FC = () => {
   const navigate = useNavigate();
   const appContext = useAppContext();
@@ -34,6 +46,7 @@ const PlanGenerator: React.FC = () => {
     recommendations: [],
     implementationPhases: [],
   });
+  // const [impactAnalysisData, setImpactAnalysisData] = useState<AnalyzedContentResult | null>(null); // Unused
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingAIRecs, setIsGeneratingAIRecs] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -90,7 +103,7 @@ const PlanGenerator: React.FC = () => {
 
     // Step 2: Generate ESG Action Plan using the analysis
     const planResult = await handleAsync(
-      async () => generateESGActionPlan(appContext.materialityTopics, impactResult.data.content), // Pass raw content string
+      async () => generateESGActionPlan(appContext.materialityTopics, impactResult.data!.content!),
       { errorMessage: "Failed to generate ESG action plan with AI." }
     );
 
@@ -155,7 +168,7 @@ const PlanGenerator: React.FC = () => {
       setActiveTab("view-plan");
     }
     setIsSaving(false);
-  }, [plan, appContext, handleAsync, toast]);
+  }, [plan, appContext, handleAsync]);
   
   const handlePlanDetailsChange = useCallback((field: keyof Pick<ESGPlan, 'title' | 'description'>, value: string) => {
     setPlan(prev => ({ ...prev, [field]: value }));
@@ -183,13 +196,11 @@ const PlanGenerator: React.FC = () => {
       }
       return { ...prevPlan, recommendations };
     });
-    toast({ title: "Recommendation Updated", variant: "default" });
-  }, [toast]);
+  }, []);
 
   const handleDeleteRecommendation = useCallback((recId: string) => {
     setPlan(p => ({ ...p, recommendations: p.recommendations?.filter(r => r.id !== recId) }));
-    toast({ title: "Recommendation Deleted", variant: "default" });
-  }, [toast]);
+  }, []);
 
   // Phase Modal Handlers
   const openPhaseModal = useCallback((phase?: ImplementationPhase) => {
@@ -214,25 +225,26 @@ const PlanGenerator: React.FC = () => {
       return { ...prevPlan, implementationPhases: phases };
     });
     toast({ title: editingPhase ? "Phase Updated" : "Phase Added", variant: "default" });
-    closePhaseModal(); // Close modal on save
-  }, [toast, editingPhase, closePhaseModal]); // Added closePhaseModal to dependencies
+    closePhaseModal();
+  }, [editingPhase, closePhaseModal, toast]);
+
+  const closeTaskModal = useCallback(() => {
+    setIsTaskModalOpen(false);
+    setEditingTask(null);
+    setCurrentPhaseIdForTask(null);
+  }, []);
 
   const handleDeletePhase = useCallback((phaseId: string) => {
     setPlan(p => ({ ...p, implementationPhases: p.implementationPhases?.filter(ph => ph.id !== phaseId) }));
-    toast({ title: "Phase Deleted", variant: "default" });
-  }, [toast]);
+    toast({ title: editingTask ? "Task Updated" : "Task Added", variant: "default" });
+    closeTaskModal();
+  }, [editingTask, closeTaskModal, toast]);
 
   // Task Modal Handlers
   const openTaskModal = useCallback((task: ImplementationTask | undefined, phaseId: string) => {
     setCurrentPhaseIdForTask(phaseId);
     setEditingTask(task || null);
     setIsTaskModalOpen(true);
-  }, []);
-
-  const closeTaskModal = useCallback(() => {
-    setIsTaskModalOpen(false);
-    setEditingTask(null);
-    setCurrentPhaseIdForTask(null);
   }, []);
 
   const handleSaveTask = useCallback((savedTask: ImplementationTask, phaseId: string) => {
@@ -253,8 +265,8 @@ const PlanGenerator: React.FC = () => {
       return { ...prevPlan, implementationPhases: phases };
     });
     toast({ title: editingTask ? "Task Updated" : "Task Added", variant: "default" });
-    closeTaskModal(); // Close modal on save
-  }, [toast, editingTask, closeTaskModal]); // Added closeTaskModal to dependencies
+    closeTaskModal();
+  }, [editingTask, closeTaskModal, toast]);
 
   const handleDeleteTask = useCallback((taskId: string, phaseId: string) => {
     setPlan(p => ({
@@ -263,8 +275,7 @@ const PlanGenerator: React.FC = () => {
         ph.id === phaseId ? { ...ph, tasks: ph.tasks?.filter(t => t.id !== taskId) } : ph
       )
     }));
-    toast({ title: "Task Deleted", variant: "default" });
-  }, [toast]);
+  }, []);
   
   const handleUpdateTaskStatus = useCallback((taskId: string, phaseId: string, status: TaskStatus) => {
     setPlan(p => ({
@@ -273,7 +284,6 @@ const PlanGenerator: React.FC = () => {
         ph.id === phaseId ? { ...ph, tasks: ph.tasks?.map(t => t.id === taskId ? { ...t, status } : t) } : ph
       )
     }));
-    // Optionally, add a toast notification for status update if desired
   }, []);
 
   const planRecommendations = useMemo(() => plan.recommendations || [], [plan.recommendations]);
@@ -282,14 +292,30 @@ const PlanGenerator: React.FC = () => {
 
   const handleDownloadPlanPDF = useCallback(() => {
     if (!plan.id) {
-      toast({ title: "Cannot Download", description: "Please save the plan before downloading.", variant: "destructive" });
+      toast({ 
+        title: "Cannot Download", 
+        description: "Please save the plan before downloading.", 
+        variant: "destructive"
+      });
       return;
     }
-    // Assuming you have a main printable element with ID "plan-print-area"
-    // This ID should wrap the content you want to print in your JSX.
-    // The PlanGenerator's main div could have this ID or a specific sub-section.
-    toast({ title: "PDF Generation Started", description: "Your plan PDF is being generated and will download shortly.", variant: "default" });
-    exportToPDFWithWorker("plan-print-area", `${plan.title?.replace(/\s+/g, '-').toLowerCase() || 'esg-plan'}.pdf`, toast);
+    
+    toast({ 
+      title: "PDF Generation Started", 
+      description: "Your plan PDF is being generated and will download shortly.", 
+      variant: "default" 
+    });
+    
+    // Create a wrapper function with the correct type signature to match ExportUtils.tsx
+    const toastWrapper = (options: PdfToastOptions) => {
+      toast(options);
+    };
+    
+    exportToPDFWithWorker(
+      "plan-print-area", 
+      `${plan.title?.replace(/\s+/g, '-').toLowerCase() || 'esg-plan'}.pdf`, 
+      toastWrapper
+    );
   }, [plan.id, plan.title, toast]);
 
   if (appContext.loading && !appContext.esgPlan) {

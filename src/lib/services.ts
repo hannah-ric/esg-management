@@ -1,4 +1,11 @@
 import { supabase } from "./supabase";
+// import { mockUser } from "./mock-auth"; // Unused
+
+interface QuestionnaireDataToSave {
+  user_id: string;
+  data: Record<string, unknown>; // Changed from any
+  // Define other properties if known, e.g., id, created_at, etc.
+}
 
 /**
  * Save questionnaire data to the database
@@ -6,7 +13,7 @@ import { supabase } from "./supabase";
  * @param userId The user ID to associate the data with
  * @returns The saved data or null if there was an error
  */
-export async function saveQuestionnaireData(data: any, userId?: string) {
+export async function saveQuestionnaireData(data: QuestionnaireDataToSave, userId?: string) {
   try {
     if (!userId) {
       console.error("No user ID provided for saving questionnaire data");

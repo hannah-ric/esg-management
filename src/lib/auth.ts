@@ -33,64 +33,75 @@ export interface AuthError {
   type: AuthErrorType;
   message: string;
   code?: string;
-  originalError?: any;
+  originalError?: unknown;
 }
 
 // Process Supabase errors into standardized format
-function processAuthError(error: any): AuthError {
-  // Don't log sensitive information
-  const safeError = {
-    message: error.message,
-    code: error.code,
-    status: error.status
-  };
+function processAuthError(error: unknown): AuthError {
+  let message = "An unexpected error occurred. Please try again.";
+  let code: string | undefined = undefined;
+  let status: number | undefined = undefined;
+
+  if (typeof error === 'object' && error !== null) {
+    const errAsObject = error as { message?: unknown; code?: unknown; status?: unknown };
+
+    if (typeof errAsObject.message === 'string') {
+      message = errAsObject.message;
+    }
+    if (typeof errAsObject.code === 'string') {
+      code = errAsObject.code;
+    }
+    if (typeof errAsObject.status === 'number') {
+      status = errAsObject.status;
+    }
+  }
   
-  logger.error("Auth error:", safeError);
+  logger.error("Auth error:", { message, code, status, originalError: error });
   
   // Map error codes to our standardized types
-  if (error.code === "invalid_credentials" || error.code === "23505" || error.code === "auth/invalid-email") {
+  if (code === "invalid_credentials" || code === "23505" || code === "auth/invalid-email") {
     return {
       type: AuthErrorType.INVALID_CREDENTIALS,
       message: "The email or password you entered is incorrect.",
-      code: error.code
+      code: code
     };
-  } else if (error.code === "email_in_use" || error.code === "23505") {
+  } else if (code === "email_in_use" || code === "23505") {
     return {
       type: AuthErrorType.EMAIL_IN_USE,
       message: "This email is already in use. Please try another email or log in.",
-      code: error.code
+      code: code
     };
-  } else if (error.code === "weak_password") {
+  } else if (code === "weak_password") {
     return {
       type: AuthErrorType.WEAK_PASSWORD,
       message: "Please use a stronger password with at least 8 characters.",
-      code: error.code
+      code: code
     };
-  } else if (error.status === 429) {
+  } else if (status === 429) {
     return {
       type: AuthErrorType.RATE_LIMITED,
       message: "Too many requests. Please try again later.",
-      code: error.code
+      code: code
     };
-  } else if (error.code === "auth/network-request-failed") {
+  } else if (code === "auth/network-request-failed") {
     return {
       type: AuthErrorType.NETWORK_ERROR,
       message: "Network error. Please check your connection and try again.",
-      code: error.code
+      code: code
     };
-  } else if (error.status === 401 || error.code === "auth/unauthorized") {
+  } else if (status === 401 || code === "auth/unauthorized") {
     return {
       type: AuthErrorType.UNAUTHORIZED,
       message: "You are not authorized to perform this action.",
-      code: error.code
+      code: code
     };
   }
   
   // Generic error for unknown cases
   return {
     type: AuthErrorType.UNKNOWN,
-    message: "An unexpected error occurred. Please try again.",
-    code: error.code
+    message: message, // Use the extracted or default message
+    code: code
   };
 }
 
@@ -115,10 +126,17 @@ export function useAuth() {
           loading: false,
         });
       } catch (error) {
+        const logMessage = "Session retrieval failed";
+        let logStatus: number | undefined = undefined;
+        let logCode: string | undefined = undefined;
+        if (typeof error === 'object' && error !== null) {
+          if ('status' in error && typeof (error as { status?: unknown }).status === 'number') logStatus = (error as { status: number }).status;
+          if ('code' in error && typeof (error as { code?: unknown }).code === 'string') logCode = (error as { code: string }).code;
+        }
         logger.error("Error getting initial session:", { 
-          status: error.status,
-          code: error.code,
-          message: "Session retrieval failed" 
+          status: logStatus,
+          code: logCode,
+          message: logMessage 
         });
         setAuthState((prev) => ({ ...prev, loading: false }));
       }
@@ -166,7 +184,7 @@ export async function signUp({
       return mockSignUp();
     }
 
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -178,7 +196,7 @@ export async function signUp({
       },
     });
 
-    if (error) throw error;
+    if (signUpError) throw signUpError;
     return { data, error: null };
   } catch (error) {
     return { data: null, error: processAuthError(error) };
@@ -199,12 +217,12 @@ export async function signIn({
       return mockSignIn();
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) throw error;
+    if (signInError) throw signInError;
     return { data, error: null };
   } catch (error) {
     return { data: null, error: processAuthError(error) };
@@ -219,8 +237,8 @@ export async function signOut() {
       return mockSignOut();
     }
 
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) throw signOutError;
     return { error: null };
   } catch (error) {
     return { error: processAuthError(error) };
@@ -235,10 +253,10 @@ export async function resetPassword(email: string) {
       return mockResetPassword();
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/update-password`,
     });
-    if (error) throw error;
+    if (resetError) throw resetError;
     return { error: null };
   } catch (error) {
     return { error: processAuthError(error) };
@@ -263,7 +281,7 @@ export async function updateProfile({
 
     const {
       data: { user },
-      error,
+      error: updateError,
     } = await supabase.auth.updateUser({
       data: {
         first_name: firstName,
@@ -272,7 +290,7 @@ export async function updateProfile({
       },
     });
 
-    if (error) throw error;
+    if (updateError) throw updateError;
     return { user, error: null };
   } catch (error) {
     return { user: null, error: processAuthError(error) };

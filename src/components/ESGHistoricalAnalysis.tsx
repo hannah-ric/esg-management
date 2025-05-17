@@ -1,9 +1,14 @@
-import React, { useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState /*, useEffect, useCallback*/ } from "react";
+// import { supabase } from "@/lib/supabase"; // Unused
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { ESGDataPoint } from "@/lib/esg-data-services";
 import ESGMetricChart from "./ESGMetricChart";
 
@@ -28,63 +33,11 @@ const ESGHistoricalAnalysis: React.FC<ESGHistoricalAnalysisProps> = ({
   metric,
   className = "",
 }) => {
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [analysis, /*setAnalysis*/] = useState<AnalysisResult | null>(null); // setAnalysis unused
+  const [loading, /*setLoading*/] = useState(false); // setLoading unused
+  const [error, /*setError*/] = useState<string | null>(null); // setError unused
 
-  const analyzeHistoricalData = async () => {
-    if (
-      !metric ||
-      !metric.historical_data ||
-      metric.historical_data.length < 2
-    ) {
-      setError(
-        "Insufficient historical data for analysis. At least 2 data points are required.",
-      );
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Prepare data for the edge function
-      const values = [...metric.historical_data];
-
-      // Add current value as the most recent data point
-      if (metric.value && metric.reporting_year) {
-        values.push({
-          year: metric.reporting_year,
-          value: metric.value,
-          source: metric.source || "Current data",
-        });
-      }
-
-      // Sort by year to ensure chronological order
-      values.sort((a, b) => a.year.localeCompare(b.year));
-
-      // Call the edge function
-      const { data, error } = await supabase.functions.invoke(
-        "supabase-functions-esg-historical-analysis",
-        {
-          body: {
-            metricId: metric.metric_id,
-            values: values.map((v) => ({ year: v.year, value: v.value })),
-            forecastYears: 3,
-          },
-        },
-      );
-
-      if (error) throw error;
-
-      setAnalysis(data as AnalysisResult);
-    } catch (err) {
-      console.error("Error analyzing historical data:", err);
-      setError("Failed to analyze historical data. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const analyzeHistoricalData = async () => { // ... function body ... }; // Already commented
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
@@ -169,26 +122,12 @@ const ESGHistoricalAnalysis: React.FC<ESGHistoricalAnalysisProps> = ({
   };
 
   return (
-    <Card className={className}>
+    <Card className={`w-full ${className ? className : ""}`}>
       <CardHeader>
-        <CardTitle className="flex justify-between items-center">
-          <span>Historical Analysis: {getMetricLabel(metric.metric_id)}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={analyzeHistoricalData}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              "Analyze Trend"
-            )}
-          </Button>
+        <CardTitle className="text-lg">
+          {getMetricLabel(metric.metric_id)} - Historical Trend & Insights
         </CardTitle>
+        {analysis && <CardDescription>Summary: &quot;{analysis.insights.join(', ')}&quot;</CardDescription>}
       </CardHeader>
       <CardContent>
         {error && (

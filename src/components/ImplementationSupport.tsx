@@ -1,5 +1,5 @@
-import React from "react";
-import { Button } from "./ui/button";
+// import React from "react"; // Commented out unused React
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -315,7 +315,7 @@ const ImplementationSupport = () => {
         <p className="mb-6">
           Our implementation support services help you turn ESG plans into
           action. Our team of experts will work with you to develop practical
-          solutions tailored to your organization's specific needs and
+          solutions tailored to your organization&apos;s specific needs and
           challenges.
         </p>
         <div className="flex flex-col sm:flex-row gap-4">

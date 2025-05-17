@@ -1,33 +1,29 @@
 import React, { useState } from "react";
-import { useAppContext } from "./AppContext";
+import { motion } from "framer-motion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { useAppContext, MaterialityTopic as AppContextMaterialityTopic } from "./AppContext";
+import {
+  getTailoredRecommendations,
+  parseRecommendations,
+  MaterialityTopic as TailoredMaterialityTopic,
+  ParsedRecommendations,
+} from "@/lib/tailored-recommendations";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Loader2,
   AlertCircle,
   Sparkles,
-  FileText,
-  Link as LinkIcon,
   Edit,
   Save,
-  Check,
   X,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -35,19 +31,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  getTailoredRecommendations,
-  parseRecommendations,
-  MaterialityTopic,
-  FrameworkRecommendation,
-  ImplementationStep,
-  ResourceRecommendation,
-  ParsedRecommendations,
-} from "@/lib/tailored-recommendations";
 
 interface TailoredRecommendationsProps {
   onApplyRecommendations?: (recommendations: ParsedRecommendations) => void;
 }
+
+// Convert AppContext MaterialityTopic to the tailored-recommendations MaterialityTopic
+const convertToTailoredMaterialityTopic = (topics: AppContextMaterialityTopic[]): TailoredMaterialityTopic[] => {
+  return topics.map(topic => ({
+    id: topic.id,
+    name: topic.name,
+    category: topic.category,
+    stakeholderImpact: topic.stakeholderImportance, // Map stakeholderImportance to stakeholderImpact
+    businessImpact: topic.businessImpact,
+    description: topic.description || ""
+  }));
+};
 
 const TailoredRecommendations: React.FC<TailoredRecommendationsProps> = ({
   onApplyRecommendations,
@@ -60,10 +59,10 @@ const TailoredRecommendations: React.FC<TailoredRecommendationsProps> = ({
   const [recommendations, setRecommendations] =
     useState<ParsedRecommendations | null>(null);
   const [rawRecommendations, setRawRecommendations] = useState<string>("");
-  const [editingTopic, setEditingTopic] = useState<MaterialityTopic | null>(
+  const [editingTopic, setEditingTopic] = useState<TailoredMaterialityTopic | null>(
     null,
   );
-  const [editedTopics, setEditedTopics] = useState<MaterialityTopic[]>([]);
+  const [editedTopics, setEditedTopics] = useState<TailoredMaterialityTopic[]>([]);
 
   const generateRecommendations = async () => {
     if (!questionnaireData) {
@@ -78,7 +77,7 @@ const TailoredRecommendations: React.FC<TailoredRecommendationsProps> = ({
       const response = await getTailoredRecommendations({
         url: url || undefined,
         surveyAnswers: questionnaireData,
-        materialityTopics: materialityTopics || [],
+        materialityTopics: convertToTailoredMaterialityTopic(materialityTopics || []),
       });
 
       if (!response.success || response.error) {
@@ -91,15 +90,19 @@ const TailoredRecommendations: React.FC<TailoredRecommendationsProps> = ({
       setEditedTopics(parsed.materialityTopics);
     } catch (err) {
       console.error("Error generating recommendations:", err);
-      setError(
-        err.message || "Failed to generate recommendations. Please try again.",
-      );
+      let message = "Failed to generate recommendations. Please try again.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      setError(message);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleEditTopic = (topic: MaterialityTopic) => {
+  const handleEditTopic = (topic: TailoredMaterialityTopic) => {
     setEditingTopic({ ...topic });
   };
 
@@ -524,7 +527,7 @@ const TailoredRecommendations: React.FC<TailoredRecommendationsProps> = ({
                 Generate Tailored Recommendations
               </p>
               <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
-                Click the "Generate Recommendations" button to get AI-powered
+                Click the &quot;Generate Recommendations&quot; button to get AI-powered
                 ESG recommendations tailored to your company profile and survey
                 answers.
               </p>

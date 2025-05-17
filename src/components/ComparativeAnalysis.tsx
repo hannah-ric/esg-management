@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect /*, useMemo*/ } from "react";
 import { useAppContext } from "./AppContext";
 import { getPeerBenchmarking } from "@/lib/ai-services";
 import {
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, BarChart3, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Loader2, /*BarChart3,*/ ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   Chart as ChartJS,
@@ -42,6 +42,70 @@ ChartJS.register(
   Legend,
 );
 
+// Sample ESG metrics for the company - MOVED OUTSIDE COMPONENT
+const companyMetricsSample = {
+  environmental: {
+    carbonEmissions: 75, 
+    energyConsumption: 120, 
+    wasteGeneration: 15, 
+    waterUsage: 350, 
+    renewableEnergy: 22, 
+  },
+  social: {
+    employeeTurnover: 12, 
+    diversityScore: 68, 
+    trainingHours: 25, 
+    healthSafetyIncidents: 2, 
+    communityInvestment: 0.8, 
+  },
+  governance: {
+    boardDiversity: 30, 
+    ethicsViolations: 1, 
+    dataBreaches: 0, 
+    transparencyScore: 72, 
+    supplierCompliance: 85, 
+  },
+};
+
+interface BenchmarkMetricValue {
+  industry: number;
+  leaders: number;
+}
+
+interface BenchmarkCategory {
+  carbonEmissions: BenchmarkMetricValue;
+  energyConsumption: BenchmarkMetricValue;
+  wasteGeneration: BenchmarkMetricValue;
+  waterUsage: BenchmarkMetricValue;
+  renewableEnergy: BenchmarkMetricValue;
+  // Add other metrics if they can appear here
+}
+
+interface BenchmarkSocialCategory {
+  employeeTurnover: BenchmarkMetricValue;
+  diversityScore: BenchmarkMetricValue;
+  trainingHours: BenchmarkMetricValue;
+  healthSafetyIncidents: BenchmarkMetricValue;
+  communityInvestment: BenchmarkMetricValue;
+  // Add other metrics if they can appear here
+}
+
+interface BenchmarkGovernanceCategory {
+  boardDiversity: BenchmarkMetricValue;
+  ethicsViolations: BenchmarkMetricValue;
+  dataBreaches: BenchmarkMetricValue;
+  transparencyScore: BenchmarkMetricValue;
+  supplierCompliance: BenchmarkMetricValue;
+  // Add other metrics if they can appear here
+}
+
+interface BenchmarkData {
+  environmental: BenchmarkCategory;
+  social: BenchmarkSocialCategory;
+  governance: BenchmarkGovernanceCategory;
+  insights: string;
+}
+
 interface ComparativeAnalysisProps {
   industry?: string;
   companySize?: string;
@@ -54,44 +118,20 @@ const ComparativeAnalysis: React.FC<ComparativeAnalysisProps> = ({
   const { questionnaireData } = useAppContext();
   const [activeTab, setActiveTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(false);
-  const [benchmarkData, setBenchmarkData] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [benchmarkData, setBenchmarkData] = useState<BenchmarkData | null>(null);
 
   // Use industry and company size from context if available
   const companyIndustry =
-    questionnaireData["industry-selection"]?.industry || industry;
+    questionnaireData?.["industry-selection"]?.industry as string || industry;
   const companyEmployeeCount =
-    questionnaireData["company-profile"]?.employeeCount || companySize;
+    questionnaireData?.["company-profile"]?.employeeCount as string || companySize;
 
-  // Sample ESG metrics for the company
-  const companyMetrics = {
-    environmental: {
-      carbonEmissions: 75, // tons CO2e per million revenue
-      energyConsumption: 120, // MWh per million revenue
-      wasteGeneration: 15, // tons per million revenue
-      waterUsage: 350, // cubic meters per million revenue
-      renewableEnergy: 22, // percentage
-    },
-    social: {
-      employeeTurnover: 12, // percentage
-      diversityScore: 68, // percentage
-      trainingHours: 25, // hours per employee per year
-      healthSafetyIncidents: 2, // incidents per 100 employees
-      communityInvestment: 0.8, // percentage of revenue
-    },
-    governance: {
-      boardDiversity: 30, // percentage
-      ethicsViolations: 1, // number of reported violations
-      dataBreaches: 0, // number of breaches
-      transparencyScore: 72, // percentage
-      supplierCompliance: 85, // percentage
-    },
-  };
+  // Use the sample data defined outside
+  const companyMetrics = companyMetricsSample;
 
   useEffect(() => {
     const fetchBenchmarkData = async () => {
       setIsLoading(true);
-      setError(null);
 
       try {
         const result = await getPeerBenchmarking(
@@ -101,7 +141,7 @@ const ComparativeAnalysis: React.FC<ComparativeAnalysisProps> = ({
         );
 
         if (result.error) {
-          setError(result.error);
+          console.error("Error fetching benchmark data:", result.error);
           return;
         }
 
@@ -135,14 +175,13 @@ const ComparativeAnalysis: React.FC<ComparativeAnalysisProps> = ({
         setBenchmarkData(sampleBenchmarkData);
       } catch (err) {
         console.error("Error fetching benchmark data:", err);
-        setError("Failed to fetch benchmark data. Please try again later.");
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchBenchmarkData();
-  }, [companyIndustry, companyEmployeeCount]);
+  }, [companyIndustry, companyEmployeeCount, companyMetrics]);
 
   // Prepare chart data for environmental metrics
   const environmentalChartData = {

@@ -11,17 +11,19 @@ import {
   parseRecommendations,
 } from "./tailored-recommendations";
 
-// Create a default export for modules that need it
-const tailoredRecommendationsExports = {
+export type {
   TailoredRecommendationsRequest,
   TailoredRecommendationsResponse,
   ParsedRecommendations,
   MaterialityTopic,
   FrameworkRecommendation,
   ImplementationStep,
-  ResourceRecommendation,
-  getTailoredRecommendations,
-  parseRecommendations,
-};
+  ResourceRecommendation
+} from "./tailored-recommendations";
 
-export default tailoredRecommendationsExports;
+export {
+  getTailoredRecommendations,
+  parseRecommendations
+} from "./tailored-recommendations";
+
+// No default export, all are named exports now.

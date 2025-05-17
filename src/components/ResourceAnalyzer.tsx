@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, /*useCallback*/ } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,10 @@ import {
   Edit,
   Save,
   FileText,
-  Upload,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import ResourceExporter from "./ResourceExporter";
 import {
@@ -32,27 +30,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import type { AnalyzedContentResult, AnalyzedContentDataPoint, AnalyzedContentFrameworkMapping } from "@/lib/plan-enhancement";
+import type { ResourceExporterResourcePropsLocal } from "@/components/ResourceExporter";
 
 interface ResourceAnalyzerProps {
-  onResourceAdded?: (resource: any) => void;
-  onDataExtracted?: (dataPoints: Record<string, ESGDataPoint>) => void;
-}
-
-interface ESGDataPoint {
-  id?: string;
-  metric_id: string;
-  value: string;
-  context?: string;
-  confidence: number;
-  source: string;
-  framework_id?: string;
-  disclosure_id?: string;
-  is_edited?: boolean;
-}
-
-interface ESGFrameworkMapping {
-  framework_id: string;
-  disclosure_id: string;
+  onResourceAdded?: (resource: AnalyzedContentResult) => void;
+  onDataExtracted?: (dataPoints: Record<string, AnalyzedContentDataPoint>) => void;
 }
 
 const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
@@ -61,7 +44,7 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
 }) => {
   const [url, setUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<AnalyzedContentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [editingDataPoint, setEditingDataPoint] = useState<string | null>(null);
@@ -79,19 +62,17 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
     try {
       let sourceUrl = url;
 
-      // If we have a file, upload it first to get a URL
       if (file) {
         setIsUploading(true);
         const fileName = `${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
         const filePath = `temp/${fileName}`;
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { /*data: uploadData,*/ error: uploadError } = await supabase.storage
           .from("resources")
           .upload(filePath, file);
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
         const { data: publicUrlData } = supabase.storage
           .from("resources")
           .getPublicUrl(filePath);
@@ -111,18 +92,27 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
 
       setResult(data);
       if (onResourceAdded && data) {
-        onResourceAdded(data);
+        const fileTypeFromUrl = data.url?.split('.').pop()?.toLowerCase();
+        const dataForExporter: AnalyzedContentResult = {
+            ...data,
+            id: data.id || data.url || `analyzed-${Date.now()}`,
+            fileType: data.fileType || fileTypeFromUrl || "unknown",
+        };
+        onResourceAdded(dataForExporter);
       }
 
-      // If we have extracted ESG data points, notify parent component
       if (onDataExtracted && data?.esgData?.dataPoints) {
         onDataExtracted(data.esgData.dataPoints);
       }
     } catch (err) {
       console.error("Error analyzing content:", err);
-      setError(
-        err.message || "Failed to analyze the content. Please try again.",
-      );
+      let message = "Failed to analyze the content. Please try again.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      setError(message);
     } finally {
       setIsAnalyzing(false);
       setIsUploading(false);
@@ -188,7 +178,7 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
 
   const handleEditDataPoint = (metricId: string) => {
     setEditingDataPoint(metricId);
-    if (result?.esgData?.dataPoints[metricId]) {
+    if (result?.esgData?.dataPoints && result.esgData.dataPoints[metricId]) {
       setEditedValues({
         ...editedValues,
         [metricId]: result.esgData.dataPoints[metricId].value,
@@ -197,11 +187,10 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
   };
 
   const handleSaveDataPoint = async (metricId: string) => {
-    if (!result || !result.esgData || !result.esgData.dataPoints[metricId])
+    if (!result || !result.esgData || !result.esgData.dataPoints || !result.esgData.dataPoints[metricId])
       return;
 
     try {
-      // Update the local state first
       const updatedDataPoints = {
         ...result.esgData.dataPoints,
         [metricId]: {
@@ -219,7 +208,6 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
         },
       });
 
-      // Save to database if we have a resource ID
       const { data: resourceData } = await supabase
         .from("resources")
         .select("id")
@@ -227,7 +215,6 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
         .single();
 
       if (resourceData?.id) {
-        // Check if data point already exists
         const { data: existingDataPoint } = await supabase
           .from("esg_data_points")
           .select("id")
@@ -236,7 +223,6 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
           .single();
 
         if (existingDataPoint?.id) {
-          // Update existing data point
           await supabase
             .from("esg_data_points")
             .update({
@@ -247,7 +233,6 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
             })
             .eq("id", existingDataPoint.id);
         } else {
-          // Insert new data point
           const dataPoint = result.esgData.dataPoints[metricId];
           await supabase.from("esg_data_points").insert({
             resource_id: resourceData.id,
@@ -256,8 +241,8 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
             context: dataPoint.context,
             confidence: dataPoint.confidence,
             source: dataPoint.source,
-            framework_id: dataPoint.frameworkId,
-            disclosure_id: dataPoint.disclosureId,
+            framework_id: dataPoint.framework_id,
+            disclosure_id: dataPoint.disclosure_id,
             is_edited: true,
             user_id: (await supabase.auth.getUser()).data.user?.id,
           });
@@ -265,11 +250,29 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
       }
     } catch (err) {
       console.error("Error saving data point:", err);
-      setError("Failed to save data point. Please try again.");
+      let message = "Failed to save data point. Please try again.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      setError(message);
     } finally {
       setEditingDataPoint(null);
     }
   };
+
+  const resourceForExporter: ResourceExporterResourcePropsLocal | undefined = result ? {
+    id: result.id || result.url || `res-${Date.now()}`,
+    title: result.title,
+    description: result.description,
+    type: result.type,
+    category: result.category,
+    fileType: result.fileType || result.url?.split('.').pop()?.toLowerCase() || "unknown",
+    url: result.url,
+    rawContent: result.rawContent,
+    esgData: result.esgData
+  } : undefined;
 
   return (
     <Card className="w-full">
@@ -422,7 +425,7 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
                   </TabsContent>
 
                   <TabsContent value="esg-data">
-                    {result.esgData?.dataPoints &&
+                    {result?.esgData?.dataPoints &&
                     Object.keys(result.esgData.dataPoints).length > 0 ? (
                       <div className="space-y-4">
                         <h4 className="text-sm font-medium">
@@ -430,7 +433,7 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
                         </h4>
                         <div className="space-y-3">
                           {Object.entries(result.esgData.dataPoints).map(
-                            ([metricId, dataPoint]: [string, any]) => (
+                            ([metricId, dataPoint]: [string, AnalyzedContentDataPoint]) => (
                               <div
                                 key={metricId}
                                 className="border rounded-md p-3"
@@ -446,8 +449,7 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
                                           variant="outline"
                                           className="mt-1"
                                         >
-                                          {dataPoint.framework_id}{" "}
-                                          {dataPoint.disclosure_id}
+                                          {dataPoint.framework_id} {dataPoint.disclosure_id}
                                         </Badge>
                                       )}
                                   </div>
@@ -554,7 +556,7 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
                         </h4>
                         <div className="space-y-3">
                           {Object.entries(result.esgData.mappings).map(
-                            ([frameworkId, disclosures]: [string, any]) => (
+                            ([frameworkId, disclosures]: [string, AnalyzedContentFrameworkMapping[]]) => (
                               <div
                                 key={frameworkId}
                                 className="border rounded-md p-3"
@@ -568,13 +570,13 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
                                     </Badge>
                                     <div className="mt-2 flex flex-wrap gap-1">
                                       {disclosures.map(
-                                        (disclosure: string, i: number) => (
+                                        (disclosure: AnalyzedContentFrameworkMapping, i: number) => (
                                           <Badge
                                             key={i}
                                             variant="outline"
                                             className="text-xs"
                                           >
-                                            {disclosure}
+                                            {disclosure.disclosure_id}
                                           </Badge>
                                         ),
                                       )}
@@ -595,7 +597,7 @@ const ResourceAnalyzer: React.FC<ResourceAnalyzerProps> = ({
                     )}
                   </TabsContent>
                 </Tabs>
-                <ResourceExporter resource={result} />
+                {resourceForExporter && <ResourceExporter resource={resourceForExporter} />}
               </div>
             </motion.div>
           )}

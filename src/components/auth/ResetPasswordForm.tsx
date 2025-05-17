@@ -9,6 +9,7 @@ export default function ResetPasswordForm() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [_error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,13 +33,17 @@ export default function ResetPasswordForm() {
         title: "Email sent",
         description: "Check your email for a password reset link.",
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Password reset error:", error);
-      toast({
-        title: "Reset failed",
-        description: error.message || "Failed to send reset email",
-        variant: "destructive",
-      });
+      let errorMessage = "Failed to send reset email. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof (error as { message?: string }).message === 'string') {
+        errorMessage = (error as { message: string }).message;
+      }
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

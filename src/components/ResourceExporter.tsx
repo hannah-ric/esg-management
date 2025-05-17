@@ -2,14 +2,15 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   exportToPDFWithWorker,
-  exportToExcel,
+  // exportToExcel, // Unused
   exportToMultipleSheets,
 } from "./ExportUtils";
 import { FileText, FileSpreadsheet, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { CellValue } from "exceljs";
+import type { AnalyzedContentDataPoint, AnalyzedContentFrameworkMapping, AnalyzedContentESGData } from "@/lib/plan-enhancement";
 
-interface ResourceExporterProps {
-  resource: {
+export interface ResourceExporterResourcePropsLocal {
     id: string;
     title: string;
     description: string;
@@ -18,10 +19,15 @@ interface ResourceExporterProps {
     fileType: string;
     url: string;
     rawContent?: string;
-    esgData?: any;
-  };
+    esgData?: AnalyzedContentESGData; 
+}
+
+interface ResourceExporterProps {
+  resource: ResourceExporterResourcePropsLocal;
   onExportComplete?: (type: "pdf" | "excel", success: boolean) => void;
 }
+
+type ExcelSheetData = Record<string, CellValue | undefined>;
 
 const ResourceExporter: React.FC<ResourceExporterProps> = ({
   resource,
@@ -72,17 +78,15 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
                 </tr>
               </thead>
               <tbody>
-                ${Object.entries(resource.esgData.dataPoints)
-                  .map(
-                    ([metricId, dataPoint]: [string, any]) => `
+                ${Object.entries(resource.esgData?.dataPoints || {}).map(
+                    ([metricId, dataPoint]: [string, AnalyzedContentDataPoint]) => `
                   <tr>
                     <td style="padding: 8px; border: 1px solid #ddd;">${metricId.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${dataPoint.value}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${dataPoint.frameworkId || ""} ${dataPoint.disclosureId || ""}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${String(dataPoint.value)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${dataPoint.framework_id || ""} ${dataPoint.disclosure_id || ""}</td>
                   </tr>
                 `,
-                  )
-                  .join("")}
+                  ).join("")}
               </tbody>
             </table>
           `
@@ -101,16 +105,14 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
                 </tr>
               </thead>
               <tbody>
-                ${Object.entries(resource.esgData.mappings)
-                  .map(
-                    ([frameworkId, disclosures]: [string, any]) => `
+                ${Object.entries(resource.esgData?.mappings || {}).map(
+                  ([frameworkId, disclosures]: [string, AnalyzedContentFrameworkMapping[]]) => `
                   <tr>
                     <td style="padding: 8px; border: 1px solid #ddd;">${frameworkId}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${Array.isArray(disclosures) ? disclosures.join(", ") : disclosures}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${Array.isArray(disclosures) ? disclosures.map(d => d.disclosure_id).join(", ") : (disclosures as unknown as AnalyzedContentFrameworkMapping)?.disclosure_id || 'N/A'}</td>
                   </tr>
                 `,
-                  )
-                  .join("")}
+                ).join("")}
               </tbody>
             </table>
           `
@@ -171,7 +173,7 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
 
     try {
       // Prepare data for Excel export
-      const excelData: any = {};
+      const excelData: Record<string, ExcelSheetData[]> = {};
 
       // Resource information
       excelData.resourceInfo = [
@@ -187,12 +189,12 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
       // ESG data points
       if (resource.esgData?.dataPoints) {
         excelData.dataPoints = Object.entries(resource.esgData.dataPoints).map(
-          ([metricId, dataPoint]: [string, any]) => ({
+          ([metricId, dataPoint]: [string, AnalyzedContentDataPoint]) => ({
             Metric: metricId
               .replace(/-/g, " ")
               .replace(/\b\w/g, (l) => l.toUpperCase()),
-            Value: dataPoint.value,
-            Framework: `${dataPoint.frameworkId || ""} ${dataPoint.disclosureId || ""}`,
+            Value: String(dataPoint.value),
+            Framework: `${dataPoint.framework_id || ""} ${dataPoint.disclosure_id || ""}`,
             Confidence: dataPoint.confidence || "N/A",
             Context: dataPoint.context || "N/A",
           }),
@@ -203,16 +205,16 @@ const ResourceExporter: React.FC<ResourceExporterProps> = ({
       if (resource.esgData?.mappings) {
         excelData.frameworks = Object.entries(
           resource.esgData.mappings,
-        ).flatMap(([frameworkId, disclosures]: [string, any]) =>
+        ).flatMap(([frameworkId, disclosures]: [string, AnalyzedContentFrameworkMapping[]]) =>
           Array.isArray(disclosures)
-            ? disclosures.map((disclosure) => ({
+            ? disclosures.map((disclosure: AnalyzedContentFrameworkMapping) => ({
                 Framework: frameworkId,
-                Disclosure: disclosure,
+                Disclosure: disclosure.disclosure_id,
               }))
             : [
                 {
                   Framework: frameworkId,
-                  Disclosure: disclosures,
+                  Disclosure: (disclosures as unknown as AnalyzedContentFrameworkMapping)?.disclosure_id || 'N/A',
                 },
               ],
         );

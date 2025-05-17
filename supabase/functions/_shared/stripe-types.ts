@@ -8,7 +8,7 @@ export interface StripeWebhookEvent {
   api_version: string;
   created: number;
   data: {
-    object: any;
+    object: Record<string, unknown>;
   };
   livemode: boolean;
   pending_webhooks: number;
@@ -30,7 +30,7 @@ export interface StripePaymentIntent {
   canceled_at: number | null;
   cancellation_reason: string | null;
   capture_method: string;
-  charges: any;
+  charges: unknown;
   client_secret: string;
   confirmation_method: string;
   created: number;
@@ -38,23 +38,23 @@ export interface StripePaymentIntent {
   customer: string | null;
   description: string | null;
   invoice: string | null;
-  last_payment_error: any;
+  last_payment_error: Record<string, unknown> | null;
   livemode: boolean;
   metadata: Record<string, string>;
-  next_action: any;
+  next_action: Record<string, unknown> | null;
   on_behalf_of: string | null;
   payment_method: string | null;
-  payment_method_options: any;
+  payment_method_options: Record<string, unknown> | null;
   payment_method_types: string[];
   receipt_email: string | null;
   review: string | null;
   setup_future_usage: string | null;
-  shipping: any;
+  shipping: Record<string, unknown> | null;
   source: string | null;
   statement_descriptor: string | null;
   statement_descriptor_suffix: string | null;
   status: string;
-  transfer_data: any;
+  transfer_data: Record<string, unknown> | null;
   transfer_group: string | null;
 }
 
@@ -67,7 +67,7 @@ export interface StripeSubscription {
     enabled: boolean;
   };
   billing_cycle_anchor: number;
-  billing_thresholds: any;
+  billing_thresholds: Record<string, unknown> | null;
   cancel_at: number | null;
   cancel_at_period_end: boolean;
   canceled_at: number | null;
@@ -79,15 +79,15 @@ export interface StripeSubscription {
   days_until_due: number | null;
   default_payment_method: string | null;
   default_source: string | null;
-  default_tax_rates: any[];
-  discount: any;
+  default_tax_rates: unknown[];
+  discount: Record<string, unknown> | null;
   ended_at: number | null;
   items: {
     object: string;
     data: Array<{
       id: string;
       object: string;
-      billing_thresholds: any;
+      billing_thresholds: Record<string, unknown> | null;
       created: number;
       metadata: Record<string, string>;
       price: {
@@ -110,14 +110,14 @@ export interface StripeSubscription {
         };
         tax_behavior: string;
         tiers_mode: string | null;
-        transform_quantity: any;
+        transform_quantity: Record<string, unknown> | null;
         type: string;
         unit_amount: number;
         unit_amount_decimal: string;
       };
       quantity: number;
       subscription: string;
-      tax_rates: any[];
+      tax_rates: unknown[];
     }>;
     has_more: boolean;
     url: string;
@@ -126,19 +126,19 @@ export interface StripeSubscription {
   livemode: boolean;
   metadata: Record<string, string>;
   next_pending_invoice_item_invoice: number | null;
-  pause_collection: any;
+  pause_collection: Record<string, unknown> | null;
   payment_settings: {
-    payment_method_options: any;
+    payment_method_options: Record<string, unknown> | null;
     payment_method_types: string[] | null;
     save_default_payment_method: string | null;
   };
-  pending_invoice_item_interval: any;
+  pending_invoice_item_interval: Record<string, unknown> | null;
   pending_setup_intent: string | null;
-  pending_update: any;
+  pending_update: Record<string, unknown> | null;
   schedule: string | null;
   start_date: number;
   status: string;
-  transfer_data: any;
+  transfer_data: Record<string, unknown> | null;
   trial_end: number | null;
   trial_start: number | null;
 }

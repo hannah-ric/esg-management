@@ -26,12 +26,11 @@ const Home = () => {
             className="text-center mb-12"
           >
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Simplify Your ESG Reporting Journey
+              Impactly ESG Management
             </h1>
-            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-8">
-              Generate tailored ESG management plans aligned with major
-              frameworks based on your company's unique profile and industry
-              requirements.
+            <p className="mt-4 text-lg text-muted-foreground">
+              Unlock your company&apos;s ESG potential with our comprehensive
+              management and reporting solutions.
             </p>
             <Button
               size="lg"

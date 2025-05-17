@@ -8,7 +8,7 @@ interface CacheItem<T> {
 }
 
 class Cache {
-  private store: Map<string, CacheItem<any>> = new Map();
+  private store: Map<string, CacheItem<unknown>> = new Map();
 
   /**
    * Set a value in the cache
@@ -16,7 +16,7 @@ class Cache {
    * @param value Value to store
    * @param ttlSeconds Time to live in seconds (optional)
    */
-  set<T>(key: string, value: T, ttlSeconds?: number): void {
+  set<T = unknown>(key: string, value: T, ttlSeconds?: number): void {
     const expiry = ttlSeconds ? Date.now() + ttlSeconds * 1000 : null;
     this.store.set(key, { value, expiry });
   }
@@ -26,7 +26,7 @@ class Cache {
    * @param key Cache key
    * @returns The cached value or undefined if not found or expired
    */
-  get<T>(key: string): T | undefined {
+  get<T = unknown>(key: string): T | undefined {
     const item = this.store.get(key);
 
     // Return undefined if item doesn't exist

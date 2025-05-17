@@ -15,8 +15,22 @@ import {
   ESGRecommendation,
   ImplementationPhase,
   ImplementationTask,
+  Priority,
+  Effort,
+  Impact,
   TaskStatus,
 } from "@/components/AppContext";
+
+// Define the type for an individual AI recommendation item based on its expected structure
+interface AIRecommendationItem {
+  title: string;
+  description: string;
+  framework: string;
+  indicator: string;
+  priority: string; // Will be cast to Priority type
+  effort: string;   // Will be cast to Effort type
+  impact: string;   // Will be cast to Impact type
+}
 
 const PlanGeneratorStoryboard: React.FC = () => {
   const { toast } = useToast();
@@ -289,11 +303,13 @@ const PlanGeneratorStoryboard: React.FC = () => {
       if (result.success && result.data) {
         // Add AI-generated recommendations to the existing ones
         if (
-          result.data.frameworks &&
+          result.data.frameworks && // Ensure frameworks exists
+          typeof result.data.frameworks !== 'string' && // Ensure it's not the raw string fallback
+          result.data.frameworks.recommendations && // Ensure recommendations array exists
           Array.isArray(result.data.frameworks.recommendations)
         ) {
           const aiRecs = result.data.frameworks.recommendations.map(
-            (rec: any) => ({
+            (rec: AIRecommendationItem) => ({ // Typed rec
               id: `rec-ai-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
               title: rec.title || "AI Recommendation",
               description: rec.description || "",

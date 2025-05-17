@@ -16,7 +16,7 @@ const StripeKeyContext = createContext<StripeKeyContextType>({
   isMockMode: false,
 });
 
-type StripeKeyProviderProps = {
+export type StripeKeyProviderProps = {
   children: React.ReactNode;
 };
 

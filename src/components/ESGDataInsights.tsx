@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -169,13 +169,7 @@ const ESGDataInsights: React.FC<ESGDataInsightsProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("all");
 
-  useEffect(() => {
-    if (user) {
-      loadInsights();
-    }
-  }, [user, resourceId, metricId]);
-
-  const loadInsights = async () => {
+  const loadInsights = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -193,15 +187,31 @@ const ESGDataInsights: React.FC<ESGDataInsightsProps> = ({
       );
 
       if (funcError) throw new Error(funcError.message);
-      // Ensure data and data.insights are not null/undefined before setting state
-      setInsights(data?.insights || []); 
-    } catch (err: any) {
+      if (data?.error || !data?.insights) {
+        setError(data?.error || "No data returned from insights service.");
+        return;
+      }
+
+      setInsights(data.insights);
+    } catch (err) {
       console.error("Error loading ESG insights:", err);
-      setError(err.message || "Failed to load ESG insights. Please try again.");
+      let message = "Failed to load ESG insights. Please try again.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, resourceId, metricId]);
+
+  useEffect(() => {
+    if (user) {
+      loadInsights();
+    }
+  }, [user, resourceId, metricId, loadInsights]);
   
   if (loading) {
     return (

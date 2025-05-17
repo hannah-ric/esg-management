@@ -1,13 +1,20 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import ExcelJS from "exceljs";
+import ExcelJS, { type CellValue } from "exceljs";
 import { saveAs } from "file-saver";
+import type { ReactNode } from 'react';
 
-// Interface for Web Worker message (conceptual)
-interface PDFWorkerMessage {
-  action: "generatePdf";
-  htmlContentId: string;
-  filename: string;
+// Interface for Web Worker message (conceptual) - Commented out as unused
+// interface PDFWorkerMessage {
+//   action: "generatePdf";
+//   htmlContentId: string;
+//   filename: string;
+// }
+
+interface ToastOptions {
+  title?: ReactNode;
+  description?: ReactNode;
+  variant?: "default" | "destructive" | "success";
 }
 
 // Keep this as a fallback or for simple, non-worker based generation if needed.
@@ -44,8 +51,8 @@ async function generatePdfOnMainThread(elementId: string, filename: string): Pro
   }
 }
 
-export async function exportToPDFWithWorker(elementId: string, filename: string, showToast?: (options: any) => void): Promise<void> {
-  const element = document.getElementById(elementId);
+export async function exportToPDFWithWorker(elementId: string, filename: string, showToast?: (options: ToastOptions) => void): Promise<void> {
+  const element = document.getElementById(elementId) as HTMLElement | null;
   if (!element) {
     console.error(`Element with id "${elementId}" not found.`);
     if (showToast) showToast({ title: "Export Error", description: `Content for ID '${elementId}' not found.`, variant: "destructive" });
@@ -65,7 +72,7 @@ export async function exportToPDFWithWorker(elementId: string, filename: string,
 
     pdfWorker.postMessage({ action: 'generatePdf', htmlString, filename });
 
-    pdfWorker.onmessage = (event) => {
+    pdfWorker.onmessage = (event: MessageEvent<{ success: boolean; filename: string; pdfBlob?: Blob; error?: string }>) => {
       const { success, filename: returnedFilename, pdfBlob, error } = event.data;
       if (success && pdfBlob) {
         saveAs(pdfBlob, returnedFilename);
@@ -79,9 +86,9 @@ export async function exportToPDFWithWorker(elementId: string, filename: string,
       pdfWorker.terminate(); // Clean up worker
     };
 
-    pdfWorker.onerror = (error) => {
+    pdfWorker.onerror = (error: ErrorEvent) => {
       console.error("PDF worker error:", error);
-      if(showToast) showToast({ title: "PDF Worker Error", description: "An unexpected error occurred with the PDF generator.", variant: "destructive"});
+      if(showToast) showToast({ title: "PDF Worker Error", description: error.message || "An unexpected error occurred with the PDF generator.", variant: "destructive"});
       else alert("PDF worker error. Check console.");
       pdfWorker.terminate();
     };
@@ -94,7 +101,10 @@ export async function exportToPDFWithWorker(elementId: string, filename: string,
   }
 }
 
-export const exportToExcel = async (data: any[], filename: string = "data.xlsx"): Promise<boolean> => {
+// Define a more specific type for Excel row data
+type ExcelRowData = Record<string, CellValue | undefined>;
+
+export const exportToExcel = async (data: ExcelRowData[], filename: string = "data.xlsx"): Promise<boolean> => {
   try {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Sheet1");
@@ -105,8 +115,18 @@ export const exportToExcel = async (data: any[], filename: string = "data.xlsx")
       worksheet.addRow(headers);
 
       // Add data rows
-      data.forEach((row) => {
-        worksheet.addRow(Object.values(row));
+      data.forEach((row: ExcelRowData) => {
+        // Convert all values to what ExcelJS expects (string, number, boolean, Date, null)
+        const excelRow: CellValue[] = headers.map(header => {
+          const value = row[header];
+          if (value instanceof Date) return value;
+          if (typeof value === 'boolean') return value;
+          if (typeof value === 'number') return value;
+          if (typeof value === 'string') return value;
+          if (value === null || value === undefined) return null;
+          return String(value);
+        });
+        worksheet.addRow(excelRow);
       });
     }
 
@@ -116,8 +136,9 @@ export const exportToExcel = async (data: any[], filename: string = "data.xlsx")
       if (column && typeof column.eachCell === 'function') {
         // Estimate column width based on header and some sample data
         let maxLength = 0;
-        column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
-          const columnLength = cell.value ? cell.value.toString().length : 10;
+        column.eachCell({ includeEmpty: true }, (cell, _rowNumber) => {
+          const cellValue = cell.value;
+          const columnLength = cellValue ? String(cellValue).length : 10;
           if (columnLength > maxLength) {
             maxLength = columnLength;
           }
@@ -153,28 +174,33 @@ export const exportToExcel = async (data: any[], filename: string = "data.xlsx")
  * @param data Raw data to be prepared for Excel export
  * @returns Formatted data ready for Excel export
  */
-export const prepareExcelData = (data: any[]): any[] => {
+export const prepareExcelData = (data: Record<string, unknown>[]): Record<string, CellValue | "">[] => {
   // If data is already in the right format, return it as is
   if (!data || data.length === 0) return [];
 
   // Ensure all objects have the same keys for consistent columns
   const allKeys = new Set<string>();
-  data.forEach((item) => {
+  data.forEach((item: Record<string, unknown>) => {
     Object.keys(item).forEach((key) => allKeys.add(key));
   });
 
   // Create a standardized array with all possible keys
-  return data.map((item) => {
-    const standardizedItem: Record<string, any> = {};
+  return data.map((item: Record<string, unknown>) => {
+    const standardizedItem: Record<string, CellValue | ""> = {};
     Array.from(allKeys).forEach((key) => {
-      standardizedItem[key] = item[key] !== undefined ? item[key] : "";
+      const value = item[key];
+      if (value instanceof Date || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string' || value === null || value === undefined) {
+        standardizedItem[key] = value as CellValue;
+      } else {
+        standardizedItem[key] = String(value);
+      }
     });
     return standardizedItem;
   });
 };
 
 export const exportToMultipleSheets = (
-  data: Record<string, any[]>,
+  data: Record<string, ExcelRowData[]>,
   filename: string = "esg-plan.xlsx",
 ) => {
   try {
@@ -191,8 +217,18 @@ export const exportToMultipleSheets = (
         worksheet.addRow(headers);
 
         // Add data rows
-        sheetData.forEach((row: any) => {
-          worksheet.addRow(Object.values(row));
+        sheetData.forEach((row: ExcelRowData) => {
+          // Convert all values to what ExcelJS expects
+          const excelRow: CellValue[] = headers.map(header => {
+            const value = row[header];
+            if (value instanceof Date) return value;
+            if (typeof value === 'boolean') return value;
+            if (typeof value === 'number') return value;
+            if (typeof value === 'string') return value;
+            if (value === null || value === undefined) return null;
+            return String(value);
+          });
+          worksheet.addRow(excelRow);
         });
       }
     });

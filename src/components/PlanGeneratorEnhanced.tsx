@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+// import { logger } from "@/lib/logger"; // Commented out unused logger
 import { 
   analyzeExternalContent, 
   searchResourceLibrary, 
-  generateAIRecommendations 
+  generateAIRecommendations, 
+  AnalyzedContentESGData 
 } from "@/lib/plan-enhancement";
-import { logger } from "@/lib/logger";
+import type { EnhancedPlanData } from "@/lib/plan-enhancement";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,13 +14,66 @@ import { Loader2, Search, AlertCircle, Sparkles } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TailoredRecommendations from "@/components/TailoredRecommendations";
+import type { ESGPlan, MaterialityTopic } from "@/components/AppContext";
+import type { ParsedRecommendations } from "@/lib/tailored-recommendations";
+
+interface AnalyzedUrlData { 
+  [key: string]: unknown;
+  id?: string;
+  title: string;
+  url: string;
+  category: string;
+  type: string;
+  description: string;
+  tags: string[];
+  rawContent?: string;
+  esgData?: AnalyzedContentESGData;
+}
+
+interface SearchResultItem {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  // Add other relevant fields from the 'resources' table that searchResourceLibrary returns
+}
+
+interface UrlAnalysisEnhancement {
+  source: "diffbot" | "url_analysis"; // Keeping 'diffbot' if it was a possible source name
+  type: "url_analysis";
+  data: AnalyzedUrlData; 
+}
+
+interface ResourceSelectionEnhancement {
+  source: "resource_library";
+  type: "resource_selection";
+  data: SearchResultItem[];
+}
+
+interface AiRecommendationsEnhancement {
+  source: "ai";
+  type: "ai_recommendations";
+  data: EnhancedPlanData | null; // From plan-enhancement.ts
+}
+
+interface TailoredRecommendationsEnhancement {
+  source: "tailored";
+  type: "tailored_recommendations";
+  data: ParsedRecommendations; // From tailored-recommendations.ts
+}
+
+type EnhancementData = 
+  | UrlAnalysisEnhancement 
+  | ResourceSelectionEnhancement 
+  | AiRecommendationsEnhancement
+  | TailoredRecommendationsEnhancement;
 
 interface PlanGeneratorEnhancedProps {
-  onEnhancementComplete?: (data: any) => void;
+  onEnhancementComplete?: (data: EnhancementData) => void; // Typed data
   companyName?: string;
   industry?: string;
-  materialityTopics?: any[];
-  esgPlan?: any;
+  materialityTopics?: Partial<MaterialityTopic>[];
+  esgPlan?: Partial<ESGPlan>;
 }
 
 const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
@@ -33,11 +88,11 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("url");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiRecommendations, setAiRecommendations] = useState<any>(null);
+  const [aiRecommendations, setAiRecommendations] = useState<EnhancedPlanData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedResults, setSelectedResults] = useState<any[]>([]);
+  const [selectedResults, setSelectedResults] = useState<SearchResultItem[]>([]);
 
   const analyzeUrl = async () => {
     if (!url) return;
@@ -51,8 +106,8 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
       if (onEnhancementComplete && result.data) {
         onEnhancementComplete({
           source: "diffbot",
-          data: result.data,
           type: "url_analysis",
+          data: result.data as unknown as AnalyzedUrlData,
         });
       }
     } else {
@@ -71,7 +126,7 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     const result = await searchResourceLibrary(searchQuery);
     
     if (result.success) {
-      setSearchResults(result.data);
+      setSearchResults(result.data as SearchResultItem[]);
     } else {
       setError(result.error || "Failed to search resources. Please try again.");
     }
@@ -79,7 +134,7 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     setIsSearching(false);
   };
 
-  const toggleResultSelection = (result: any) => {
+  const toggleResultSelection = (result: SearchResultItem) => {
     if (selectedResults.some((r) => r.id === result.id)) {
       setSelectedResults(selectedResults.filter((r) => r.id !== result.id));
     } else {
@@ -93,8 +148,8 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     if (onEnhancementComplete) {
       onEnhancementComplete({
         source: "resource_library",
-        data: selectedResults,
         type: "resource_selection",
+        data: selectedResults,
       });
     }
   };
@@ -113,7 +168,7 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
       companyName,
       industry,
       materialityTopics,
-      esgPlan
+      esgPlan || {}
     );
     
     if (result.success && result.data) {
@@ -122,8 +177,8 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
       if (onEnhancementComplete) {
         onEnhancementComplete({
           source: "ai",
-          data: result.data,
           type: "ai_recommendations",
+          data: result.data,
         });
       }
     } else {
@@ -231,20 +286,20 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
               <div className="space-y-4">
                 <h3 className="text-sm font-medium">Search Results</h3>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {searchResults.map((result) => (
+                  {searchResults.map((resultItem: SearchResultItem) => (
                     <div
-                      key={result.id}
-                      className={`p-3 border rounded-md cursor-pointer ${selectedResults.some((r) => r.id === result.id) ? "border-primary bg-primary/5" : ""}`}
-                      onClick={() => toggleResultSelection(result)}
+                      key={resultItem.id}
+                      className={`p-3 border rounded-md cursor-pointer ${selectedResults.some((r) => r.id === resultItem.id) ? "border-primary bg-primary/5" : ""}`}
+                      onClick={() => toggleResultSelection(resultItem)}
                     >
                       <div className="flex justify-between items-start">
-                        <h4 className="font-medium">{result.title}</h4>
+                        <h4 className="font-medium">{resultItem.title}</h4>
                         <div className="text-xs bg-muted px-2 py-1 rounded">
-                          {result.category}
+                          {resultItem.category}
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {result.description}
+                        {resultItem.description}
                       </p>
                     </div>
                   ))}
@@ -311,8 +366,11 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
                     Framework Recommendations
                   </h3>
                   <div className="text-sm whitespace-pre-line">
-                    {aiRecommendations.frameworks?.content ||
-                      "No framework recommendations available."}
+                    {typeof aiRecommendations.frameworks === 'string' 
+                      ? aiRecommendations.frameworks 
+                      : aiRecommendations.frameworks && typeof aiRecommendations.frameworks === 'object' && 'content' in aiRecommendations.frameworks 
+                        ? String(aiRecommendations.frameworks.content) 
+                        : "No framework recommendations available."}
                   </div>
                 </div>
 
@@ -322,8 +380,11 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
                       Resource Recommendations
                     </h3>
                     <div className="text-sm whitespace-pre-line">
-                      {aiRecommendations.resources?.content ||
-                        "No resource recommendations available."}
+                      {typeof aiRecommendations.resources === 'string'
+                        ? aiRecommendations.resources
+                        : aiRecommendations.resources && typeof aiRecommendations.resources === 'object' && 'content' in aiRecommendations.resources
+                          ? String(aiRecommendations.resources.content)
+                          : "No resource recommendations available."}
                     </div>
                   </div>
                 )}
@@ -345,8 +406,8 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
                 if (onEnhancementComplete) {
                   onEnhancementComplete({
                     source: "tailored",
-                    data: recommendations,
                     type: "tailored_recommendations",
+                    data: recommendations,
                   });
                 }
               }}

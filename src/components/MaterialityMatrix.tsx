@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext, MaterialityTopic as AppContextMaterialityTopic } from "./AppContext";
 import { analyzeMaterialityTopics, AIAssistantResponse } from "@/lib/ai-services";
 import { logger } from "@/lib/logger";
-import { useToast } from "@/components/ui/use-toast";
+// import { useToast } from "@/components/ui/use-toast";
 import { useErrorHandler } from "@/lib/error-utils";
 import {
   Card,
@@ -42,6 +42,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import MaterialityMatrixChart from "./MaterialityMatrixChart";
+import { MaterialityTopic as TailoredMaterialityTopic } from "@/lib/tailored-recommendations";
 
 interface MaterialityMatrixProps {
   topics?: AppContextMaterialityTopic[];
@@ -129,6 +130,29 @@ interface TailoredRecommendationsResponse {
   // Add other fields if known
 }
 
+// Define an interface for the tailored recommendations materiality topic
+interface TailoredRecMaterialityTopic {
+  id?: string;
+  name?: string;
+  category?: "environmental" | "social" | "governance";
+  stakeholderImportance?: number;
+  stakeholderImpact?: number;
+  businessImpact?: number;
+  description?: string;
+}
+
+// Convert AppContext MaterialityTopic to the tailored-recommendations MaterialityTopic
+const convertToTailoredMaterialityTopic = (topics: AppContextMaterialityTopic[]): TailoredMaterialityTopic[] => {
+  return topics.map(topic => ({
+    id: topic.id,
+    name: topic.name,
+    category: topic.category,
+    stakeholderImpact: topic.stakeholderImportance, // Map stakeholderImportance to stakeholderImpact
+    businessImpact: topic.businessImpact,
+    description: topic.description || ""
+  }));
+};
+
 const MaterialityMatrix = ({
   topics = defaultTopics,
   onTopicUpdate,
@@ -136,7 +160,7 @@ const MaterialityMatrix = ({
 }: MaterialityMatrixProps) => {
   const navigate = useNavigate();
   const materialityAppContext = useAppContext();
-  const { toast } = useToast();
+  // const { toast } = useToast();
   const { handleAsync } = useErrorHandler();
   const [matrixTopics, setMatrixTopics] = useState<AppContextMaterialityTopic[]>(topics);
   const [selectedTopic, setSelectedTopic] = useState<AppContextMaterialityTopic | null>(
@@ -149,7 +173,7 @@ const MaterialityMatrix = ({
   const [isGeneratingTopics, setIsGeneratingTopics] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  // const [isSaved, setIsSaved] = useState(false);
   
   // Use refs to prevent stale closures in event handlers
   const matrixTopicsRef = useRef(matrixTopics);
@@ -176,40 +200,30 @@ const MaterialityMatrix = ({
 
   // Save material topics with proper state management
   const handleSave = useCallback(async () => {
-    if (isUnmountedRef.current) return;
-    
     setIsSaving(true);
-    
-    const result = await handleAsync(
+    await handleAsync(
       async () => {
         materialityAppContext.updateMaterialityTopics(matrixTopicsRef.current.map(topic => ({
           ...topic,
-          category: topic.category as string,
+          category: topic.category,
         })));
         await materialityAppContext.saveMaterialityTopics();
-        if (!isUnmountedRef.current) {
-          setIsSaved(true);
-        }
-        return true;
       },
       {
-        errorMessage: "Error saving materiality topics",
-        successMessage: "Materiality topics saved successfully",
-        showErrorToast: true,
+        successMessage: "Materiality matrix saved successfully!",
+        errorMessage: "Failed to save materiality matrix.",
         showSuccessToast: true
       }
     );
     
-    if (!isUnmountedRef.current) {
-      setIsSaving(false);
-    }
+    setIsSaving(false);
   }, [materialityAppContext, handleAsync]);
 
   // Function to proceed to plan generator with state safety
   const handleProceedToPlan = useCallback(() => {
     materialityAppContext.updateMaterialityTopics(matrixTopicsRef.current.map(topic => ({
       ...topic,
-      category: topic.category as string,
+      category: topic.category,
     })));
     navigate("/plan");
   }, [materialityAppContext, navigate]);
@@ -268,7 +282,7 @@ const MaterialityMatrix = ({
 
         const response: TailoredRecommendationsResponse = await getTailoredRecommendations({
           surveyAnswers: materialityAppContext.questionnaireData || {},
-          materialityTopics: matrixTopicsRef.current || [],
+          materialityTopics: convertToTailoredMaterialityTopic(matrixTopicsRef.current || []),
         });
 
         if (isUnmountedRef.current) return;
@@ -277,14 +291,15 @@ const MaterialityMatrix = ({
           const parsed = parseRecommendations(response.recommendations.content);
 
           if (parsed.materialityTopics && parsed.materialityTopics.length > 0) {
-            const typedTopics = parsed.materialityTopics.map((t: any, i: number) => ({
+            // Assuming MaterialityTopic from tailored-recommendations is compatible enough or needs mapping
+            const typedTopics = parsed.materialityTopics.map((t: TailoredRecMaterialityTopic, i: number) => ({
               id: t.id || `ai-tailored-${i + 1}`,
               name: t.name || "Unnamed Topic",
-              category: t.category || "general",
-              stakeholderImportance: t.stakeholderImportance || t.stakeholderImpact || 0.5,
+              category: t.category || "environmental", // Default if not present or map if needed
+              stakeholderImportance: t.stakeholderImportance || t.stakeholderImpact || 0.5, // Ensure stakeholderImpact is correct field if t comes from tailoredRec
               businessImpact: t.businessImpact || 0.5,
               description: t.description || "",
-            })) as AppContextMaterialityTopic[];
+            })) as AppContextMaterialityTopic[]; // Still need this final cast if shapes differ slightly
             setMatrixTopics(typedTopics);
             if (onTopicUpdate) {
               onTopicUpdate(typedTopics);
@@ -306,19 +321,20 @@ const MaterialityMatrix = ({
       if (!result.error && result.content) {
         // Parse the topic data
         try {
-          const topicsData = JSON.parse(result.content);
+          const topicsData = JSON.parse(result.content) as Partial<AppContextMaterialityTopic>[]; // Assert after parse
           if (
             Array.isArray(topicsData) &&
             topicsData.length > 0 &&
-            topicsData[0].name
+            topicsData[0].name // Check for a key property
           ) {
             // Ensure each topic has an ID and matches AppContextMaterialityTopic
-            const topicsWithIds = topicsData.map((topic: any, index: number) => ({
-              ...topic,
+            const topicsWithIds = topicsData.map((topic: Partial<AppContextMaterialityTopic>, index: number) => ({
               id: topic.id || `ai-${index + 1}`,
-              stakeholderImportance: topic.stakeholderImportance || topic.stakeholderImpact || 0.5,
+              name: topic.name || "Unnamed Topic",
+              category: topic.category || "environmental",
+              stakeholderImportance: topic.stakeholderImportance || 0.5, // Assuming stakeholderImpact was specific to tailoredRec
+              businessImpact: topic.businessImpact || 0.5,
               description: topic.description || "",
-              category: topic.category || "general",
             })) as AppContextMaterialityTopic[];
             setMatrixTopics(topicsWithIds);
             if (onTopicUpdate) {
@@ -455,7 +471,7 @@ const MaterialityMatrix = ({
           <Tabs
             defaultValue="all"
             value={filter}
-            onValueChange={(value) => setFilter(value as any)}
+            onValueChange={(value) => setFilter(value as "all" | "environmental" | "social" | "governance")}
           >
             <TabsList>
               <TabsTrigger value="all">All Topics</TabsTrigger>
@@ -479,7 +495,7 @@ const MaterialityMatrix = ({
               <MaterialityMatrixChart
                 topics={filteredTopics}
                 onTopicClick={setSelectedTopic}
-                selectedTopicId={selectedTopic?.id}
+                _selectedTopicId={selectedTopic?.id}
               />
             </TabsContent>
 

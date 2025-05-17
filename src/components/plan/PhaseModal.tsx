@@ -29,6 +29,9 @@ const defaultPhase: Partial<ImplementationPhase> = {
   tasks: [], // Tasks will be managed within the phase or by a separate TaskModal
 };
 
+// Create a type intersection to make ImplementationPhase indexable
+type IndexableImplementationPhase = ImplementationPhase & Record<string, unknown>;
+
 const PhaseModal: React.FC<PhaseModalProps> = ({
   isOpen,
   onClose,
@@ -85,19 +88,17 @@ const PhaseModal: React.FC<PhaseModalProps> = ({
 
     // Create the phase with validated data
     const finalPhase: ImplementationPhase = {
-      id:
-        initialData?.id ||
-        `phase-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      title: trimmedTitle,
-      description: (phase.description || "").trim(),
-      duration: trimmedDuration,
-      tasks: initialData?.tasks || [], // Preserve existing tasks, new tasks added via TaskModal
+      id: phase.id || `phase-${Date.now()}`,
+      title: phase.title || "New Phase",
+      description: phase.description || "",
+      duration: phase.duration || "",
+      tasks: phase.tasks || [],
     };
 
-    // Save and close
-    onSave(sanitizeObject(finalPhase));
+    // Save and close - sanitize and cast to the correct type
+    onSave(sanitizeObject(finalPhase as IndexableImplementationPhase) as ImplementationPhase);
     onClose();
-  }, [phase, initialData, onSave, onClose, toast]);
+  }, [phase, onSave, onClose, toast]);
 
   if (!isOpen) return null;
 

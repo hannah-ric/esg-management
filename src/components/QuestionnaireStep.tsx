@@ -46,7 +46,11 @@ export interface Question {
     dependsOn: string;
     showWhen: string | string[];
   };
+  placeholder?: string;
 }
+
+// Define a type for the answers of a single step
+type StepAnswers = Record<string, unknown>; 
 
 export interface QuestionnaireStepProps {
   title?: string;
@@ -54,10 +58,10 @@ export interface QuestionnaireStepProps {
   questions?: Question[];
   currentStep?: number;
   totalSteps?: number;
-  onNext?: (answers: Record<string, any>) => void;
+  onNext?: (answers: StepAnswers) => void; // Typed answers
   onPrevious?: () => void;
-  onSave?: (answers: Record<string, any>) => void;
-  initialAnswers?: Record<string, any>;
+  onSave?: (answers: StepAnswers) => void; // Typed answers
+  initialAnswers?: StepAnswers; // Typed initialAnswers
 }
 
 const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
@@ -71,10 +75,10 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
   onSave = () => {},
   initialAnswers = {},
 }) => {
-  const [answers, setAnswers] = useState<Record<string, any>>(initialAnswers);
+  const [answers, setAnswers] = useState<StepAnswers>(initialAnswers); // Typed answers state
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleChange = (id: string, value: any) => {
+  const handleChange = (id: string, value: unknown) => { // Changed value to unknown from any
     setAnswers((prev) => ({
       ...prev,
       [id]: value,
@@ -99,7 +103,7 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
         (answers[question.id] === undefined ||
           answers[question.id] === "" ||
           (Array.isArray(answers[question.id]) &&
-            answers[question.id].length === 0))
+            (answers[question.id] as unknown[]).length === 0))
       ) {
         newErrors[question.id] = "This field is required";
       }
@@ -126,7 +130,7 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
     const dependentAnswer = answers[dependsOn];
 
     if (Array.isArray(showWhen)) {
-      return showWhen.includes(dependentAnswer);
+      return showWhen.includes(dependentAnswer as string);
     }
 
     return dependentAnswer === showWhen;
@@ -145,6 +149,7 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
       min,
       max,
       step,
+      placeholder,
     } = question;
     const error = errors[id];
 
@@ -161,8 +166,11 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
             )}
             <Input
               id={id}
-              value={answers[id] || ""}
+              type={type}
+              placeholder={questionText}
+              value={String(answers[id] || "")}
               onChange={(e) => handleChange(id, e.target.value)}
+              required={required}
               className={error ? "border-red-500" : ""}
             />
             {error && <p className="text-sm text-red-500">{error}</p>}
@@ -181,8 +189,10 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
             )}
             <Textarea
               id={id}
-              value={answers[id] || ""}
+              placeholder={questionText}
+              value={String(answers[id] || "")}
               onChange={(e) => handleChange(id, e.target.value)}
+              required={required}
               className={error ? "border-red-500" : ""}
             />
             {error && <p className="text-sm text-red-500">{error}</p>}
@@ -200,9 +210,12 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
               <p className="text-sm text-muted-foreground">{description}</p>
             )}
             <RadioGroup
-              value={answers[id] || ""}
+              key={id}
+              id={id}
+              value={answers[id] as string || ""}
               onValueChange={(value) => handleChange(id, value)}
-              className={error ? "border border-red-500 p-2 rounded-md" : ""}
+              required={required}
+              className="mt-1 space-y-2"
             >
               {options?.map((option) => (
                 <div className="flex items-center space-x-2" key={option.value}>
@@ -272,7 +285,7 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
 
       case "slider":
         return (
-          <div className="space-y-2" key={id}>
+          <div key={id} className="space-y-2">
             <Label htmlFor={id}>
               {questionText}
               {required && <span className="text-red-500">*</span>}
@@ -280,21 +293,17 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
             {description && (
               <p className="text-sm text-muted-foreground">{description}</p>
             )}
-            <div className="pt-4 pb-2">
-              <Slider
-                id={id}
-                min={min || 0}
-                max={max || 100}
-                step={step || 1}
-                value={[answers[id] || min || 0]}
-                onValueChange={(value) => handleChange(id, value[0])}
-                className={error ? "border-red-500" : ""}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{min || 0}</span>
-              <span>{answers[id] || min || 0}</span>
-              <span>{max || 100}</span>
+            <Slider
+              id={id}
+              min={min}
+              max={max}
+              step={step}
+              value={[typeof answers[id] === 'number' ? answers[id] as number : (typeof min === 'number' ? min : 0)]}
+              onValueChange={(value) => handleChange(id, value[0])}
+              className={`mt-1 ${error ? "border-red-500" : ""}`}
+            />
+            <div className="text-sm text-center text-muted-foreground">
+              <span>{typeof answers[id] === 'number' || typeof answers[id] === 'string' ? String(answers[id]) : String(min || 0)}</span> / {max}
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
@@ -311,11 +320,13 @@ const QuestionnaireStep: React.FC<QuestionnaireStepProps> = ({
               <p className="text-sm text-muted-foreground">{description}</p>
             )}
             <Select
-              value={answers[id] || ""}
+              key={id}
+              value={answers[id] as string || ""}
               onValueChange={(value) => handleChange(id, value)}
+              required={required}
             >
-              <SelectTrigger className={error ? "border-red-500" : ""}>
-                <SelectValue placeholder="Select an option" />
+              <SelectTrigger id={id} className="mt-1">
+                <SelectValue placeholder={question.placeholder || "Select an option"} />
               </SelectTrigger>
               <SelectContent>
                 {options?.map((option) => (

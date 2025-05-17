@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getUserESGDataPoints } from "@/lib/esg-data-services";
+import { getUserESGDataPoints, ESGDataPoint } from "@/lib/esg-data-services";
 
 // Register ChartJS components
 ChartJS.register(
@@ -45,7 +45,7 @@ const ESGDataVisualization: React.FC<ESGDataVisualizationProps> = ({
   resourceId,
   showFilters = true,
 }) => {
-  const [dataByResource, setDataByResource] = useState<Record<string, any[]>>(
+  const [dataByResource, setDataByResource] = useState<Record<string, ESGDataPoint[]>>(
     {},
   );
   const [loading, setLoading] = useState(true);
@@ -76,7 +76,7 @@ const ESGDataVisualization: React.FC<ESGDataVisualizationProps> = ({
   // Process data for visualization
   const processDataForCharts = () => {
     // Combine all data points across resources
-    let allDataPoints: any[] = [];
+    let allDataPoints: ESGDataPoint[] = [];
     Object.values(dataByResource).forEach((dataPoints) => {
       allDataPoints = [...allDataPoints, ...dataPoints];
     });
@@ -90,7 +90,7 @@ const ESGDataVisualization: React.FC<ESGDataVisualizationProps> = ({
     }
 
     // Group by metric
-    const metricGroups: Record<string, any[]> = {};
+    const metricGroups: Record<string, ESGDataPoint[]> = {};
     allDataPoints.forEach((dp) => {
       if (!metricGroups[dp.metric_id]) {
         metricGroups[dp.metric_id] = [];

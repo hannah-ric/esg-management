@@ -18,7 +18,7 @@ export default function ProfileForm() {
     if (user) {
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
-      setCompanyName(user.publicMetadata?.company_name || "");
+      setCompanyName(String(user.metadata?.company_name || ""));
     }
   }, [user]);
 
@@ -46,11 +46,19 @@ export default function ProfileForm() {
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Profile update error:", error);
+      let errorMessage = "Failed to update profile";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof (error as { message?: string }).message === 'string') {
+        errorMessage = (error as { message: string }).message;
+      }
       toast({
         title: "Update failed",
-        description: error.message || "Failed to update profile",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

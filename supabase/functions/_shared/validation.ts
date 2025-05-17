@@ -5,7 +5,7 @@
  * @returns Error message if validation fails, null if successful
  */
 export const validateRequiredFields = (
-  data: Record<string, any>,
+  data: Record<string, unknown>,
   requiredFields: string[],
 ): string | null => {
   if (!data || typeof data !== "object") {

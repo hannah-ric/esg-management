@@ -30,16 +30,16 @@ class Logger {
     return this.enableConsole && LOG_LEVELS[level] >= this.minLevel;
   }
 
-  private formatMessage(message: string, data?: any): string {
+  private formatMessage(message: string, data?: unknown): string {
     if (!data) return message;
     try {
-      return `${message} ${typeof data === "object" ? JSON.stringify(data) : data}`;
+      return `${message} ${typeof data === "object" ? JSON.stringify(data) : String(data)}`;
     } catch (e) {
       return `${message} [Unstringifiable data]`;
     }
   }
 
-  debug(message: string, ...data: any[]): void {
+  debug(message: string, ...data: unknown[]): void {
     if (this.shouldLog("debug")) {
       console.debug(
         `[DEBUG] ${this.formatMessage(message, data[0])}`,
@@ -48,7 +48,7 @@ class Logger {
     }
   }
 
-  info(message: string, ...data: any[]): void {
+  info(message: string, ...data: unknown[]): void {
     if (this.shouldLog("info")) {
       console.info(
         `[INFO] ${this.formatMessage(message, data[0])}`,
@@ -57,7 +57,7 @@ class Logger {
     }
   }
 
-  warn(message: string, ...data: any[]): void {
+  warn(message: string, ...data: unknown[]): void {
     if (this.shouldLog("warn")) {
       console.warn(
         `[WARN] ${this.formatMessage(message, data[0])}`,
@@ -66,7 +66,7 @@ class Logger {
     }
   }
 
-  error(message: string, ...data: any[]): void {
+  error(message: string, ...data: unknown[]): void {
     if (this.shouldLog("error")) {
       console.error(
         `[ERROR] ${this.formatMessage(message, data[0])}`,

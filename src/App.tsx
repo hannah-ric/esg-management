@@ -49,12 +49,14 @@ import UpdatePasswordForm from "./components/auth/UpdatePasswordForm";
 import { AuthGuard } from "./components/auth/AuthGuard";
 
 function App() {
+  const tempoAppRoutes = useRoutes(routes);
+
   return (
     <AppProvider>
       <StripeKeyProvider>
         <Toaster />
         {/* Tempo routes for storyboards */}
-        {import.meta.env.VITE_TEMPO && useRoutes(routes)}
+        {import.meta.env.VITE_TEMPO && tempoAppRoutes}
 
         <Routes>
           <Route path="/" element={<Layout />}>

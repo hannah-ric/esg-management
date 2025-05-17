@@ -1,46 +1,55 @@
 // [build] library: 'shadcn'
-import { Checkbox } from "../components/ui/checkbox";
+import type { Meta, StoryObj } from "@storybook/react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
-const meta = {
-  title: "ui/Checkbox",
+const meta: Meta<typeof Checkbox> = {
+  title: "Components/Checkbox",
   component: Checkbox,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
-  argTypes: {},
 };
+
 export default meta;
 
-export const Base = {
-  render: (args: any) => (
-    <div className="items-top flex space-x-2">
-      <Checkbox {...args} id="terms1" />
-      <div className="grid gap-1.5 leading-none">
-        <label
-          htmlFor="terms1"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          Accept terms and conditions
-        </label>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          You agree to our Terms of Service and Privacy Policy.
-        </p>
-      </div>
-    </div>
-  ),
-  args: {},
-};
-export const Disabled = {
-  render: (args: any) => (
-    <div className="flex items-center space-x-2">
-      <Checkbox {...args} id="terms2" />
-      <label
-        htmlFor="terms2"
-        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-      >
-        Accept terms and conditions
-      </label>
-    </div>
-  ),
+interface CheckboxStoryArgs {
+  id?: string;
+  checked?: boolean | "indeterminate";
+  onCheckedChange?: (checked: boolean | "indeterminate") => void;
+  disabled?: boolean;
+  required?: boolean;
+  name?: string;
+  value?: string;
+  className?: string;
+  // For stories with label
+  label?: string;
+}
+
+export const Default: StoryObj<CheckboxStoryArgs> = {
   args: {
+    id: "terms",
+  },
+  render: (args) => (
+    <div className="flex items-center space-x-2">
+      <Checkbox {...args} />
+      <Label htmlFor={args.id || "terms"} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+        Accept terms and conditions
+      </Label>
+    </div>
+  ),
+};
+
+export const Disabled: StoryObj<CheckboxStoryArgs> = {
+  args: {
+    id: "terms-disabled",
     disabled: true,
   },
+  render: (args) => (
+    <div className="flex items-center space-x-2">
+      <Checkbox {...args} />
+      <Label htmlFor={args.id || "terms-disabled"}>Accept terms (disabled)</Label>
+    </div>
+  ),
 };

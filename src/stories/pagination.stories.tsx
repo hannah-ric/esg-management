@@ -1,3 +1,4 @@
+import type { Meta, StoryObj } from "@storybook/react";
 import {
   Pagination,
   PaginationContent,
@@ -6,18 +7,26 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "../components/ui/pagination";
+} from "@/components/ui/pagination";
 
-const meta = {
-  title: "ui/Pagination",
+const meta: Meta<typeof Pagination> = {
+  title: "Components/Pagination",
   component: Pagination,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
-  argTypes: {},
 };
+
 export default meta;
 
-export const Base = {
-  render: (args: any) => (
+interface PaginationStoryArgs {
+  // Props for Pagination itself, if any are controlled by story args
+  className?: string;
+}
+
+export const Default: StoryObj<PaginationStoryArgs> = {
+  render: (args) => (
     <Pagination {...args}>
       <PaginationContent>
         <PaginationItem>
@@ -27,7 +36,9 @@ export const Base = {
           <PaginationLink href="#">1</PaginationLink>
         </PaginationItem>
         <PaginationItem>
-          <PaginationLink href="#">2</PaginationLink>
+          <PaginationLink href="#" isActive>
+            2
+          </PaginationLink>
         </PaginationItem>
         <PaginationItem>
           <PaginationLink href="#">3</PaginationLink>

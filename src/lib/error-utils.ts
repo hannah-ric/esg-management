@@ -19,15 +19,21 @@ export async function withErrorHandling<T>(
     return { data: result, error: null };
   } catch (err) {
     logger.error(errorMessage, err);
-    
+    let errorDetail = errorMessage;
+    if (err instanceof Error) {
+      errorDetail = err.message;
+    } else if (typeof err === 'string') {
+      errorDetail = err;
+    }
+
     if (showToast) {
       // Note: This won't work in actual code because hooks can't be used outside of components
       // It's included for reference, but should be implemented differently in real usage
       // e.g., pass in a toast function from the component
-      return { data: null, error: err.message || errorMessage };
+      return { data: null, error: errorDetail };
     }
     
-    return { data: null, error: err.message || errorMessage };
+    return { data: null, error: errorDetail };
   }
 }
 
@@ -63,16 +69,22 @@ export function useErrorHandler() {
       return { data: result, error: null };
     } catch (err) {
       logger.error(options.errorMessage, err);
+      let errorDescription = options.errorMessage;
+      if (err instanceof Error) {
+        errorDescription = err.message;
+      } else if (typeof err === 'string') {
+        errorDescription = err;
+      }
       
       if (options.showErrorToast) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: err.message || options.errorMessage,
+          description: errorDescription,
         });
       }
       
-      return { data: null, error: err.message || options.errorMessage };
+      return { data: null, error: errorDescription };
     }
   };
   
@@ -108,16 +120,22 @@ export function sanitizeInput(input: string): string {
  * @param input Input object to sanitize
  * @returns A sanitized version of the input
  */
-export function sanitizeObject<T extends Record<string, any>>(input: T): T {
+export function sanitizeObject<T extends Record<string, unknown>>(input: T): T {
   if (!input || typeof input !== 'object') return input;
   
   const result = { ...input };
   
   for (const key in result) {
-    if (typeof result[key] === 'string') {
-      (result as Record<string, any>)[key] = sanitizeInput(result[key] as string);
-    } else if (typeof result[key] === 'object' && result[key] !== null) {
-      (result as Record<string, any>)[key] = sanitizeObject(result[key]);
+    if (Object.prototype.hasOwnProperty.call(result, key)) {
+      const currentValue = result[key];
+
+      if (typeof currentValue === 'string') {
+        (result as Record<string, string>)[key] = sanitizeInput(currentValue);
+      } else if (typeof currentValue === 'object' && currentValue !== null) {
+        if (!Array.isArray(currentValue) && Object.getPrototypeOf(currentValue) === Object.prototype) {
+          (result as Record<string, unknown>)[key] = sanitizeObject(currentValue as Record<string, unknown>);
+        }
+      }
     }
   }
   

@@ -1,6 +1,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { corsHeaders } from "@shared/cors.ts";
 
+// Assuming ESGDataPoint might be similar to the one in AppContext or esg-data-services
+// If it's different, a local or more specific import is needed.
+// For now, let's define a local placeholder if no direct import path is clear from context.
+interface ESGDataPoint {
+  id?: string;
+  metric_id: string;
+  value: string; // Values from DB are often strings, then parsed
+  // Add other fields that are *actually* used from dataPoints in generateInsights
+  // For example, if item.metrics.name etc. are from a join, they should be here.
+  // Removing [key: string]: any; makes this stricter.
+  // If `item.metrics` is accessed, it should be part of this interface.
+  metrics?: { name?: string; category?: string; unit?: string }; // Added based on usage in generateInsights
+  unit?: string; // Added based on usage
+  // source?: string; // Is used in generateInsights from items in dataPoints array
+}
+
 interface MetricInsight {
   metricId: string;
   metricName: string;
@@ -18,7 +34,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { userId, resourceId, metricId, timeframe } = await req.json();
+    const reqBody = await req.json();
+    const { user_id, resource_id } = reqBody;
+    // const timeframe = reqBody.timeframe || "all"; // timeframe unused
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -28,16 +46,12 @@ Deno.serve(async (req) => {
     // Get ESG data points for analysis
     let query = supabase.from("esg_data_points").select("*");
 
-    if (userId) {
-      query = query.eq("user_id", userId);
+    if (user_id) {
+      query = query.eq("user_id", user_id);
     }
 
-    if (resourceId) {
-      query = query.eq("resource_id", resourceId);
-    }
-
-    if (metricId) {
-      query = query.eq("metric_id", metricId);
+    if (resource_id) {
+      query = query.eq("resource_id", resource_id);
     }
 
     const { data: dataPoints, error } = await query;
@@ -60,10 +74,10 @@ Deno.serve(async (req) => {
   }
 });
 
-function generateInsights(dataPoints: any[]): MetricInsight[] {
+function generateInsights(dataPoints: ESGDataPoint[]): MetricInsight[] {
   // Group data points by metric
-  const metricGroups: Record<string, any[]> = {};
-  dataPoints.forEach((dp) => {
+  const metricGroups: Record<string, ESGDataPoint[]> = {};
+  dataPoints.forEach((dp: ESGDataPoint) => {
     if (!metricGroups[dp.metric_id]) {
       metricGroups[dp.metric_id] = [];
     }

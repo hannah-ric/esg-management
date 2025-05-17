@@ -5,9 +5,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Eye, FileText, FileSpreadsheet, Download } from "lucide-react";
 import ResourceExporter from "./ResourceExporter";
 import { logger } from "@/lib/logger";
+// Import the new types from plan-enhancement
+import type { AnalyzedContentResult, AnalyzedContentDataPoint as ImportedAnalyzedContentDataPoint, AnalyzedContentFrameworkMapping as ImportedAnalyzedContentFrameworkMapping, AnalyzedContentESGData as ImportedAnalyzedContentESGData } from "@/lib/plan-enhancement";
 
-interface ResourceExportPreviewProps {
-  resource?: {
+// Remove or refine local placeholders. Assuming imported types are now the source of truth.
+// If these local types were meant to add more fields, they should extend the imported ones without [key: string]: any.
+// For now, we rely on the stricter imported types.
+
+interface ResourcePropItem {
     id: string;
     title: string;
     description: string;
@@ -16,19 +21,12 @@ interface ResourceExportPreviewProps {
     fileType: string;
     url: string;
     rawContent?: string;
-    esgData?: any;
-  };
-  resources?: Array<{
-    id: string;
-    title: string;
-    description?: string;
-    type: string;
-    category: string;
-    fileType?: string;
-    url?: string;
-    rawContent?: string;
-    esgData?: any;
-  }>;
+    esgData?: ImportedAnalyzedContentESGData; 
+}
+
+interface ResourceExportPreviewProps {
+  resource?: ResourcePropItem;
+  resources?: ResourcePropItem[]; 
   exportFormat?: "excel" | "pdf";
   className?: string;
 }
@@ -41,9 +39,8 @@ const ResourceExportPreview: React.FC<ResourceExportPreviewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<"preview" | "export">("preview");
 
-  // Group resources by category if multiple resources are provided
   const resourcesByCategory = resources
-    ? resources.reduce<Record<string, any[]>>((acc, res) => {
+    ? resources.reduce<Record<string, ResourcePropItem[]>>((acc, res) => {
         const category = res.category || "Uncategorized";
         if (!acc[category]) {
           acc[category] = [];
@@ -53,9 +50,8 @@ const ResourceExportPreview: React.FC<ResourceExportPreviewProps> = ({
       }, {})
     : {};
 
-  // Format the content for preview for a single resource
   const renderSingleResourcePreview = () => {
-    if (!resource) return null;
+    if (!resource || !resource.esgData) return null; // Added check for resource.esgData
 
     return (
       <div className="space-y-4">
@@ -84,7 +80,7 @@ const ResourceExportPreview: React.FC<ResourceExportPreviewProps> = ({
           </div>
         </div>
 
-        {resource.esgData?.dataPoints && (
+        {resource.esgData.dataPoints && (
           <div className="mt-6">
             <h3 className="text-lg font-medium mb-2">ESG Data Points</h3>
             <div className="border rounded-md overflow-hidden">
@@ -98,7 +94,7 @@ const ResourceExportPreview: React.FC<ResourceExportPreviewProps> = ({
                 </thead>
                 <tbody>
                   {Object.entries(resource.esgData.dataPoints).map(
-                    ([metricId, dataPoint]: [string, any], index) => (
+                    ([metricId, dataPoint]: [string, ImportedAnalyzedContentDataPoint], index) => (
                       <tr
                         key={index}
                         className={index % 2 === 0 ? "bg-white" : "bg-muted/30"}
@@ -108,9 +104,9 @@ const ResourceExportPreview: React.FC<ResourceExportPreviewProps> = ({
                             .replace(/-/g, " ")
                             .replace(/\b\w/g, (l) => l.toUpperCase())}
                         </td>
-                        <td className="p-2 border-t">{dataPoint.value}</td>
+                        <td className="p-2 border-t">{String(dataPoint.value)}</td>
                         <td className="p-2 border-t">
-                          {dataPoint.frameworkId} {dataPoint.disclosureId}
+                          {dataPoint.framework_id} {dataPoint.disclosure_id}
                         </td>
                       </tr>
                     ),
@@ -121,7 +117,7 @@ const ResourceExportPreview: React.FC<ResourceExportPreviewProps> = ({
           </div>
         )}
 
-        {resource.esgData?.mappings && (
+        {resource.esgData.mappings && (
           <div className="mt-6">
             <h3 className="text-lg font-medium mb-2">Framework References</h3>
             <div className="border rounded-md overflow-hidden">
@@ -134,7 +130,7 @@ const ResourceExportPreview: React.FC<ResourceExportPreviewProps> = ({
                 </thead>
                 <tbody>
                   {Object.entries(resource.esgData.mappings).map(
-                    ([frameworkId, disclosures]: [string, any], index) => (
+                    ([frameworkId, disclosures]: [string, ImportedAnalyzedContentFrameworkMapping[]], index) => (
                       <tr
                         key={index}
                         className={index % 2 === 0 ? "bg-white" : "bg-muted/30"}
@@ -142,8 +138,8 @@ const ResourceExportPreview: React.FC<ResourceExportPreviewProps> = ({
                         <td className="p-2 border-t">{frameworkId}</td>
                         <td className="p-2 border-t">
                           {Array.isArray(disclosures)
-                            ? disclosures.join(", ")
-                            : disclosures}
+                            ? disclosures.map(d => d.disclosure_id).join(", ") // Access disclosure_id
+                            : (disclosures as unknown as ImportedAnalyzedContentFrameworkMapping)?.disclosure_id || "N/A"}
                         </td>
                       </tr>
                     ),

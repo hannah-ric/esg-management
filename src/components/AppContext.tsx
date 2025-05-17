@@ -1,7 +1,62 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { isMockAuth, mockUser } from "../lib/mock-auth";
-import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
+
+export type Priority = "high" | "medium" | "low";
+export type Effort = "high" | "medium" | "low";
+export type Impact = "high" | "medium" | "low";
+export type TaskStatus = "not_started" | "in_progress" | "completed" | "blocked";
+
+export interface ImplementationTask {
+  id: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  dueDate?: string; // Or Date
+  assignee?: User; // Assuming User type can be an assignee
+}
+
+export interface ImplementationPhase {
+  id: string;
+  title: string;
+  description?: string;
+  duration?: string;
+  tasks: ImplementationTask[];
+}
+
+export interface ESGRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  framework: string;
+  indicator: string;
+  priority: Priority;
+  effort: Effort;
+  impact: Impact;
+  implementationDetails?: string; // Or a more structured type
+  kpis?: string[]; // Key Performance Indicators
+  phases?: ImplementationPhase[];
+}
+
+export interface MaterialityTopic {
+  id: string;
+  name: string;
+  description?: string;
+  stakeholderImportance: number;
+  businessImpact: number;
+  category: "environmental" | "social" | "governance";
+  [key: string]: string | number | boolean | object | undefined;
+}
+
+export interface ESGPlan {
+  id: string;
+  title: string;
+  description?: string;
+  recommendations: ESGRecommendation[];
+  implementationPhases?: ImplementationPhase[];
+  overallGoals?: string;
+  timeline?: string; // Or a more structured type
+}
 
 export interface User {
   id: string;
@@ -10,17 +65,75 @@ export interface User {
   lastName?: string;
   imageUrl?: string;
   companyName?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+}
+
+// Define a more specific type for Questionnaire Data
+interface CompanyProfileAnswers {
+  companyName?: string;
+  employeeCount?: string; // This might be a string like "1-50", "51-250", etc.
+  companyType?: string;
+  annualRevenue?: string;
+  yearsInOperation?: string;
+  operatingCountries?: string[];
+}
+
+interface IndustrySelectionAnswers {
+  industry?: string;
+  sector?: string;
+  supplyChainExposure?: string[];
+  keyStakeholders?: string[];
+}
+
+interface RegulatoryRequirementsAnswers {
+  primaryRegion?: string;
+  applicableRegulations?: string[];
+  currentReporting?: string[];
+  reportingFrequency?: string;
+}
+
+// Add other step answer types as needed...
+
+export interface QuestionnaireAnswers {
+  "company-profile"?: CompanyProfileAnswers;
+  "industry-selection"?: IndustrySelectionAnswers;
+  "regulatory-requirements"?: RegulatoryRequirementsAnswers;
+  "esg-priorities"?: Record<string, unknown>;
+  "esg-maturity"?: Record<string, unknown>;
+  // Allow specific known keys to coexist with a general index signature
+  [key: string]: CompanyProfileAnswers | IndustrySelectionAnswers | RegulatoryRequirementsAnswers | Record<string, unknown> | undefined;
 }
 
 interface AppContextType {
   user: User | null;
   loading: boolean;
+  esgPlan: ESGPlan | null;
+  setEsgPlan: React.Dispatch<React.SetStateAction<ESGPlan | null>>;
+  materialityTopics: MaterialityTopic[];
+  setMaterialityTopics: React.Dispatch<React.SetStateAction<MaterialityTopic[]>>;
+  questionnaireData: QuestionnaireAnswers | null;
+  setQuestionnaireData: React.Dispatch<React.SetStateAction<QuestionnaireAnswers | null>>;
+  updateESGPlan: (plan: ESGPlan) => void;
+  saveESGPlan: () => Promise<void>;
+  updateMaterialityTopics: (topics: MaterialityTopic[]) => void;
+  saveMaterialityTopics: () => Promise<void>;
+  updateQuestionnaireData: (data: QuestionnaireAnswers | null) => void;
 }
 
 const AppContext = createContext<AppContextType>({
   user: null,
   loading: true,
+  esgPlan: null,
+  setEsgPlan: () => {},
+  materialityTopics: [],
+  setMaterialityTopics: () => {},
+  questionnaireData: null,
+  setQuestionnaireData: () => {},
+  updateESGPlan: () => {},
+  saveESGPlan: async () => {},
+  updateMaterialityTopics: () => {},
+  saveMaterialityTopics: async () => {},
+  updateQuestionnaireData: () => {},
 });
 
 export const useAppContext = () => useContext(AppContext);
@@ -30,12 +143,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [esgPlan, setEsgPlan] = useState<ESGPlan | null>(null);
+  const [materialityTopics, setMaterialityTopics] = useState<MaterialityTopic[]>([]);
+  const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireAnswers | null>(null);
 
-  // Effect to sync Supabase user with our app state
+  const updateESGPlan = (plan: ESGPlan) => {
+    console.log("Updating ESG Plan:", plan);
+    setEsgPlan(plan);
+  };
+
+  const saveESGPlan = async () => {
+    console.log("Saving ESG Plan...", esgPlan);
+  };
+
+  const updateMaterialityTopics = (topics: MaterialityTopic[]) => {
+    setMaterialityTopics(topics);
+    console.log("Updated Materiality Topics in context");
+  };
+
+  const saveMaterialityTopics = async () => {
+    console.log("Saving Materiality Topics...", materialityTopics);
+  };
+
+  const updateQuestionnaireData = (data: QuestionnaireAnswers | null) => {
+    setQuestionnaireData(data);
+    console.log("Updated Questionnaire Data in context");
+  };
+
   useEffect(() => {
     let isMounted = true;
 
-    // Use mock user in development
     if (isMockAuth()) {
       setUser({
         id: mockUser.id,
@@ -50,7 +187,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    // Get initial session
     const getInitialSession = async () => {
       try {
         const {
@@ -75,7 +211,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
               metadata: session.user.user_metadata,
             });
           } else {
-            // No active session found
             setUser(null);
           }
           setLoading(false);
@@ -83,9 +218,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch (error) {
         if (isMounted) {
           console.error("Error getting initial session:", error);
-          // Still set loading to false to prevent infinite loading state
           setLoading(false);
-          // Keep user as null when there's an error
           setUser(null);
         }
       }
@@ -93,7 +226,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
     getInitialSession();
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -114,14 +246,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         } catch (error) {
           console.error("Error processing auth state change:", error);
-          // Keep previous user state on error to prevent disruption
         } finally {
           setLoading(false);
         }
       }
     });
 
-    // Cleanup subscription
     return () => {
       isMounted = false;
       subscription.unsubscribe();
@@ -129,7 +259,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   return (
-    <AppContext.Provider value={{ user, loading }}>
+    <AppContext.Provider value={{
+      user, 
+      loading, 
+      esgPlan, 
+      setEsgPlan, 
+      materialityTopics, 
+      setMaterialityTopics,
+      questionnaireData,
+      setQuestionnaireData,
+      updateESGPlan,
+      saveESGPlan,
+      updateMaterialityTopics,
+      saveMaterialityTopics,
+      updateQuestionnaireData
+    }}>
       {children}
     </AppContext.Provider>
   );

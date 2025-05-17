@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@12.15.0";
+// import Stripe from "https://esm.sh/stripe@12.15.0"; // Unused
 
 import { corsHeaders } from "@shared/cors.index";
 
@@ -38,10 +38,13 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Stripe client
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2022-11-15",
-    });
+    // Initialize Supabase client (these vars are declared but not used later in THIS function)
+    // const supabaseUrl = Deno.env.get("SUPABASE_URL") || ""; // Unused
+    // const supabaseKey = Deno.env.get("SUPABASE_SERVICE_KEY") || ""; // Unused
+    // const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { // stripe var unused
+    //   apiVersion: "2024-06-20",
+    //   httpClient: new Stripe.FetchHttpClient(),
+    // });
 
     // Return the publishable key which is safe to expose to the client
     return new Response(

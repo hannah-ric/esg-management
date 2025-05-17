@@ -2,8 +2,8 @@ import { supabase } from "./supabase";
 
 export interface TailoredRecommendationsRequest {
   url?: string;
-  surveyAnswers: Record<string, any>;
-  materialityTopics?: any[];
+  surveyAnswers: Record<string, unknown>;
+  materialityTopics?: MaterialityTopic[];
 }
 
 export interface TailoredRecommendationsResponse {
@@ -14,7 +14,7 @@ export interface TailoredRecommendationsResponse {
       output_tokens: number;
     };
   };
-  diffbotData: any;
+  diffbotData: Record<string, unknown> | null;
   success: boolean;
   error?: string;
 }
@@ -70,6 +70,10 @@ export async function getTailoredRecommendations(
     return data;
   } catch (error) {
     console.error("Error getting tailored recommendations:", error);
+    let errorMessage = "Unable to generate tailored recommendations at this time.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return {
       recommendations: {
         content: "Unable to generate tailored recommendations at this time.",
@@ -77,7 +81,7 @@ export async function getTailoredRecommendations(
       },
       diffbotData: null,
       success: false,
-      error: error.message,
+      error: errorMessage,
     };
   }
 }
@@ -104,13 +108,13 @@ export function parseRecommendations(content: string): ParsedRecommendations {
     );
 
     if (topicMatches) {
-      result.materialityTopics = topicMatches.map((match, index) => {
+      result.materialityTopics = topicMatches.map((match, _topicIndex) => {
         const nameMatch = match.match(/([\w\s&]+)\s*-/);
         const stakeholderMatch = match.match(/Stakeholder Impact:\s*([0-9.]+)/);
         const businessMatch = match.match(/Business Impact:\s*([0-9.]+)/);
         const descriptionMatch = match.match(/- (.+)$/);
 
-        const name = nameMatch ? nameMatch[1].trim() : `Topic ${index + 1}`;
+        const name = nameMatch ? nameMatch[1].trim() : `Topic ${_topicIndex + 1}`;
         const stakeholderImpact = stakeholderMatch
           ? parseFloat(stakeholderMatch[1])
           : 0.5;
@@ -131,7 +135,7 @@ export function parseRecommendations(content: string): ParsedRecommendations {
         }
 
         return {
-          id: `ai-${index}`,
+          id: `ai-${_topicIndex}`,
           name,
           category,
           stakeholderImpact,
@@ -152,7 +156,7 @@ export function parseRecommendations(content: string): ParsedRecommendations {
         /([A-Z]+)\s*:\s*([^\n]+)/g,
       );
       if (frameworkMatches) {
-        result.frameworks = frameworkMatches.map((match, index) => {
+        result.frameworks = frameworkMatches.map((match, _index) => {
           const parts = match.split(":");
           const framework = parts[0].trim();
           const description = parts.slice(1).join(":").trim();

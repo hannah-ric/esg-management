@@ -10,7 +10,7 @@ export interface AIAssistantResponse {
   };
   error?: string;
   success?: boolean;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export interface CompanyProfile {
@@ -22,8 +22,8 @@ export interface CompanyProfile {
 
 // Explicitly export all functions as named exports
 export async function getFrameworkRecommendations(
-  companyProfile: any,
-  materialityTopics: any[] = [],
+  companyProfile: Record<string, unknown>,
+  materialityTopics: Record<string, unknown>[] = [],
 ): Promise<AIAssistantResponse> {
   try {
     const { data, error } = await supabase.functions.invoke(
@@ -46,19 +46,23 @@ export async function getFrameworkRecommendations(
     return { ...data, success: true };
   } catch (error) {
     logger.error("Error getting framework recommendations:", error);
+    let errorMessage = "Unable to generate framework recommendations at this time.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return {
       content: "Unable to generate framework recommendations at this time.",
       task: "framework-mapping",
-      error: error.message,
+      error: errorMessage,
       success: false,
     };
   }
 }
 
 export async function getResourceRecommendations(
-  esgPlan: any,
-  companyProfile: any,
-  materialityTopics: any[] = [],
+  esgPlan: Record<string, unknown> | null,
+  companyProfile: Record<string, unknown>,
+  materialityTopics: Record<string, unknown>[] = [],
 ): Promise<AIAssistantResponse> {
   try {
     const { data, error } = await supabase.functions.invoke(
@@ -82,22 +86,26 @@ export async function getResourceRecommendations(
     return { ...data, success: true };
   } catch (error) {
     logger.error("Error getting resource recommendations:", error);
+    let errorMessage = "Unable to generate resource recommendations at this time.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return {
       content: "Unable to generate resource recommendations at this time.",
       task: "resource-recommendation",
-      error: error.message,
+      error: errorMessage,
       success: false,
     };
   }
 }
 
 export async function getMaterialityBasedResources(
-  materialityTopics: any[],
+  materialityTopics: Record<string, unknown>[],
 ): Promise<AIAssistantResponse> {
   try {
     // Filter to high-priority topics (high stakeholder and business impact)
     const highPriorityTopics = materialityTopics.filter(
-      (topic) => topic.stakeholderImpact > 0.6 && topic.businessImpact > 0.6,
+      (topic) => (topic.stakeholderImpact as number) > 0.6 && (topic.businessImpact as number) > 0.6,
     );
 
     const { data, error } = await supabase.functions.invoke(
@@ -122,11 +130,15 @@ export async function getMaterialityBasedResources(
       "Error getting materiality-based resource recommendations:",
       error,
     );
+    let errorMessage = "Unable to generate resource recommendations based on materiality at this time.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return {
       content:
         "Unable to generate resource recommendations based on materiality at this time.",
       task: "materiality-resource-recommendation",
-      error: error.message,
+      error: errorMessage,
       success: false,
     };
   }
@@ -153,10 +165,14 @@ export async function analyzeMaterialityTopics(
     return { ...data, success: true };
   } catch (error) {
     logger.error("Error analyzing materiality topics:", error);
+    let errorMessage = "Unable to analyze materiality topics at this time.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return {
       content: "Unable to analyze materiality topics at this time.",
       task: "materiality-analysis",
-      error: error.message,
+      error: errorMessage,
       success: false,
     };
   }
@@ -165,7 +181,7 @@ export async function analyzeMaterialityTopics(
 export async function getPeerBenchmarking(
   industry: string,
   companySize: string,
-  esgMetrics: any,
+  esgMetrics: Record<string, unknown>,
 ): Promise<AIAssistantResponse> {
   try {
     const { data, error } = await supabase.functions.invoke(
@@ -189,10 +205,14 @@ export async function getPeerBenchmarking(
     return { ...data, success: true };
   } catch (error) {
     logger.error("Error getting peer benchmarking:", error);
+    let errorMessage = "Unable to generate peer benchmarking at this time.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return {
       content: "Unable to generate peer benchmarking at this time.",
       task: "peer-benchmarking",
-      error: error.message,
+      error: errorMessage,
       success: false,
     };
   }
@@ -203,7 +223,7 @@ export const getESGDataInsights = async (
   resourceId?: string,
   metricId?: string,
   timeframe: string = "month",
-): Promise<any> => {
+): Promise<{ data: Record<string, unknown> | null; success: boolean; error?: string }> => {
   try {
     const { data, error } = await supabase.functions.invoke(
       "supabase-functions-esg-data-insights",
@@ -221,12 +241,16 @@ export const getESGDataInsights = async (
     return { data, success: true };
   } catch (error) {
     logger.error("Error getting ESG data insights:", error);
-    return { error: error.message, success: false };
+    let errorMessage = "Failed to get ESG data insights."; // Default message
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return { data: null, error: errorMessage, success: false };
   }
 };
 
 export const analyzeMaterialityImpactForPlan = async (
-  materialityTopics: any[],
+  materialityTopics: Record<string, unknown>[],
 ): Promise<AIAssistantResponse> => {
   try {
     const { data, error } = await supabase.functions.invoke(
@@ -248,19 +272,23 @@ export const analyzeMaterialityImpactForPlan = async (
     return { ...data, success: true };
   } catch (error) {
     logger.error("Error analyzing materiality impact for plan:", error);
+    let errorMessage = "Unable to analyze materiality impact at this time.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return {
       content: JSON.stringify({
         error: "Unable to analyze materiality impact at this time.",
       }),
       task: "materiality-impact-analysis-for-plan",
-      error: error.message,
+      error: errorMessage,
       success: false,
     };
   }
 };
 
 export const generateESGActionPlan = async (
-  materialityTopics: any[],
+  materialityTopics: Record<string, unknown>[],
   impactAnalysisContent: string,
 ): Promise<AIAssistantResponse> => {
   let parsedImpactAnalysis = {};
@@ -295,12 +323,16 @@ export const generateESGActionPlan = async (
     return { ...data, success: true };
   } catch (error) {
     logger.error("Error generating ESG action plan:", error);
+    let errorMessage = "Unable to generate ESG action plan at this time.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return {
       content: JSON.stringify({
         error: "Unable to generate ESG action plan at this time.",
       }),
       task: "esg-action-plan-generation",
-      error: error.message,
+      error: errorMessage,
       success: false,
     };
   }

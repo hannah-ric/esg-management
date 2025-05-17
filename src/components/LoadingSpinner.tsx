@@ -1,4 +1,5 @@
-import React from "react";
+// import React from "react"; // Unused
+import { Loader2 } from "lucide-react";
 
 const LoadingSpinner = () => {
   return (

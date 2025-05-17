@@ -20,20 +20,73 @@ import { Button } from "../components/ui/button";
 import { useState } from "react";
 import { DateRange } from "react-day-picker";
 import { addDays, format } from "date-fns";
+import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
 
-const meta = {
-  title: "ui/Calendar",
+const meta: Meta<typeof Calendar> = {
+  title: "Components/Calendar",
   component: Calendar,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
-  argTypes: {},
+  argTypes: {
+    mode: {
+      control: "select",
+      options: ["single", "multiple", "range", undefined],
+    },
+    // Add other relevant argTypes if needed
+  },
 };
-export default meta;
 
-export const Base = {
-  render: (args: any) => <Calendar {...args}>Calendar</Calendar>,
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+// Define a simple type for the story arguments if not too complex
+interface CalendarStoryArgs {
+  mode?: "single" | "multiple" | "range";
+  selected?: Date | Date[] | { from?: Date; to?: Date };
+  onSelect?: (date: Date | Date[] | { from?: Date; to?: Date } | undefined) => void; // Made more specific
+  className?: string;
+  // Add other props Calendar accepts
+  [key: string]: any; // Allow other args for flexibility in Storybook controls
+}
+
+export const Default: Story = {
   args: {
     mode: "single",
     className: "rounded-md border",
+  } as CalendarStoryArgs, // Cast args for type safety
+  render: function Render(args: CalendarStoryArgs) { // Make render a function component
+    const [date, setDate] = React.useState<Date | undefined>(new Date());
+    return (
+      <Calendar
+        {...args} // Pass through other args
+        mode="single"
+        selected={date}
+        onSelect={setDate}
+        className="rounded-md border"
+      />
+    );
+  },
+};
+
+export const Multiple: Story = {
+  args: {
+    mode: "multiple",
+    className: "rounded-md border",
+  } as CalendarStoryArgs,
+  render: function Render(args: CalendarStoryArgs) {
+    const [dates, setDates] = React.useState<Date[] | undefined>([]);
+    return (
+      <Calendar
+        {...args}
+        mode="multiple"
+        selected={dates}
+        onSelect={setDates}
+        className="rounded-md border"
+      />
+    );
   },
 };
 
@@ -57,106 +110,110 @@ export const DatePicker = {
     );
   },
   args: {
-    date: Date.parse("2023-11-3000"),
+    // date: Date.parse("2023-11-3000"), // This arg seems unused by the render function
   },
 };
 
-export const DatePickerRange = {
-  render: () => {
-    const [date, setDate] = useState<DateRange | undefined>({
-      from: new Date(2023, 0, 20),
-      to: addDays(new Date(2023, 0, 20), 20),
-    });
+const DatePickerRangeRender: React.FC = () => {
+  const [date, setDate] = useState<DateRange | undefined>({
+    from: new Date(2023, 0, 20),
+    to: addDays(new Date(2023, 0, 20), 20),
+  });
 
-    return (
-      <div className={"grid gap-2"}>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              id="date"
-              variant={"outline"}
-              className={"w-[300px] justify-start text-left font-normal"}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {date?.from ? (
-                date.to ? (
-                  <>
-                    {format(date.from, "LLL dd, y")} -{" "}
-                    {format(date.to, "LLL dd, y")}
-                  </>
-                ) : (
-                  format(date.from, "LLL dd, y")
-                )
-              ) : (
-                <span>Pick a date</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              initialFocus
-              mode="range"
-              defaultMonth={date?.from}
-              selected={date}
-              onSelect={setDate}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-    );
-  },
-  args: {},
-};
-
-export const DatePickerWithPresets = {
-  render: () => {
-    const [date, setDate] = useState<Date | undefined>(new Date(2023, 0, 20));
-
-    return (
+  return (
+    <div className={"grid gap-2"}>
       <Popover>
         <PopoverTrigger asChild>
           <Button
+            id="date"
             variant={"outline"}
-            className={"w-[240px] justify-start text-left font-normal"}
+            className={"w-[300px] justify-start text-left font-normal"}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {date ? format(date, "LLL dd, y") : <span>Pick a date</span>}
+            {date?.from ? (
+              date.to ? (
+                <>
+                  {format(date.from, "LLL dd, y")} -{" "}
+                  {format(date.to, "LLL dd, y")}
+                </>
+              ) : (
+                format(date.from, "LLL dd, y")
+              )
+            ) : (
+              <span>Pick a date</span>
+            )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="flex w-auto flex-col space-y-2 p-2"
-        >
-          <Select
-            onValueChange={(value) => {
-              const newDate = new Date();
-              newDate.setDate(newDate.getDate() + parseInt(value));
-              setDate(newDate);
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              <SelectItem value="0">Today</SelectItem>
-              <SelectItem value="1">Tomorrow</SelectItem>
-              <SelectItem value="3">In 3 days</SelectItem>
-              <SelectItem value="7">In a week</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="rounded-md border">
-            <Calendar
-              initialFocus
-              mode="single"
-              defaultMonth={date}
-              selected={date}
-              onSelect={setDate}
-            />
-          </div>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            initialFocus
+            mode="range"
+            defaultMonth={date?.from}
+            selected={date}
+            onSelect={setDate}
+            numberOfMonths={2}
+          />
         </PopoverContent>
       </Popover>
-    );
-  },
+    </div>
+  );
+};
+
+export const DatePickerRange = {
+  render: () => <DatePickerRangeRender />,
+  args: {},
+};
+
+const DatePickerWithPresetsRender: React.FC = () => {
+  const [date, setDate] = useState<Date | undefined>(new Date(2023, 0, 20));
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant={"outline"}
+          className={"w-[240px] justify-start text-left font-normal"}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "LLL dd, y") : <span>Pick a date</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="flex w-auto flex-col space-y-2 p-2"
+      >
+        <Select
+          onValueChange={(value) => {
+            const newDate = new Date();
+            newDate.setDate(newDate.getDate() + parseInt(value));
+            setDate(newDate);
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select" />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value="0">Today</SelectItem>
+            <SelectItem value="1">Tomorrow</SelectItem>
+            <SelectItem value="3">In 3 days</SelectItem>
+            <SelectItem value="7">In a week</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="rounded-md border">
+          <Calendar
+            initialFocus
+            mode="single"
+            defaultMonth={date}
+            selected={date}
+            onSelect={setDate}
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+export const DatePickerWithPresets = {
+  render: () => <DatePickerWithPresetsRender />,
   args: {},
 };

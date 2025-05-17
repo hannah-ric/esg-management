@@ -1,19 +1,43 @@
+import type { Meta, StoryObj } from "@storybook/react";
 import {
-  ResizableHandle,
-  ResizablePanel,
   ResizablePanelGroup,
-} from "../components/ui/resizable";
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
-const meta= {
-  title: "ui/ResizablePanelGroup",
+const meta: Meta<typeof ResizablePanelGroup> = {
+  title: "Components/Resizable",
   component: ResizablePanelGroup,
+  parameters: {
+    layout: "centered", // Or 'fullscreen' depending on component
+  },
   tags: ["autodocs"],
-  argTypes: {},
 };
+
 export default meta;
 
-export const Base = {
-  render: (args: any) => (
+interface ResizableStoryArgs {
+  direction: "horizontal" | "vertical";
+  className?: string;
+  // children is implicit
+}
+
+export const Default: StoryObj<ResizableStoryArgs> = {
+  args: {
+    direction: "horizontal",
+    className: "max-w-md rounded-lg border",
+  },
+  render: (args) => (
+    <ResizablePanelGroup {...args}>
+      <ResizablePanel defaultSize={50}>Panel 1</ResizablePanel>
+      <ResizableHandle />
+      <ResizablePanel defaultSize={50}>Panel 2</ResizablePanel>
+    </ResizablePanelGroup>
+  ),
+};
+
+export const Base: StoryObj<ResizableStoryArgs> = {
+  render: (args) => (
     <ResizablePanelGroup
       {...args}
       direction="horizontal"
@@ -42,5 +66,8 @@ export const Base = {
       </ResizablePanel>
     </ResizablePanelGroup>
   ),
-  args: {},
+  args: {
+    direction: "horizontal",
+    className: "max-w-md rounded-lg border"
+  },
 };

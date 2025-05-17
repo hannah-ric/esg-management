@@ -4,7 +4,7 @@ export interface ClerkUser {
   lastName?: string;
   email?: string;
   imageUrl?: string;
-  publicMetadata?: Record<string, any>;
+  publicMetadata?: Record<string, unknown>;
 }
 
 export interface OrganizationMembership {
@@ -18,6 +18,25 @@ export interface OrganizationMembership {
     slug: string;
     membersCount: number;
   };
+  updatedAt: string;
+}
+
+// Define sub-types for ESGPlan
+export interface PlanImplementationStep {
+  phase: string;
+  tasks: string[]; // Or Task[] if Task is defined
+  timeline: string;
+}
+
+export interface PlanFrameworkRecommendation {
+  framework: string;
+  indicators: string[];
+  description: string;
+}
+
+export interface PlanResourceRecommendation {
+  topic: string;
+  resources: string[]; // Or Resource[] if Resource is defined
 }
 
 export interface ESGPlan {
@@ -25,9 +44,9 @@ export interface ESGPlan {
   userId: string;
   title: string;
   description: string;
-  implementationSteps: any[];
-  frameworkRecommendations: any[];
-  resourceRecommendations: any[];
+  implementationSteps: PlanImplementationStep[]; // Typed
+  frameworkRecommendations: PlanFrameworkRecommendation[]; // Typed
+  resourceRecommendations: PlanResourceRecommendation[]; // Typed
   createdAt: string;
   updatedAt: string;
 }

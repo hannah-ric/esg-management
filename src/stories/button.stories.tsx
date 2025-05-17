@@ -1,62 +1,110 @@
 // [build] library: 'shadcn'
-import { Loader2, Mail } from "lucide-react";
+// import { Loader2, Mail } from "lucide-react"; // Unused
+import type { Meta, StoryObj } from "@storybook/react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { ChevronRightIcon, EnvelopeOpenIcon, ReloadIcon } from "@radix-ui/react-icons";
 
-import { Button } from "../components/ui/button";
-
-const meta = {
-  title: "ui/Button",
+const meta: Meta<typeof Button> = {
+  title: "Components/Button",
   component: Button,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
-  argTypes: {},
+  argTypes: {
+    variant: {
+      control: "select",
+      options: Object.keys(buttonVariants.variantMap),
+    },
+    size: {
+      control: "select",
+      options: Object.keys(buttonVariants.sizeMap),
+    },
+    asChild: { control: "boolean" },
+  },
 };
+
 export default meta;
 
-export const Base = {
-  render: (args: any) => <Button {...args}>Button</Button>,
-  args: {},
-};
-export const Outline = {
-  render: (args: any) => <Button {...args}>Button</Button>,
+// Define a simple type for story args
+interface ButtonStoryArgs {
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  size?: "default" | "sm" | "lg" | "icon";
+  asChild?: boolean;
+  children: React.ReactNode;
+  className?: string;
+  disabled?: boolean;
+  // Add other Button props if used
+}
+
+export const Default: StoryObj<ButtonStoryArgs> = {
   args: {
-    variant: "outline",
+    variant: "default",
+    children: "Button",
   },
 };
-export const Ghost = {
-  render: (args: any) => <Button {...args}>Button</Button>,
+
+export const Secondary: StoryObj<ButtonStoryArgs> = {
+  args: {
+    variant: "secondary",
+    children: "Secondary",
+  },
+};
+
+export const Destructive: StoryObj<ButtonStoryArgs> = {
+  args: {
+    variant: "destructive",
+    children: "Destructive",
+  },
+};
+
+export const Outline: StoryObj<ButtonStoryArgs> = {
+  args: {
+    variant: "outline",
+    children: "Outline",
+  },
+};
+
+export const Ghost: StoryObj<ButtonStoryArgs> = {
   args: {
     variant: "ghost",
+    children: "Ghost",
   },
 };
-export const Secondary = {
-  render: (args: any) => <Button {...args}>Button</Button>,
-  args: {
-    variant: "secondary",
-  },
-};
-export const Link = {
-  render: (args: any) => <Button {...args}>Button</Button>,
+
+export const Link: StoryObj<ButtonStoryArgs> = {
   args: {
     variant: "link",
+    children: "Link",
   },
 };
-export const Loading = {
-  render: (args: any) => (
-    <Button {...args}>
-      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      Button
-    </Button>
-  ),
+
+export const Icon: StoryObj<ButtonStoryArgs> = {
   args: {
     variant: "outline",
+    size: "icon",
+    children: <ChevronRightIcon className="h-4 w-4" />,
   },
 };
-export const WithIcon = {
-  render: (args: any) => (
-    <Button {...args}>
-      <Mail className="mr-2 h-4 w-4" /> Login with Email Button
-    </Button>
-  ),
+
+export const WithIcon: StoryObj<ButtonStoryArgs> = {
   args: {
-    variant: "secondary",
+    children: (
+      <>
+        <EnvelopeOpenIcon className="mr-2 h-4 w-4" /> Login with Email
+      </>
+    ),
+  },
+};
+
+export const Loading: StoryObj<ButtonStoryArgs> = {
+  args: {
+    disabled: true,
+    children: (
+      <>
+        <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
+        Please wait
+      </>
+    ),
   },
 };

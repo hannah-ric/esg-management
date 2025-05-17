@@ -30,7 +30,8 @@ export const Base = {
         <DialogHeader>
           <DialogTitle>Edit profile</DialogTitle>
           <DialogDescription>
-            Make changes to your profile here. Click save when you're done.
+            This action cannot be undone. This will permanently delete your account
+            and remove your data from our servers. Make sure to save your changes before closing dialog. Don&apos;t forget it!
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

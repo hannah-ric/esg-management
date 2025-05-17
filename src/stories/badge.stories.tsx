@@ -1,33 +1,54 @@
 // [build] library: 'shadcn'
-import { Badge } from "../components/ui/badge";
+import type { Meta, StoryObj } from "@storybook/react";
+import { Badge, badgeVariants } from "@/components/ui/badge";
 
-const meta = {
-  title: "ui/Badge",
+const meta: Meta<typeof Badge> = {
+  title: "Components/Badge",
   component: Badge,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
-  argTypes: {},
+  argTypes: {
+    variant: {
+      control: "select",
+      options: Object.keys(badgeVariants.variantMap),
+    },
+  },
 };
+
 export default meta;
 
-export const Base = {
-  render: (args: any) => <Badge {...args}>Badge</Badge>,
-  args: {},
+interface BadgeStoryArgs {
+  variant?: "default" | "secondary" | "destructive" | "outline";
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const Default: StoryObj<BadgeStoryArgs> = {
+  args: {
+    variant: "default",
+    children: "Default Badge",
+  },
 };
-export const Secondary = {
-  render: (args: any) => <Badge {...args}>Secondary</Badge>,
+
+export const Secondary: StoryObj<BadgeStoryArgs> = {
   args: {
     variant: "secondary",
+    children: "Secondary Badge",
   },
 };
-export const Outline = {
-  render: (args: any) => <Badge {...args}>Outline</Badge>,
-  args: {
-    variant: "outline",
-  },
-};
-export const Destructive = {
-  render: (args: any) => <Badge {...args}>Destructive</Badge>,
+
+export const Destructive: StoryObj<BadgeStoryArgs> = {
   args: {
     variant: "destructive",
+    children: "Destructive Badge",
+  },
+};
+
+export const Outline: StoryObj<BadgeStoryArgs> = {
+  args: {
+    variant: "outline",
+    children: "Outline Badge",
   },
 };
