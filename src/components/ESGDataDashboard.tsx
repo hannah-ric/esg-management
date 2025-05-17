@@ -185,7 +185,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
         const frameworks = ["GRI", "SASB", "TCFD", "CDP", "SDG"]; // Consider making this dynamic or a constant
         frameworks.forEach(framework => {
           const frameworkSpecificMappings = mappingsData?.filter(
-            (mapping): mapping is ESGFrameworkMappingFromDB => mapping.framework_id === framework // Type guard
+            (mapping: any): mapping is ESGFrameworkMappingFromDB => mapping.framework_id === framework // Use 'any' and a type guard
           );
           if (frameworkSpecificMappings?.length > 0) {
             organizedMappings[framework] = frameworkSpecificMappings;

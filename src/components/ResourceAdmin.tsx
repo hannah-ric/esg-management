@@ -59,6 +59,21 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+// Define ResourceItemFromDB to match Supabase table structure
+interface ResourceItemFromDB {
+  id: string;
+  title: string;
+  description: string | null; // Allow null
+  type: string;
+  category: string;
+  file_type: string | null; // Allow null
+  url: string;
+  source: string | null; // Allow null
+  date_added: string | null; // Allow null
+  tags?: string[] | null; // Allow null
+}
+
+// Define ResourceItem for internal component use
 interface ResourceItem {
   id: string;
   title: string;
@@ -119,14 +134,15 @@ const ResourceAdmin: React.FC = () => {
       try {
         // Check if user is an admin
         const { data, error } = await supabase
-          .from("users")
+          .from("users") // Assuming 'users' table has an 'is_admin' column
           .select("is_admin")
           .eq("id", user.id)
           .single();
 
         if (error) throw error;
 
-        if (!data || !data.is_admin) {
+        // Ensure data exists and is_admin is a boolean before checking
+        if (!data || typeof data.is_admin !== 'boolean' || !data.is_admin) {
           setError("You do not have permission to access this page.");
           setIsAdmin(false);
           setTimeout(() => navigate("/"), 3000);
@@ -152,7 +168,20 @@ const ResourceAdmin: React.FC = () => {
       if (error) throw error;
 
       if (data) {
-        setResources(data as ResourceItem[]);
+        // Transform data from DB to match ResourceItem for internal use
+        const formattedResources: ResourceItem[] = data.map((item: ResourceItemFromDB) => ({
+          id: item.id,
+          title: item.title || "Untitled Resource",
+          description: item.description || "", // Handle null
+          type: item.type as ResourceItem['type'] || "guide", // Cast and provide default
+          category: item.category as ResourceItem['category'] || "general", // Cast and provide default
+          fileType: (item.file_type || "url") as ResourceItem['fileType'], // Cast and provide default
+          url: item.url || "#",
+          source: item.source || "Unknown", // Handle null
+          date_added: item.date_added ? new Date(item.date_added).toLocaleDateString() : "N/A", // Handle null
+          tags: item.tags || [], // Handle null
+        }));
+        setResources(formattedResources);
       }
     } catch (err) {
       console.error("Error fetching resources:", err);

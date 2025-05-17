@@ -10,6 +10,20 @@ import {
 } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Loader2 } from "lucide-react";
+import { type Json } from "../types/supabase";
+
+interface PaymentFromDB {
+  id: string;
+  payment_intent_id: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  description: string | null;
+  created_at: string;
+  error_message?: string | null;
+  metadata?: Json | null;
+  user_id?: string;
+}
 
 interface Payment {
   id: string;
@@ -44,7 +58,17 @@ export default function PaymentHistory() {
 
         if (error) throw error;
 
-        setPayments(data || []);
+        const formattedPayments: Payment[] = (data || []).map((p: PaymentFromDB) => ({
+          id: p.id,
+          payment_intent_id: p.payment_intent_id || "N/A",
+          amount: p.amount,
+          currency: p.currency,
+          status: p.status,
+          description: p.description || "Payment",
+          created_at: p.created_at,
+          error_message: p.error_message || undefined,
+        }));
+        setPayments(formattedPayments);
       } catch (err) {
         console.error("Error fetching payment history:", err);
         setError("Failed to load payment history. Please try again later.");

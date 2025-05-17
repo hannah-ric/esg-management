@@ -58,9 +58,9 @@ interface ResourceItem {
 interface ESGDataPointFromDB {
   metric_id: string;
   value: string | number;
-  framework_id?: string;
-  disclosure_id?: string;
-  confidence?: number;
+  framework_id?: string | null; // Allow null
+  disclosure_id?: string | null; // Allow null
+  confidence?: number | null; // Allow null
   // add other fields from your esg_data_points table
 }
 
@@ -70,11 +70,18 @@ interface ESGFrameworkMappingFromDB {
   // add other fields from your esg_framework_mappings table
 }
 
-interface EnrichedResourceItem extends ResourceItem { // Or use a more specific DB type for resourceData
+interface EnrichedResourceItemFromDB { // More specific type for data fetched from Supabase
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  category: string;
+  file_type: string | null;
+  url: string;
+  date_added: string | null;
+  source?: string | null;
   dataPoints: ESGDataPointFromDB[];
   frameworkMappings: ESGFrameworkMappingFromDB[];
-  source?: string; // Assuming source might come from DB
-  // Add any other fields that resourceData might have from the 'resources' table
 }
 
 interface BulkResourceExporterProps {
@@ -106,15 +113,15 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
         if (error) throw error;
 
         if (data && data.length > 0) {
-          const formattedResources = data.map((item) => ({
+          const formattedResources: ResourceItem[] = data.map((item) => ({
             id: item.id,
-            title: item.title,
-            description: item.description,
-            type: item.type,
-            category: item.category,
+            title: item.title || "Untitled Resource",
+            description: item.description || "", // Default to empty string if null
+            type: item.type || "unknown",
+            category: item.category || "unknown",
             fileType: item.file_type || "url",
-            url: item.url,
-            dateAdded: new Date(item.date_added).toLocaleDateString(),
+            url: item.url || "#",
+            dateAdded: item.date_added ? new Date(item.date_added).toLocaleDateString() : "N/A", // Handle null date_added
             selected: false,
           }));
           setResources(formattedResources);
@@ -153,30 +160,34 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
 
     try {
       // Fetch full resource data for selected resources
-      const selectedResourcesData = [];
+      const selectedResourcesData: EnrichedResourceItemFromDB[] = [];
 
       for (const resourceId of selectedResources) {
-        const { data: resourceData } = await supabase
+        const { data: resourceData, error: resourceError } = await supabase
           .from("resources")
           .select("*")
           .eq("id", resourceId)
           .single();
+        
+        if (resourceError) throw resourceError;
 
         if (resourceData) {
           // Fetch ESG data points for this resource
-          const { data: dataPoints } = await supabase
+          const { data: dataPoints, error: dpError } = await supabase
             .from("esg_data_points")
             .select("*")
             .eq("resource_id", resourceId);
+          if (dpError) throw dpError;
 
           // Fetch framework mappings for this resource
-          const { data: frameworkMappings } = await supabase
+          const { data: frameworkMappings, error: fmError } = await supabase
             .from("esg_framework_mappings")
             .select("*")
             .eq("resource_id", resourceId);
+          if (fmError) throw fmError;
 
           selectedResourcesData.push({
-            ...resourceData,
+            ...(resourceData as EnrichedResourceItemFromDB), // Cast to ensure type compatibility
             dataPoints: dataPoints || [],
             frameworkMappings: frameworkMappings || [],
           });
@@ -187,27 +198,27 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
 
       if (exportFormat === "excel") {
         // Prepare data for Excel export
-        const excelData: Record<string, Record<string, string | number | undefined>[]> = {
+        const excelData: Record<string, Record<string, string | number | null | undefined>[]> = {
           resources: selectedResourcesData.map((resource) => ({
             Title: resource.title,
-            Description: resource.description,
+            Description: resource.description, // Already string | null
             Category: resource.category,
             Type: resource.type,
             URL: resource.url,
-            Source: resource.source,
-            DateAdded: resource.date_added,
+            Source: resource.source, // Already string | null | undefined
+            DateAdded: resource.date_added, // Already string | null
           })),
         };
 
         // Add data points sheet
         const allDataPoints = selectedResourcesData.flatMap((resource) =>
-          resource.dataPoints.map((dataPoint: ESGDataPointFromDB) => ({
+          resource.dataPoints.map((dataPoint) => ({
             ResourceTitle: resource.title,
             MetricID: dataPoint.metric_id,
             Value: dataPoint.value,
             Framework: dataPoint.framework_id || "N/A",
             Disclosure: dataPoint.disclosure_id || "N/A",
-            Confidence: dataPoint.confidence || "N/A",
+            Confidence: dataPoint.confidence ?? "N/A", // Use nullish coalescing for number | null
           })),
         );
 
@@ -217,7 +228,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
 
         // Add framework mappings sheet
         const allMappings = selectedResourcesData.flatMap((resource) =>
-          resource.frameworkMappings.map((mapping: ESGFrameworkMappingFromDB) => ({
+          resource.frameworkMappings.map((mapping) => ({
             ResourceTitle: resource.title,
             Framework: mapping.framework_id,
             Disclosure: mapping.disclosure_id,
@@ -230,7 +241,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
 
         // Export to Excel
         success = await exportToMultipleSheets(
-          excelData,
+          excelData as Record<string, Record<string, string | number | undefined>[]>, // Cast to final expected type by utility
           `ESG_Resources_Export_${new Date().toISOString().split("T")[0]}.xlsx`,
         );
       } else if (exportFormat === "pdf") {
@@ -246,18 +257,18 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
         tempDiv.appendChild(title);
 
         // Group resources by category
-        const resourcesByCategory: Record<string, EnrichedResourceItem[]> = {};
+        const resourcesByCategory: Record<string, EnrichedResourceItemFromDB[]> = {};
         selectedResourcesData.forEach((resource) => {
           const category = resource.category || "Uncategorized";
           if (!resourcesByCategory[category]) {
             resourcesByCategory[category] = [];
           }
-          resourcesByCategory[category].push(resource);
+          resourcesByCategory[category].push(resource); 
         });
 
         // Create sections for each category
         Object.entries(resourcesByCategory).forEach(
-          ([category, categoryResources]: [string, EnrichedResourceItem[]]) => {
+          ([category, categoryResources]: [string, EnrichedResourceItemFromDB[]]) => {
             const categoryHeader = document.createElement("h2");
             categoryHeader.textContent =
               category.charAt(0).toUpperCase() + category.slice(1);
@@ -274,7 +285,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
               resourceDiv.appendChild(resourceTitle);
 
               const resourceDesc = document.createElement("p");
-              resourceDesc.textContent = resource.description;
+              resourceDesc.textContent = resource.description || ""; // Handle null description
               resourceDiv.appendChild(resourceDesc);
 
               const resourceType = document.createElement("p");
@@ -292,7 +303,7 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
                 resourceDiv.appendChild(dataPointsTitle);
 
                 const dataPointsList = document.createElement("ul");
-                resource.dataPoints.forEach((dataPoint: ESGDataPointFromDB) => {
+                resource.dataPoints.forEach((dataPoint) => {
                   const dataPointItem = document.createElement("li");
                   dataPointItem.textContent = `${dataPoint.metric_id}: ${dataPoint.value} (${dataPoint.framework_id || "N/A"} ${dataPoint.disclosure_id || "N/A"})`;
                   dataPointsList.appendChild(dataPointItem);

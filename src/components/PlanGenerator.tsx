@@ -22,16 +22,13 @@ import RecommendationModal from './plan/RecommendationModal';
 import PhaseModal from './plan/PhaseModal';
 import TaskModal from './plan/TaskModal';
 
-// Define ToastVariantType for toast variant options
-type ToastVariantType = "default" | "destructive" | null;
-
-// Define a compatible toast wrapper type to match ToastOptions in ExportUtils.tsx
+// Define ToastOptions locally to ensure compatibility
 import { type ReactNode } from "react";
-
-interface PdfToastOptions {
-  title?: ReactNode;
+interface CustomToastOptions {
+  title?: string | JSX.Element; // More specific type for title
   description?: ReactNode;
-  variant?: "default" | "destructive" | "success";
+  variant?: "default" | "destructive" | "success" | null | undefined;
+  action?: React.ReactElement<{ onClick: () => void; altText: string; children: React.ReactNode }>;
 }
 
 const PlanGenerator: React.FC = () => {
@@ -292,29 +289,28 @@ const PlanGenerator: React.FC = () => {
 
   const handleDownloadPlanPDF = useCallback(() => {
     if (!plan.id) {
-      toast({ 
-        title: "Cannot Download", 
-        description: "Please save the plan before downloading.", 
-        variant: "destructive"
+      toast({
+        title: "Cannot Download",
+        description: "Please save the plan before downloading.",
+        variant: "destructive",
       });
       return;
     }
-    
-    toast({ 
-      title: "PDF Generation Started", 
-      description: "Your plan PDF is being generated and will download shortly.", 
-      variant: "default" 
+
+    toast({
+      title: "PDF Generation Started",
+      description: "Your plan PDF is being generated and will download shortly.",
+      variant: "default",
     });
-    
-    // Create a wrapper function with the correct type signature to match ExportUtils.tsx
-    const toastWrapper = (options: PdfToastOptions) => {
+
+    const toastWrapper = (options: CustomToastOptions) => {
       toast(options);
     };
-    
+
     exportToPDFWithWorker(
-      "plan-print-area", 
-      `${plan.title?.replace(/\s+/g, '-').toLowerCase() || 'esg-plan'}.pdf`, 
-      toastWrapper
+      "plan-print-area",
+      `${plan.title?.replace(/\s+/g, '-').toLowerCase() || 'esg-plan'}.pdf`,
+      toastWrapper,
     );
   }, [plan.id, plan.title, toast]);
 
