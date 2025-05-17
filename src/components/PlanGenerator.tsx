@@ -25,7 +25,7 @@ import TaskModal from './plan/TaskModal';
 // Define ToastOptions locally to ensure compatibility
 import { type ReactNode } from "react";
 interface CustomToastOptions {
-  title?: string | JSX.Element; // More specific type for title
+  title?: React.ReactNode; // More specific type for title
   description?: ReactNode;
   variant?: "default" | "destructive" | "success" | null | undefined;
   action?: React.ReactElement<{ onClick: () => void; altText: string; children: React.ReactNode }>;
@@ -303,14 +303,10 @@ const PlanGenerator: React.FC = () => {
       variant: "default",
     });
 
-    const toastWrapper = (options: CustomToastOptions) => {
-      toast(options);
-    };
-
     exportToPDFWithWorker(
       "plan-print-area",
       `${plan.title?.replace(/\s+/g, '-').toLowerCase() || 'esg-plan'}.pdf`,
-      toastWrapper,
+      (options: any) => toast(options),
     );
   }, [plan.id, plan.title, toast]);
 
