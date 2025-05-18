@@ -1,0 +1,14 @@
+name: esg-management
+services:
+  - name: web
+    dockerfile_path: Dockerfile
+    source_dir: .
+    run_command: npm start
+    build_command: npm run build
+    environment_slug: node-js
+    http_port: 8080
+    envs:
+      - key: NODE_ENV
+        value: production
+    instance_size_slug: basic-xxs
+    instance_count: 1
