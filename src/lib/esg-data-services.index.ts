@@ -3,6 +3,7 @@ import {
   ESGHistoricalDataPoint, // Interface
   ESGDataPoint, // Interface
   ESGFrameworkMapping, // Interface
+  ESGFramework,
   PaginationParams, // Interface
   PaginatedResponse, // Interface
   getESGDataPoints,
@@ -14,6 +15,7 @@ import {
   deleteESGFrameworkMapping,
   getUserESGDataPoints,
   searchESGDataPoints,
+  getFrameworks,
   getFrameworkRecommendations, // Original name from esg-data-services.ts
   getFrameworkMappings, // Original name from esg-data-services.ts
 } from "./esg-data-services";
@@ -22,6 +24,7 @@ export type {
   ESGHistoricalDataPoint,
   ESGDataPoint,
   ESGFrameworkMapping,
+  ESGFramework,
   PaginationParams,
   PaginatedResponse,
 };
@@ -36,6 +39,7 @@ export {
   deleteESGFrameworkMapping,
   getUserESGDataPoints,
   searchESGDataPoints,
+  getFrameworks,
   getFrameworkRecommendations,
   getFrameworkMappings,
 };
@@ -51,6 +55,7 @@ export default {
   deleteESGFrameworkMapping,
   getUserESGDataPoints,
   searchESGDataPoints,
+  getFrameworks,
   getFrameworkRecommendations,
   getFrameworkMappings,
 };

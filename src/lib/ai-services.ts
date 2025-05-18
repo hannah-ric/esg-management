@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { logger } from "./logger";
+import { measureAsync } from "./performance-utils";
 
 export interface AIAssistantResponse {
   content: string;
@@ -26,20 +27,21 @@ export async function getFrameworkRecommendations(
   materialityTopics: Record<string, unknown>[] = [],
 ): Promise<AIAssistantResponse> {
   try {
-    const { data, error } = await supabase.functions.invoke(
-      "supabase-functions-esg-ai-assistant",
-      {
-        body: {
-          prompt:
-            "Provide ESG framework recommendations based on the company profile and materiality topics. Include specific indicators from GRI, SASB, TCFD, and UN SDGs that are most relevant.",
-          context: {
-            companyProfile,
-            materialityTopics,
+    const { data, error } = await measureAsync(
+      "getFrameworkRecommendations",
+      () =>
+        supabase.functions.invoke("supabase-functions-esg-ai-assistant", {
+          body: {
+            prompt:
+              "Provide ESG framework recommendations based on the company profile and materiality topics. Include specific indicators from GRI, SASB, TCFD, and UN SDGs that are most relevant.",
+            context: {
+              companyProfile,
+              materialityTopics,
+            },
+            task: "framework-mapping",
+            maxTokens: 800,
           },
-          task: "framework-mapping",
-          maxTokens: 800,
-        },
-      },
+        }),
     );
 
     if (error) throw error;
@@ -65,21 +67,22 @@ export async function getResourceRecommendations(
   materialityTopics: Record<string, unknown>[] = [],
 ): Promise<AIAssistantResponse> {
   try {
-    const { data, error } = await supabase.functions.invoke(
-      "supabase-functions-esg-ai-assistant",
-      {
-        body: {
-          prompt:
-            "Recommend resources from the library that would help implement this ESG plan effectively, with special focus on the high-priority materiality topics.",
-          context: {
-            esgPlan,
-            companyProfile,
-            materialityTopics,
+    const { data, error } = await measureAsync(
+      "getResourceRecommendations",
+      () =>
+        supabase.functions.invoke("supabase-functions-esg-ai-assistant", {
+          body: {
+            prompt:
+              "Recommend resources from the library that would help implement this ESG plan effectively, with special focus on the high-priority materiality topics.",
+            context: {
+              esgPlan,
+              companyProfile,
+              materialityTopics,
+            },
+            task: "resource-recommendation",
+            maxTokens: 600,
           },
-          task: "resource-recommendation",
-          maxTokens: 600,
-        },
-      },
+        }),
     );
 
     if (error) throw error;

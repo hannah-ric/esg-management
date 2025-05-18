@@ -58,3 +58,11 @@ The production container listens on port `8080` by default.
 
 The `.do/app.yaml` file defines the App Platform specification. Commit any changes
 to this file and push to trigger a deployment.
+
+### Running Tests
+
+Unit tests are powered by [Vitest](https://vitest.dev). Execute the test suite with:
+
+```bash
+npm test
+```

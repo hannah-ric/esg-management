@@ -47,13 +47,44 @@ export async function searchResourceLibrary(
  * @param userData User data to base recommendations on
  * @returns AI-generated recommendations
  */
-export async function generateAIRecommendations(userData: Record<string, any>) {
+export async function generateAIRecommendations(
+  userData: Record<string, any>,
+) {
   try {
-    // Implementation would depend on your AI recommendation system
-    // This is a placeholder
-    return { recommendations: [] };
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-esg-ai-assistant",
+      {
+        body: {
+          prompt:
+            "Suggest enhancements or additional ESG initiatives based on the provided user data.",
+          context: { userData },
+          task: "plan-enhancement",
+          maxTokens: 800,
+        },
+      },
+    );
+
+    if (error) throw error;
+
+    let recommendations: string[] = [];
+    if (data && typeof data.content === "string") {
+      try {
+        const parsed = JSON.parse(data.content);
+        if (Array.isArray(parsed)) {
+          recommendations = parsed;
+        } else if (Array.isArray(parsed.recommendations)) {
+          recommendations = parsed.recommendations;
+        } else {
+          recommendations = [data.content];
+        }
+      } catch (_) {
+        recommendations = [data.content];
+      }
+    }
+
+    return { recommendations, success: true };
   } catch (error) {
     console.error("Error generating AI recommendations:", error);
-    throw error;
+    return { recommendations: [], success: false, error: String(error) };
   }
 }
