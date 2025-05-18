@@ -12,22 +12,22 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true,              
-    "noImplicitAny": true,     
-    "strictNullChecks": true,   
-    "esModuleInterop": true,     
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true, 
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
       "@shared/*": ["supabase/functions/_shared/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "supabase/functions/_shared"], 
   "exclude": [
-    "node_modules", 
-    "dist", 
-    "src/tempobook", 
-    "supabase/functions"
+    "node_modules",
+    "dist",
+    "src/tempobook"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

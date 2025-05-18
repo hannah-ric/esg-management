@@ -3,6 +3,4 @@
 export * from "./cors";
 export * from "./error-handler";
 export * from "./stripe-types";
-
-// Add this line to fix the error:
 export { default } from "./cors";
