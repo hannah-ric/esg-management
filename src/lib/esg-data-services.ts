@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { measureAsync } from "./performance-utils";
 
 export interface ESGHistoricalDataPoint {
   year: string;
@@ -33,6 +34,12 @@ export interface ESGFrameworkMapping {
   updated_at?: string;
 }
 
+export interface ESGFramework {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 export interface PaginationParams {
   page?: number;
   pageSize?: number;
@@ -44,6 +51,21 @@ export interface PaginatedResponse<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+// Fetch available ESG frameworks from the database
+export async function getFrameworks(): Promise<ESGFramework[]> {
+  try {
+    const { data, error } = await supabase
+      .from("frameworks")
+      .select("id, name, description");
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching frameworks:", error);
+    return [];
+  }
 }
 
 // Get ESG data points for a specific resource with pagination
@@ -286,9 +308,10 @@ export async function getUserESGDataPoints(): Promise<
 // Search for ESG data points by metric or value with pagination using Full-Text Search
 export async function searchESGDataPoints(
   searchTerm: string,
-  pagination?: PaginationParams
-): Promise<PaginatedResponse<ESGDataPoint>> {
-  try {
+  pagination?: PaginationParams,
+  filters?: { metricId?: string; frameworkId?: string },
+): Promise<PaginatedResponse<ESGDataPoint & { rank?: number }>> {
+  return measureAsync("searchESGDataPoints", async () => {
     const page = pagination?.page || 1;
     const pageSize = pagination?.pageSize || 20;
     const startIndex = (page - 1) * pageSize;
@@ -304,7 +327,7 @@ export async function searchESGDataPoints(
     const { count, error: countError } = await supabase
       .from("esg_data_points")
       .select("*", { count: "exact", head: true })
-      .textSearch('fts', ftsQuery, { type: 'websearch' }); // Use 'websearch' type if ftsQuery is structured for it, or 'plain' for plainto_tsquery logic
+      .textSearch("fts", ftsQuery, { type: "websearch" });
 
     if (countError) {
         // Fallback to ILIKE if FTS fails (e.g. column not ready, or temporary issue)
@@ -324,12 +347,24 @@ export async function searchESGDataPoints(
         return searchESGDataPointsWithIlikeFallback(searchTerm, pagination, ilikeCount); // Call a fallback using ILIKE for data as well
     }
 
-    // Query for the paginated data using FTS
-    const { data, error } = await supabase
+    // Query for the paginated data using FTS with ranking
+    let dataQuery = supabase
       .from("esg_data_points")
-      .select("*")
-      .textSearch('fts', ftsQuery, { type: 'websearch' })
+      .select(
+        `*, rank:ts_rank(fts, websearch_to_tsquery('english', '${ftsQuery}'))`,
+      )
+      .textSearch("fts", ftsQuery, { type: "websearch" })
+      .order("rank", { ascending: false })
       .range(startIndex, startIndex + pageSize - 1);
+
+    if (filters?.metricId) {
+      dataQuery = dataQuery.eq("metric_id", filters.metricId);
+    }
+    if (filters?.frameworkId) {
+      dataQuery = dataQuery.eq("framework_id", filters.frameworkId);
+    }
+
+    const { data, error } = await dataQuery;
 
     if (error) {
         console.warn("FTS data query failed, falling back to ILIKE search for data:", error);
@@ -350,8 +385,9 @@ export async function searchESGDataPoints(
   } catch (error) {
     console.error("Error searching ESG data points (FTS with fallback):", error);
     // Final fallback if everything else fails, or rethrow
-    return searchESGDataPointsWithIlikeFallback(searchTerm, pagination); 
+    return searchESGDataPointsWithIlikeFallback(searchTerm, pagination);
   }
+  });
 }
 
 // Fallback function using ILIKE (original paginated search)

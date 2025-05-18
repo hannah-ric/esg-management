@@ -44,6 +44,7 @@ import {
   saveESGDataPoint,
   ESGDataPoint,
   getESGDataPoints,
+  getFrameworks,
   PaginationParams
 } from "@/lib/esg-data-services";
 import ResourceAnalyzer from "./ResourceAnalyzer";
@@ -111,6 +112,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
   const [totalPages, setTotalPages] = useState(1);
   const [resources, setResources] = useState<ResourceItemFromDB[]>([]);
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
+  const [frameworkList, setFrameworkList] = useState<{ id: string; name: string }[]>([]);
 
   const loadResources = useCallback(async () => {
     setLoading(true);
@@ -145,6 +147,18 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
   useEffect(() => {
     loadResources();
   }, [loadResources]);
+
+  useEffect(() => {
+    const fetchFrameworks = async () => {
+      try {
+        const list = await getFrameworks();
+        setFrameworkList(list);
+      } catch (e) {
+        console.error("Error loading frameworks:", e);
+      }
+    };
+    fetchFrameworks();
+  }, []);
 
   const loadResourceDataAndMappings = useCallback(async (resourceId: string) => {
     setLoading(true);
@@ -182,8 +196,10 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
         if (mappingsError) throw mappingsError;
 
         const organizedMappings: Record<string, ESGFrameworkMappingFromDB[]> = {};
-        const frameworks = ["GRI", "SASB", "TCFD", "CDP", "SDG"]; // Consider making this dynamic or a constant
-        frameworks.forEach(framework => {
+        const frameworks = frameworkList.length > 0
+          ? frameworkList.map((f) => f.name)
+          : ["GRI", "SASB", "TCFD", "CDP", "SDG"];
+        frameworks.forEach((framework) => {
           const frameworkSpecificMappings = mappingsData?.filter(
             (mapping: any): mapping is ESGFrameworkMappingFromDB => mapping.framework_id === framework // Use 'any' and a type guard
           );
@@ -281,7 +297,11 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
     const currentPage = newPage || searchPagination.page;
 
     try {
-      const response = await searchESGDataPoints(searchQuery, { page: currentPage, pageSize: searchPagination.pageSize });
+      const response = await searchESGDataPoints(
+        searchQuery,
+        { page: currentPage, pageSize: searchPagination.pageSize },
+        { frameworkId: frameworkFilter !== "all" ? frameworkFilter : undefined }
+      );
       setSearchResults(response.data);
       setSearchTotalPages(response.totalPages);
       setSearchPagination(prev => ({ ...prev, page: currentPage }));
@@ -515,11 +535,20 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Frameworks</SelectItem>
-                <SelectItem value="GRI">GRI</SelectItem>
-                <SelectItem value="SASB">SASB</SelectItem>
-                <SelectItem value="TCFD">TCFD</SelectItem>
-                <SelectItem value="CDP">CDP</SelectItem>
-                <SelectItem value="SDG">SDG</SelectItem>
+                {(frameworkList.length > 0
+                  ? frameworkList
+                  : [
+                      { id: "GRI", name: "GRI" },
+                      { id: "SASB", name: "SASB" },
+                      { id: "TCFD", name: "TCFD" },
+                      { id: "CDP", name: "CDP" },
+                      { id: "SDG", name: "SDG" },
+                    ]
+                ).map((fw) => (
+                  <SelectItem key={fw.id} value={fw.name}>
+                    {fw.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

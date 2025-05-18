@@ -51,6 +51,7 @@ import {
   deleteESGFrameworkMapping,
   getUserESGDataPoints,
   searchESGDataPoints,
+  getFrameworks,
   getFrameworkRecommendations as getMetricFrameworkRecommendations,
   getFrameworkMappings as getFrameworkMappingsByFrameworkId,
 } from "./esg-data-services";
@@ -122,6 +123,7 @@ export {
   deleteESGFrameworkMapping,
   getUserESGDataPoints,
   searchESGDataPoints,
+  getFrameworks,
   getMetricFrameworkRecommendations,
   getFrameworkMappingsByFrameworkId,
 };
@@ -183,6 +185,7 @@ import {
   deleteESGFrameworkMapping as deleteESGFrameworkMapping_esg,
   getUserESGDataPoints as getUserESGDataPoints_esg,
   searchESGDataPoints as searchESGDataPoints_esg,
+  getFrameworks as getFrameworks_esg,
   getFrameworkRecommendations as getMetricFrameworkRecommendations_esg, // Aliased from esg-data-services
   getFrameworkMappings as getFrameworkMappingsByFrameworkId_esg, // Aliased from esg-data-services
 } from "./esg-data-services";
@@ -234,6 +237,7 @@ const libExports = {
   deleteESGFrameworkMapping: deleteESGFrameworkMapping_esg,
   getUserESGDataPoints: getUserESGDataPoints_esg,
   searchESGDataPoints: searchESGDataPoints_esg,
+  getFrameworks: getFrameworks_esg,
   getMetricFrameworkRecommendations: getMetricFrameworkRecommendations_esg,
   getFrameworkMappingsByFrameworkId: getFrameworkMappingsByFrameworkId_esg,
   getTailoredRecommendations: getTailoredRecommendations_tailored,
