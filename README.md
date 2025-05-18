@@ -28,3 +28,39 @@ export default {
 - Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
 - Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
 - Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+
+## Environment variables
+
+Create a `.env` file based on `.env.example` and provide the credentials for your Supabase project. The following variables are required:
+
+```
+VITE_SUPABASE_URL=<your-supabase-url>
+VITE_SUPABASE_ANON_KEY=<your-anon-key>
+```
+
+Optional variables such as `VITE_STRIPE_PUBLISHABLE_KEY` can also be set if you plan to use the payment features.
+
+## Running locally
+
+Install the dependencies and start the development server:
+
+```bash
+npm install
+npm run dev
+```
+
+For a production build use:
+
+```bash
+npm run build
+npm start
+```
+
+### Helper scripts
+
+You can also run the lint and build steps using the scripts in the `scripts/` directory:
+
+```bash
+./scripts/lint.sh
+./scripts/build.sh
+```
