@@ -1,2 +1,4 @@
 export { LoadingSpinner } from "./LoadingSpinner";
-export { LoadingSpinner as default } from "./LoadingSpinner";
+
+// Export the component as default
+export default LoadingSpinner;

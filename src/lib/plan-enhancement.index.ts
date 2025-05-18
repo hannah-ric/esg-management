@@ -4,15 +4,18 @@ import {
   generateAIRecommendations,
 } from "./plan-enhancement";
 
+// Export named functions
 export {
   analyzeExternalContent,
   searchResourceLibrary,
   generateAIRecommendations,
 };
 
-// Use direct default export instead of intermediate variable
-export default {
+// Create a single default export object
+const planEnhancement = {
   analyzeExternalContent,
   searchResourceLibrary,
   generateAIRecommendations,
 };
+
+export default planEnhancement;

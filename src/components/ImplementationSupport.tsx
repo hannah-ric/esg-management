@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import { stripeService } from "../lib/stripe-service";
-import { LoadingSpinner } from "./LoadingSpinner";
+import { stripeService } from "../lib/stripe-service.index";
+import { LoadingSpinner } from "./LoadingSpinner/index";
 
 export function ImplementationSupport() {
   const [functionSlug, setFunctionSlug] = useState("");

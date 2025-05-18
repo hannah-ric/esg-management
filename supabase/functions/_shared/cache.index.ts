@@ -1,7 +1,12 @@
 import { Cache, cache } from "./cache";
 
+// Export named exports
 export { Cache, cache };
-export default {
+
+// Create a single default export object
+const cacheExports = {
   Cache,
   cache,
 };
+
+export default cacheExports;

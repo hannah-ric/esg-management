@@ -1,13 +1,13 @@
 import { corsHeaders } from "@shared/cors.index";
 import { PaymentIntentCreateParams } from "@shared/stripe-types.index";
-import { handleError } from "@shared/error-handler";
-import { validateRequiredFields } from "@shared/validation";
+import { handleError } from "@shared/error-handler.index";
+import { validateRequiredFields } from "@shared/validation.index";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
 const PICA_STRIPE_CONNECTION_KEY = Deno.env.get("PICA_STRIPE_CONNECTION_KEY");
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders, status: 200 });

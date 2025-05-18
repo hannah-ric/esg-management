@@ -12,10 +12,12 @@ export {
   createSubscription,
 };
 
-// Use direct default export instead of intermediate variable
-export default {
+// Create a single default export object
+const stripeServiceExports = {
   stripeService,
   createPaymentIntent,
   confirmPaymentIntent,
   createSubscription,
 };
+
+export default stripeServiceExports;

@@ -20,6 +20,7 @@ import {
   getFrameworkMappings, // Original name from esg-data-services.ts
 } from "./esg-data-services";
 
+// Export types
 export type {
   ESGHistoricalDataPoint,
   ESGDataPoint,
@@ -29,6 +30,7 @@ export type {
   PaginatedResponse,
 };
 
+// Export named functions
 export {
   getESGDataPoints,
   getAllESGDataPoints,
@@ -44,8 +46,8 @@ export {
   getFrameworkMappings,
 };
 
-// Use direct default export instead of intermediate variable
-export default {
+// Create a single default export object
+const esgDataServices = {
   getESGDataPoints,
   getAllESGDataPoints,
   getESGFrameworkMappings,
@@ -59,3 +61,5 @@ export default {
   getFrameworkRecommendations,
   getFrameworkMappings,
 };
+
+export default esgDataServices;

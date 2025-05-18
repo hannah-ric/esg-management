@@ -86,7 +86,7 @@ import {
   createPaymentIntent,
   confirmPaymentIntent,
   createSubscription,
-} from "./stripe-service";
+} from "./stripe-service.index";
 
 // Re-export all named exports
 export type { AIAssistantResponse, CompanyProfile };
@@ -206,7 +206,7 @@ import {
   createPaymentIntent as createPaymentIntent_stripe,
   confirmPaymentIntent as confirmPaymentIntent_stripe,
   createSubscription as createSubscription_stripe,
-} from "./stripe-service";
+} from "./stripe-service.index";
 
 const libExports = {
   getFrameworkRecommendations: getFrameworkRecommendations_ai,

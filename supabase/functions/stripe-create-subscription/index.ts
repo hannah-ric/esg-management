@@ -1,5 +1,7 @@
-import { corsHeaders } from "@shared/cors";
-import { SubscriptionCreateParams } from "@shared/stripe-types";
+import { corsHeaders } from "@shared/cors.index";
+import { SubscriptionCreateParams } from "@shared/stripe-types.index";
+import { handleError } from "@shared/error-handler.index";
+import { validateRequiredFields } from "@shared/validation.index";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
@@ -21,14 +23,17 @@ serve(async (req) => {
   try {
     const params = (await req.json()) as CreateSubscriptionRequest;
 
-    if (!params.customerId || !params.priceId) {
-      return new Response(
-        JSON.stringify({ error: "Customer ID and price ID are required" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        },
-      );
+    // Validate required fields
+    const validationError = validateRequiredFields(params, [
+      "customerId",
+      "priceId",
+    ]);
+
+    if (validationError) {
+      return new Response(JSON.stringify({ error: validationError }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
     // Prepare URL parameters
@@ -83,12 +88,6 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      },
-    );
+    return handleError(error);
   }
 });

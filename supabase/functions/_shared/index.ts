@@ -1,5 +1,5 @@
 // Main index file for shared modules
-// Export all named exports from each module
+// Import and re-export named exports from each module
 export { corsHeaders, setCorsHeaders, handleCors } from "./cors.index";
 export {
   ApiError,
@@ -34,16 +34,18 @@ export type {
   PaginatedResponse,
 } from "./types.index";
 
-import * as cors from "./cors.index";
-import * as errorHandler from "./error-handler.index";
-import * as validation from "./validation.index";
-import * as cacheModule from "./cache.index";
-import * as stripeConfigModule from "./stripe-config.index";
+// Import default exports from each module
+import corsModule from "./cors.index";
+import errorHandlerModule from "./error-handler.index";
+import validationModule from "./validation.index";
+import cacheModule from "./cache.index";
+import stripeConfigModule from "./stripe-config.index";
 
+// Create a single default export object that combines all module exports
 const shared = {
-  ...cors,
-  ...errorHandler,
-  ...validation,
+  ...corsModule,
+  ...errorHandlerModule,
+  ...validationModule,
   ...cacheModule,
   ...stripeConfigModule,
 };

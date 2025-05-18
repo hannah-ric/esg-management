@@ -6,6 +6,7 @@ import {
   stripe,
 } from "./stripe-config";
 
+// Export named functions and objects
 export {
   stripeConfig,
   validateStripeConfig,
@@ -14,10 +15,13 @@ export {
   stripe,
 };
 
-export default {
+// Create a single default export object
+const stripeConfigExports = {
   stripeConfig,
   validateStripeConfig,
   validateWebhookConfig,
   handleStripeCorsRequest,
   stripe,
 };
+
+export default stripeConfigExports;
