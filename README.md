@@ -28,3 +28,33 @@ export default {
 - Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
 - Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
 - Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+
+## Deployment
+
+This project provides container configurations for local development and for deployment on
+[DigitalOcean App Platform](https://www.digitalocean.com/products/app-platform).
+
+### Local development
+
+Use `docker-compose.debug.yml` to run the application with hot reloading:
+
+```bash
+docker compose -f docker-compose.debug.yml up --build
+```
+
+The app will be available on [http://localhost:3000](http://localhost:3000).
+
+### Production container
+
+To build the production image and run it locally:
+
+```bash
+docker compose up --build
+```
+
+The production container listens on port `8080` by default.
+
+### DigitalOcean
+
+The `.do/app.yaml` file defines the App Platform specification. Commit any changes
+to this file and push to trigger a deployment.

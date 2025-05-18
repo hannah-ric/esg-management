@@ -22,7 +22,7 @@ RUN npm install --production serve
 # Copy built assets from the builder stage
 COPY --from=builder /usr/src/app/dist ./dist
 
-EXPOSE 3000
+EXPOSE 8080
 # Create a non-root user and group
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 # Ensure the app directory and its contents are owned by the new user
