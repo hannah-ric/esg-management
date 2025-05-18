@@ -9,7 +9,7 @@
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:react/recommended",
-    "plugin:react/jsx-runtime", // For new JSX transform
+    "plugin:react/jsx-runtime", 
     "plugin:react-hooks/recommended"
   ],
   "parser": "@typescript-eslint/parser",
@@ -19,7 +19,7 @@
     },
     "ecmaVersion": "latest",
     "sourceType": "module",
-    "project": "./tsconfig.json" // Point to your tsconfig.json for type-aware linting
+    "project": "./tsconfig.json" 
   },
   "plugins": [
     "@typescript-eslint",
@@ -28,16 +28,14 @@
   ],
   "settings": {
     "react": {
-      "version": "detect" // Automatically detect the React version
+      "version": "detect" 
     }
   },
   "rules": {
-    // You can override or add rules here. For example:
-    "react/prop-types": "off", // Often not needed with TypeScript
-    // "@typescript-eslint/explicit-module-boundary-types": "off",
-    "no-unused-vars": "off", // Use @typescript-eslint/no-unused-vars instead for better TS support
+    "react/prop-types": "off", 
+    "no-unused-vars": "off", 
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-    "react/react-in-jsx-scope": "off", // Not needed with new JSX transform
+    "react/react-in-jsx-scope": "off", 
     "@typescript-eslint/no-explicit-any": "warn"
   },
   "ignorePatterns": [
