@@ -1,9 +1,6 @@
 import { corsHeaders } from "@shared/cors.index";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import {
-  handleError,
-  handleValidationError,
-} from "@shared/error-handler.index";
+import { handleError, handleValidationError } from "@shared/error-handler";
 import { validateRequiredFields } from "@shared/validation";
 import { cache } from "@shared/cache";
 

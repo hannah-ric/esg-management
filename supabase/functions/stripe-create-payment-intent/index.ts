@@ -1,6 +1,6 @@
 import { corsHeaders } from "@shared/cors.index";
 import { PaymentIntentCreateParams } from "@shared/stripe-types.index";
-import { handleError } from "@shared/error-handler.index";
+import { handleError } from "@shared/error-handler";
 import { validateRequiredFields } from "@shared/validation";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
