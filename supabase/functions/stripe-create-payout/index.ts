@@ -1,78 +1,82 @@
-import { corsHeaders, handleCors } from "@shared/cors.ts";
-import qs from "https://cdn.skypack.dev/qs@6.11.0";
+import { corsHeaders } from "@shared/cors.index";
+import { handleError } from "@shared/error-handler.index";
+import { validateRequiredFields } from "@shared/validation.index";
+
+const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
+const PICA_STRIPE_CONNECTION_KEY = Deno.env.get("PICA_STRIPE_CONNECTION_KEY");
 
 Deno.serve(async (req) => {
-  // Handle CORS
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
   try {
-    const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
-    const PICA_STRIPE_CONNECTION_KEY = Deno.env.get(
-      "PICA_STRIPE_CONNECTION_KEY",
-    );
-
-    if (!PICA_SECRET_KEY || !PICA_STRIPE_CONNECTION_KEY) {
-      throw new Error("Missing required environment variables");
-    }
-
-    // Parse request body
-    const requestData = await req.json();
+    const { amount, currency, destination, description, metadata } =
+      await req.json();
 
     // Validate required fields
-    if (!requestData.amount || !requestData.currency) {
-      throw new Error(
-        "Missing required fields: amount and currency are required",
-      );
+    const validationError = validateRequiredFields(
+      { amount, currency, destination },
+      ["amount", "currency", "destination"],
+    );
+
+    if (validationError) {
+      return new Response(JSON.stringify({ error: validationError }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
-    // Prepare form data
-    const formData = {
-      amount: requestData.amount,
-      currency: requestData.currency,
-    };
+    // Prepare URL parameters
+    const urlParams = new URLSearchParams();
+    urlParams.append("amount", amount.toString());
+    urlParams.append("currency", currency);
+    urlParams.append("destination", destination);
 
-    // Add optional fields if they exist
-    if (requestData.description) formData.description = requestData.description;
-    if (requestData.metadata) formData.metadata = requestData.metadata;
-    if (requestData.statement_descriptor)
-      formData.statement_descriptor = requestData.statement_descriptor;
-    if (requestData.destination) formData.destination = requestData.destination;
-    if (requestData.method) formData.method = requestData.method;
-    if (requestData.source_type) formData.source_type = requestData.source_type;
+    if (description) urlParams.append("description", description);
 
-    // Make request to Stripe via Pica
+    // Add metadata if provided
+    if (metadata) {
+      Object.entries(metadata).forEach(([key, value]) => {
+        urlParams.append(`metadata[${key}]`, value);
+      });
+    }
+
+    // Make request to Pica API
     const response = await fetch(
-      "https://api.picaos.com/v1/passthrough/v1/payouts",
+      "https://api.picaos.com/v1/passthrough/payouts",
       {
         method: "POST",
         headers: {
+          "x-pica-secret": PICA_SECRET_KEY || "",
+          "x-pica-connection-key": PICA_STRIPE_CONNECTION_KEY || "",
+          "x-pica-action-id": "conn_mod_def::GCmOAuPP5MQ::payout_action_id", // Replace with actual action ID
           "Content-Type": "application/x-www-form-urlencoded",
-          "x-pica-secret": PICA_SECRET_KEY,
-          "x-pica-connection-key": PICA_STRIPE_CONNECTION_KEY,
-          "x-pica-action-id":
-            "conn_mod_def::GCmLQxFmO6A::09vMSElPTbuLewGRzzLhpA",
         },
-        body: qs.stringify(formData),
+        body: urlParams.toString(),
       },
     );
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Stripe API error: ${JSON.stringify(errorData)}`);
-    }
-
     const data = await response.json();
+
+    if (!response.ok) {
+      return new Response(
+        JSON.stringify({
+          error: data.error || "Failed to create payout",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: response.status,
+        },
+      );
+    }
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    console.error("Error creating payout:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return handleError(error);
   }
 });

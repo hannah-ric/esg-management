@@ -21,4 +21,4 @@ export const handleCors = (req: Request): Response | null => {
   return null;
 };
 
-export default corsHeaders;
+// Removed default export to standardize export patterns

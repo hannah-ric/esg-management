@@ -1,8 +1,5 @@
-import { corsHeaders, handleCors } from "@shared/cors.index";
-import {
-  handleError,
-  handleValidationError,
-} from "@shared/error-handler.index";
+import { corsHeaders, handleCors } from "@shared/cors";
+import { handleError, handleValidationError } from "@shared/error-handler";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";

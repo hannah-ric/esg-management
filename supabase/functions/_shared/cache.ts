@@ -7,7 +7,7 @@ interface CacheItem<T> {
   expiry: number | null; // Timestamp when the item expires, null for no expiry
 }
 
-class Cache {
+export class Cache {
   private store: Map<string, CacheItem<unknown>> = new Map();
 
   /**
@@ -54,6 +54,18 @@ class Cache {
    */
   clear(): void {
     this.store.clear();
+  }
+
+  /**
+   * Clean up expired items from the cache
+   */
+  cleanup(): void {
+    const now = Date.now();
+    for (const [key, item] of this.store.entries()) {
+      if (item.expiry && item.expiry < now) {
+        this.store.delete(key);
+      }
+    }
   }
 }
 

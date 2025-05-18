@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { corsHeaders } from "@shared/cors.ts";
+import { corsHeaders } from "@shared/cors";
 
 // Assuming ESGDataPoint might be similar to the one in AppContext or esg-data-services
 // If it's different, a local or more specific import is needed.

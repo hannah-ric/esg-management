@@ -1,8 +1,11 @@
-import { corsHeaders } from "@shared/cors.ts";
+import { corsHeaders } from "@shared/cors.index";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { handleError, handleValidationError } from "@shared/error-handler.ts";
-import { validateRequiredFields } from "@shared/validation.ts";
-import { cache } from "@shared/cache.ts";
+import {
+  handleError,
+  handleValidationError,
+} from "@shared/error-handler.index";
+import { validateRequiredFields } from "@shared/validation";
+import { cache } from "@shared/cache";
 
 interface TailoredRecommendationsRequest {
   userId: string;

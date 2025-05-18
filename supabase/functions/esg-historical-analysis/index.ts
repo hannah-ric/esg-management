@@ -1,8 +1,8 @@
-import { corsHeaders } from "@shared/cors.ts";
+import { corsHeaders } from "@shared/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { handleError, handleValidationError } from "@shared/error-handler.ts";
-import { validateRequiredFields, validateDate } from "@shared/validation.ts";
-import { cache } from "@shared/cache.ts";
+import { handleError, handleValidationError } from "@shared/error-handler";
+import { validateRequiredFields, validateDate } from "@shared/validation";
+import { cache } from "@shared/cache";
 
 interface HistoricalAnalysisRequest {
   userId: string;
@@ -65,19 +65,19 @@ interface RawHistoricalDataItemMetrics {
 }
 
 interface RawHistoricalDataItem {
-  id: string; 
+  id: string;
   metric_id: string;
-  value: string; 
+  value: string;
   unit: string;
   timestamp: string;
   source: string;
-  metrics?: RawHistoricalDataItemMetrics; 
+  metrics?: RawHistoricalDataItemMetrics;
 }
 
 interface ProcessedMetricPoint {
   timestamp: string;
   groupKey: string;
-  value: number; 
+  value: number;
   source: string;
 }
 
@@ -245,14 +245,20 @@ Deno.serve(async (req) => {
 });
 
 // Helper function to process and group historical data
-function processHistoricalData(data: RawHistoricalDataItem[], groupBy: string): MetricGroup[] {
+function processHistoricalData(
+  data: RawHistoricalDataItem[],
+  groupBy: string,
+): MetricGroup[] {
   if (!data || data.length === 0) {
     return [];
   }
 
   // Group data by metric
   const metricGroups = data.reduce(
-    (groups: Record<string, MetricGroupAccumulatorValue>, item: RawHistoricalDataItem) => {
+    (
+      groups: Record<string, MetricGroupAccumulatorValue>,
+      item: RawHistoricalDataItem,
+    ) => {
       const metricId = item.metric_id;
       if (!groups[metricId]) {
         groups[metricId] = {
@@ -313,50 +319,56 @@ function processHistoricalData(data: RawHistoricalDataItem[], groupBy: string): 
   );
 
   // Convert to array and aggregate data points by groupKey
-  return Object.values(metricGroups).map((metric: MetricGroupAccumulatorValue) => {
-    // Group data points by groupKey and calculate average
-    const groupedDataPoints = metric.dataPoints.reduce(
-      (accGroups: Record<string, GroupedDataPointAccumulatorValue>, point: ProcessedMetricPoint) => {
-        if (!accGroups[point.groupKey]) {
-          accGroups[point.groupKey] = {
-            groupKey: point.groupKey,
-            values: [],
-            sources: new Set<string>(),
-          };
-        }
-        accGroups[point.groupKey].values.push(point.value);
-        if (point.source) accGroups[point.groupKey].sources.add(point.source);
-        return accGroups;
-      },
-      {} as Record<string, GroupedDataPointAccumulatorValue>,
-    );
+  return Object.values(metricGroups).map(
+    (metric: MetricGroupAccumulatorValue) => {
+      // Group data points by groupKey and calculate average
+      const groupedDataPoints = metric.dataPoints.reduce(
+        (
+          accGroups: Record<string, GroupedDataPointAccumulatorValue>,
+          point: ProcessedMetricPoint,
+        ) => {
+          if (!accGroups[point.groupKey]) {
+            accGroups[point.groupKey] = {
+              groupKey: point.groupKey,
+              values: [],
+              sources: new Set<string>(),
+            };
+          }
+          accGroups[point.groupKey].values.push(point.value);
+          if (point.source) accGroups[point.groupKey].sources.add(point.source);
+          return accGroups;
+        },
+        {} as Record<string, GroupedDataPointAccumulatorValue>,
+      );
 
-    // Calculate averages and prepare final data points
-    const aggregatedDataPoints = Object.values(groupedDataPoints).map(
-      (group: GroupedDataPointAccumulatorValue) => {
-        const sum = group.values.reduce((a: number, b: number) => a + b, 0);
-        const average = group.values.length > 0 ? sum / group.values.length : 0;
-        return {
-          groupKey: group.groupKey,
-          value: parseFloat(average.toFixed(2)),
-          sources: Array.from(group.sources),
-        } as MetricDataPoint;
-      },
-    );
+      // Calculate averages and prepare final data points
+      const aggregatedDataPoints = Object.values(groupedDataPoints).map(
+        (group: GroupedDataPointAccumulatorValue) => {
+          const sum = group.values.reduce((a: number, b: number) => a + b, 0);
+          const average =
+            group.values.length > 0 ? sum / group.values.length : 0;
+          return {
+            groupKey: group.groupKey,
+            value: parseFloat(average.toFixed(2)),
+            sources: Array.from(group.sources),
+          } as MetricDataPoint;
+        },
+      );
 
-    // Sort by groupKey
-    aggregatedDataPoints.sort((a: MetricDataPoint, b: MetricDataPoint) =>
-      a.groupKey.localeCompare(b.groupKey),
-    );
+      // Sort by groupKey
+      aggregatedDataPoints.sort((a: MetricDataPoint, b: MetricDataPoint) =>
+        a.groupKey.localeCompare(b.groupKey),
+      );
 
-    return {
-      metricId: metric.metricId,
-      metricName: metric.metricName,
-      category: metric.category,
-      unit: metric.unit,
-      dataPoints: aggregatedDataPoints,
-    };
-  });
+      return {
+        metricId: metric.metricId,
+        metricName: metric.metricName,
+        category: metric.category,
+        unit: metric.unit,
+        dataPoints: aggregatedDataPoints,
+      };
+    },
+  );
 }
 
 // Helper function to generate insights from the processed data

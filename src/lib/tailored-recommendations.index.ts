@@ -23,7 +23,7 @@ export type {
 
 export { getTailoredRecommendations, parseRecommendations };
 
-// Add a default export with all the functions
+// Use direct default export instead of intermediate variable
 export default {
   getTailoredRecommendations,
   parseRecommendations,

@@ -40,8 +40,8 @@ export {
   getFrameworkMappings,
 };
 
-// Add a default export with all the functions
-const esgDataServicesExports = {
+// Use direct default export instead of intermediate variable
+export default {
   getESGDataPoints,
   getAllESGDataPoints,
   getESGFrameworkMappings,
@@ -54,5 +54,3 @@ const esgDataServicesExports = {
   getFrameworkRecommendations,
   getFrameworkMappings,
 };
-
-export default esgDataServicesExports;

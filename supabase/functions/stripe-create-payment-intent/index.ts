@@ -1,11 +1,13 @@
-import { corsHeaders } from "@shared/cors";
-import { PaymentIntentCreateParams } from "@shared/stripe-types";
+import { corsHeaders } from "@shared/cors.index";
+import { PaymentIntentCreateParams } from "@shared/stripe-types.index";
+import { handleError } from "@shared/error-handler.index";
+import { validateRequiredFields } from "@shared/validation";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
 const PICA_STRIPE_CONNECTION_KEY = Deno.env.get("PICA_STRIPE_CONNECTION_KEY");
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders, status: 200 });
@@ -14,14 +16,16 @@ serve(async (req) => {
   try {
     const params = (await req.json()) as PaymentIntentCreateParams;
 
-    if (!params.amount || !params.currency) {
-      return new Response(
-        JSON.stringify({ error: "Amount and currency are required" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        },
-      );
+    // Validate required fields
+    const validationError = validateRequiredFields(params, [
+      "amount",
+      "currency",
+    ]);
+    if (validationError) {
+      return new Response(JSON.stringify({ error: validationError }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
     // Prepare URL parameters
@@ -80,12 +84,6 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      },
-    );
+    return handleError(error);
   }
 });

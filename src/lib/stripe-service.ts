@@ -1,14 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-export interface CreateProductParams {
+interface CreateProductParams {
   name: string;
   description?: string;
-  active?: boolean;
+  images?: string[];
+  metadata?: Record<string, string>;
   default_price_data?: {
     currency: string;
     unit_amount: number;
@@ -19,34 +15,27 @@ export interface CreateProductParams {
   };
 }
 
-export interface CreateConnectAccountParams {
+interface CreateConnectAccountParams {
+  type: "standard" | "express" | "custom";
   country: string;
   email: string;
-  business_type?: "company" | "government_entity" | "individual" | "non_profit";
+  business_type?: "individual" | "company" | "non_profit" | "government_entity";
   business_profile?: {
+    name?: string;
     url?: string;
-    mcc?: string;
-    support_email?: string;
-    support_url?: string;
-    support_address?: {
-      line1?: string;
-      line2?: string;
-      city?: string;
-      state?: string;
-      postal_code?: string;
-      country?: string;
-    };
+    product_description?: string;
   };
+  metadata?: Record<string, string>;
 }
 
-export interface UpdateFunctionParams {
+interface UpdateFunctionParams {
   function_slug: string;
+  ref: string; // 20-character project reference
   name?: string;
-  body?: string;
+  body?: Record<string, unknown>;
   verify_jwt?: boolean;
 }
 
-// Payment Intent functions
 export async function createPaymentIntent(params: {
   amount: number;
   currency: string;
@@ -57,7 +46,7 @@ export async function createPaymentIntent(params: {
 }) {
   try {
     const { data, error } = await supabase.functions.invoke(
-      "stripe-create-payment-intent",
+      "supabase-functions-stripe-create-payment-intent",
       {
         body: params,
       },
@@ -81,7 +70,7 @@ export async function confirmPaymentIntent(
 ) {
   try {
     const { data, error } = await supabase.functions.invoke(
-      "stripe-confirm-payment-intent",
+      "supabase-functions-stripe-confirm-payment-intent",
       {
         body: {
           payment_intent_id: paymentIntentId,
@@ -106,7 +95,7 @@ export async function createSubscription(params: {
 }) {
   try {
     const { data, error } = await supabase.functions.invoke(
-      "stripe-create-subscription",
+      "supabase-functions-stripe-create-subscription",
       {
         body: params,
       },
@@ -120,12 +109,11 @@ export async function createSubscription(params: {
   }
 }
 
-// Product and subscription functions
 export const stripeService = {
   async createProduct(params: CreateProductParams) {
     try {
       const { data, error } = await supabase.functions.invoke(
-        "create-stripe-product",
+        "supabase-functions-create-stripe-product",
         {
           body: params,
         },
@@ -142,7 +130,7 @@ export const stripeService = {
   async createConnectAccount(params: CreateConnectAccountParams) {
     try {
       const { data, error } = await supabase.functions.invoke(
-        "create-stripe-connect-account",
+        "supabase-functions-create-stripe-connect-account",
         {
           body: params,
         },
@@ -159,7 +147,7 @@ export const stripeService = {
   async updateSupabaseFunction(params: UpdateFunctionParams) {
     try {
       const { data, error } = await supabase.functions.invoke(
-        "update-supabase-function",
+        "supabase-functions-update-supabase-function",
         {
           body: params,
         },

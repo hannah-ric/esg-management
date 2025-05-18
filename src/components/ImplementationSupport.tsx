@@ -1,343 +1,160 @@
-// import React from "react"; // Commented out unused React
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import {
-  CheckCircle2,
-  ArrowRight,
-  ClipboardCheck,
-  Database,
-  LineChart,
-  Users2,
-} from "lucide-react";
+import React, { useState } from "react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
+import { stripeService } from "../lib/stripe-service";
+import { LoadingSpinner } from "./LoadingSpinner";
 
-const ImplementationSupport = () => {
+export function ImplementationSupport() {
+  const [functionSlug, setFunctionSlug] = useState("");
+  const [projectRef, setProjectRef] = useState("");
+  const [functionName, setFunctionName] = useState("");
+  const [functionBody, setFunctionBody] = useState("");
+  const [verifyJwt, setVerifyJwt] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      let parsedBody = {};
+      if (functionBody) {
+        try {
+          parsedBody = JSON.parse(functionBody);
+        } catch (err) {
+          throw new Error("Function body must be valid JSON");
+        }
+      }
+
+      const params = {
+        function_slug: functionSlug,
+        ref: projectRef,
+        name: functionName || undefined,
+        body: Object.keys(parsedBody).length > 0 ? parsedBody : undefined,
+        verify_jwt: verifyJwt,
+      };
+
+      const result = await stripeService.updateSupabaseFunction(params);
+      setResult(result);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="container mx-auto py-12 px-4 bg-background">
-      <div className="max-w-4xl mx-auto mb-12 text-center">
-        <h1 className="text-4xl font-bold tracking-tight mb-4">
-          ESG Implementation Support
-        </h1>
-        <p className="text-xl text-muted-foreground mb-6">
-          Comprehensive assistance to turn your ESG strategy into actionable
-          results
-        </p>
-        <Button size="lg" className="mt-2">
-          Request Implementation Support
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </div>
+    <div className="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto">
+      <h2 className="text-2xl font-bold mb-6">Deploy Supabase Function</h2>
 
-      <Tabs defaultValue="data" className="max-w-5xl mx-auto mb-16">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="data">Data Collection</TabsTrigger>
-          <TabsTrigger value="systems">Systems Integration</TabsTrigger>
-          <TabsTrigger value="reporting">Reporting</TabsTrigger>
-          <TabsTrigger value="training">Training</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="data" className="mt-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center mb-2">
-                <Database className="h-6 w-6 text-primary mr-2" />
-                <CardTitle>ESG Data Collection & Management</CardTitle>
-              </div>
-              <CardDescription>
-                Establish robust processes for collecting, validating, and
-                managing ESG data
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-medium text-lg mb-3">Our Approach</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Data inventory assessment</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Collection methodology development</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Data validation protocols</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Storage and security solutions</span>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-medium text-lg mb-3">Key Benefits</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Improved data accuracy and reliability</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Streamlined collection processes</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Reduced reporting burden</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Audit-ready documentation</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full">
-                Learn More About Data Collection Support
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="systems" className="mt-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center mb-2">
-                <ClipboardCheck className="h-6 w-6 text-primary mr-2" />
-                <CardTitle>ESG Systems Integration</CardTitle>
-              </div>
-              <CardDescription>
-                Integrate ESG data collection and reporting into your existing
-                business systems
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-medium text-lg mb-3">Our Approach</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Systems assessment and gap analysis</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Integration planning and architecture</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Implementation support</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Testing and quality assurance</span>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-medium text-lg mb-3">Key Benefits</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Seamless data flow between systems</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Reduced manual data handling</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Real-time ESG performance monitoring</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Enhanced data governance</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full">
-                Learn More About Systems Integration
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reporting" className="mt-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center mb-2">
-                <LineChart className="h-6 w-6 text-primary mr-2" />
-                <CardTitle>ESG Reporting Implementation</CardTitle>
-              </div>
-              <CardDescription>
-                Develop and implement effective ESG reporting processes and
-                templates
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-medium text-lg mb-3">Our Approach</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Framework-specific report templates</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Reporting process development</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Data visualization design</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Quality control procedures</span>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-medium text-lg mb-3">Key Benefits</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Framework-compliant reporting</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Streamlined reporting cycles</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Compelling data storytelling</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Stakeholder-focused communication</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full">
-                Learn More About Reporting Implementation
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="training" className="mt-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center mb-2">
-                <Users2 className="h-6 w-6 text-primary mr-2" />
-                <CardTitle>ESG Training & Capacity Building</CardTitle>
-              </div>
-              <CardDescription>
-                Develop internal capabilities to manage and improve ESG
-                performance
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-medium text-lg mb-3">Our Approach</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Skills gap assessment</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Customized training programs</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Role-specific guidance</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Knowledge transfer protocols</span>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-medium text-lg mb-3">Key Benefits</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Enhanced internal ESG expertise</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Improved employee engagement</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Sustainable ESG management</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                      <span>Reduced dependency on external support</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full">
-                Learn More About ESG Training Programs
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <div className="max-w-3xl mx-auto bg-muted p-8 rounded-lg">
-        <h2 className="text-2xl font-bold mb-4">
-          Ready to implement your ESG strategy?
-        </h2>
-        <p className="mb-6">
-          Our implementation support services help you turn ESG plans into
-          action. Our team of experts will work with you to develop practical
-          solutions tailored to your organization&apos;s specific needs and
-          challenges.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => window.open("#/contact", "_blank")}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label
+            htmlFor="functionSlug"
+            className="block text-sm font-medium mb-1"
           >
-            Request Implementation Support
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="flex-1"
-            onClick={() => window.open("#/contact?type=discovery", "_blank")}
-          >
-            Schedule a Discovery Call
-          </Button>
+            Function Slug *
+          </label>
+          <Input
+            id="functionSlug"
+            value={functionSlug}
+            onChange={(e) => setFunctionSlug(e.target.value)}
+            placeholder="my-function-name"
+            required
+          />
         </div>
-      </div>
+
+        <div>
+          <label
+            htmlFor="projectRef"
+            className="block text-sm font-medium mb-1"
+          >
+            Project Reference * (20 characters)
+          </label>
+          <Input
+            id="projectRef"
+            value={projectRef}
+            onChange={(e) => setProjectRef(e.target.value)}
+            placeholder="abcdefghijklmnopqrst"
+            required
+            maxLength={20}
+            minLength={20}
+          />
+          {projectRef && projectRef.length !== 20 && (
+            <p className="text-red-500 text-xs mt-1">
+              Project reference must be exactly 20 characters
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label
+            htmlFor="functionName"
+            className="block text-sm font-medium mb-1"
+          >
+            Function Name (optional)
+          </label>
+          <Input
+            id="functionName"
+            value={functionName}
+            onChange={(e) => setFunctionName(e.target.value)}
+            placeholder="My Function"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="functionBody"
+            className="block text-sm font-medium mb-1"
+          >
+            Function Body - JSON (optional)
+          </label>
+          <Textarea
+            id="functionBody"
+            value={functionBody}
+            onChange={(e) => setFunctionBody(e.target.value)}
+            placeholder='{"key": "value"}'
+            rows={5}
+          />
+        </div>
+
+        <div className="flex items-center">
+          <input
+            id="verifyJwt"
+            type="checkbox"
+            checked={verifyJwt}
+            onChange={(e) => setVerifyJwt(e.target.checked)}
+            className="h-4 w-4 text-blue-600 rounded"
+          />
+          <label htmlFor="verifyJwt" className="ml-2 block text-sm">
+            Verify JWT
+          </label>
+        </div>
+
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? <LoadingSpinner size="sm" /> : "Deploy Function"}
+        </Button>
+      </form>
+
+      {error && (
+        <div className="mt-4 p-3 bg-red-100 text-red-700 rounded">{error}</div>
+      )}
+
+      {result && (
+        <div className="mt-4">
+          <h3 className="font-bold mb-2">Deployment Result:</h3>
+          <pre className="bg-gray-100 p-3 rounded overflow-x-auto text-xs">
+            {JSON.stringify(result, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
-};
-
-export default ImplementationSupport;
+}

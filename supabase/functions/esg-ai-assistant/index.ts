@@ -1,7 +1,7 @@
-import { corsHeaders } from "@shared/cors.ts";
-import { handleError, handleValidationError } from "@shared/error-handler.ts";
-import { validateRequiredFields } from "@shared/validation.ts";
-import { cache } from "@shared/cache.ts";
+import { corsHeaders } from "@shared/cors";
+import { handleError, handleValidationError } from "@shared/error-handler";
+import { validateRequiredFields } from "@shared/validation";
+import { cache } from "@shared/cache";
 
 interface AIAssistantRequest {
   prompt: string;

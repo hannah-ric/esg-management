@@ -1,8 +1,4 @@
-// import { Stripe } from "https://esm.sh/stripe@10.17.0?target=deno"; // Unused
-import { corsHeaders } from "@shared/cors.ts";
-// import { handleError } from "@shared/error-handler.ts"; // Unused
-// import { handleValidationError } from "@shared/validation.ts"; // Unused
-// import { StripeRefund } from "@shared/stripe-types.ts"; // Unused
+import { corsHeaders, handleCors } from "@shared/cors.index";
 
 Deno.serve(async (req) => {
   // Handle CORS
@@ -62,10 +58,6 @@ Deno.serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    console.error("Error listing refunds:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return handleError(error, "Error listing refunds");
   }
 });

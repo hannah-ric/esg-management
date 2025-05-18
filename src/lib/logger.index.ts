@@ -2,7 +2,7 @@ import { logger } from "./logger";
 
 export { logger };
 
-// Create a default export for modules that need it
+// Use direct default export instead of intermediate variable
 export default {
   logger,
 };

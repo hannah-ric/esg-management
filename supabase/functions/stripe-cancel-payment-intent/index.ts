@@ -1,8 +1,5 @@
-import { corsHeaders, handleCors } from "@shared/cors.index";
-import {
-  handleError,
-  handleValidationError,
-} from "@shared/error-handler.index";
+import { corsHeaders, handleCors } from "@shared/cors";
+import { handleError, handleValidationError } from "@shared/error-handler";
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests

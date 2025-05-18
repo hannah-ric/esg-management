@@ -1,10 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { corsHeaders } from "@shared/cors.ts";
+import { corsHeaders } from "@shared/cors";
 import {
   AnalyzeUrlRequest,
   DiffbotAnalyzeResponse,
   ESGResource,
-} from "@shared/types.ts";
+} from "@shared/types";
 
 interface ESGDataPoint {
   value: string;

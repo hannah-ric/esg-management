@@ -36,7 +36,8 @@
     "no-unused-vars": "off", 
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "react/react-in-jsx-scope": "off", 
-    "@typescript-eslint/no-explicit-any": "warn"
+    "@typescript-eslint/no-explicit-any": "warn",
+    "import/export": "error"
   },
   "ignorePatterns": [
     "dist",
@@ -44,4 +45,4 @@
     "vite.config.ts.timestamp-*.mjs",
     "supabase/functions/**/*"
   ]
-} 
+}

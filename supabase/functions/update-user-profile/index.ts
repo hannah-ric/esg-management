@@ -1,6 +1,6 @@
-import { corsHeaders } from "@shared/cors.ts";
+import { corsHeaders } from "@shared/cors.index";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { handleError } from "@shared/error-handler.ts";
+import { handleError } from "@shared/error-handler.index";
 
 interface UpdateProfileRequest {
   userId: string;
@@ -40,10 +40,10 @@ Deno.serve(async (req) => {
     }
 
     // Prepare update data for your 'users' table
-    const userTableUpdateData: { 
-      first_name?: string; 
-      last_name?: string; 
-      company_name?: string; 
+    const userTableUpdateData: {
+      first_name?: string;
+      last_name?: string;
+      company_name?: string;
       avatar_url?: string;
       updated_at?: string; // Will be added later
       auth_user_id?: string; // For insert case
@@ -52,14 +52,16 @@ Deno.serve(async (req) => {
 
     if (firstName !== undefined) userTableUpdateData.first_name = firstName;
     if (lastName !== undefined) userTableUpdateData.last_name = lastName;
-    if (companyName !== undefined) userTableUpdateData.company_name = companyName;
+    if (companyName !== undefined)
+      userTableUpdateData.company_name = companyName;
     if (avatarUrl !== undefined) userTableUpdateData.avatar_url = avatarUrl;
 
     // Prepare user_metadata for auth.users update
     const userMetadataUpdate: Record<string, string | undefined> = {};
     if (firstName !== undefined) userMetadataUpdate.first_name = firstName;
     if (lastName !== undefined) userMetadataUpdate.last_name = lastName;
-    if (companyName !== undefined) userMetadataUpdate.company_name = companyName;
+    if (companyName !== undefined)
+      userMetadataUpdate.company_name = companyName;
     // avatar_url is not typically in user_metadata directly unless you customize it
 
     // Check if user exists before updating

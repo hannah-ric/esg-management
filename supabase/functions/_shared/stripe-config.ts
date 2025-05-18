@@ -1,5 +1,5 @@
 // Centralized configuration for Stripe API integration
-import { corsHeaders } from "./cors.ts";
+import { corsHeaders } from "./cors.index";
 
 // Get environment variables for Stripe integration
 export const stripeConfig = {
@@ -71,3 +71,16 @@ export function validateWebhookConfig(): boolean {
 export function handleStripeCorsRequest(): Response {
   return new Response("ok", { headers: corsHeaders, status: 200 });
 }
+
+// Initialize Stripe client if needed
+export const stripe = {
+  paymentIntents: {
+    create: async (params: any) => {
+      // This is a placeholder - in a real implementation, you would use the Stripe SDK
+      // or make direct API calls to Stripe via the Pica passthrough API
+      throw new Error(
+        "Stripe client not implemented - use Pica passthrough API",
+      );
+    },
+  },
+};

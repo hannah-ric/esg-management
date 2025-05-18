@@ -27,3 +27,28 @@ export const validateRequiredFields = (
 
   return null;
 };
+
+/**
+ * Validates that a string is a valid email address
+ * @param email The email address to validate
+ * @returns True if the email is valid, false otherwise
+ */
+export function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Validates that a number is within a specified range
+ * @param value The number to validate
+ * @param min The minimum allowed value (inclusive)
+ * @param max The maximum allowed value (inclusive)
+ * @returns True if the number is within range, false otherwise
+ */
+export function validateNumberRange(
+  value: number,
+  min: number,
+  max: number,
+): boolean {
+  return value >= min && value <= max;
+}

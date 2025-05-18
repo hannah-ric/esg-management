@@ -29,6 +29,3 @@ export const LoadingSpinner = ({
     </div>
   );
 };
-
-// For backward compatibility
-export default LoadingSpinner;

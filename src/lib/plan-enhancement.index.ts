@@ -10,6 +10,7 @@ export {
   generateAIRecommendations,
 };
 
+// Use direct default export instead of intermediate variable
 export default {
   analyzeExternalContent,
   searchResourceLibrary,

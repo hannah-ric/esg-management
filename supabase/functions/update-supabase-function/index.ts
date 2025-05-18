@@ -1,30 +1,32 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.index.ts";
+import { corsHeaders } from "@shared/cors.index";
+import { handleError } from "@shared/error-handler.index";
+import { validateRequiredFields } from "@shared/validation.index";
 
 const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
 const PICA_SUPABASE_CONNECTION_KEY = Deno.env.get(
   "PICA_SUPABASE_CONNECTION_KEY",
 );
-const SUPABASE_PROJECT_ID = Deno.env.get("SUPABASE_PROJECT_ID");
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders, status: 200 });
   }
 
   try {
-    const { function_slug, name, body, verify_jwt } = await req.json();
+    const { function_slug, name, body, verify_jwt, ref } = await req.json();
 
     // Validate required fields
-    if (!function_slug) {
-      return new Response(
-        JSON.stringify({ error: "Function slug is required" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        },
-      );
+    const validationError = validateRequiredFields({ function_slug, ref }, [
+      "function_slug",
+      "ref",
+    ]);
+
+    if (validationError) {
+      return new Response(JSON.stringify({ error: validationError }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
     // Validate function_slug format
@@ -39,6 +41,20 @@ serve(async (req) => {
       );
     }
 
+    // Validate ref format (20 characters)
+    if (typeof ref !== "string" || ref.length !== 20) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Invalid project reference format. Must be a 20-character string.",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        },
+      );
+    }
+
     // Prepare request body
     const requestBody: Record<string, unknown> = {};
     if (name !== undefined) requestBody.name = name;
@@ -46,7 +62,7 @@ serve(async (req) => {
     if (verify_jwt !== undefined) requestBody.verify_jwt = verify_jwt;
 
     // Call Supabase API through Pica passthrough
-    const url = `https://api.picaos.com/v1/passthrough/projects/${SUPABASE_PROJECT_ID}/functions/${function_slug}`;
+    const url = `https://api.picaos.com/v1/passthrough/projects/${ref}/functions/${function_slug}`;
     const response = await fetch(url, {
       method: "PATCH",
       headers: {
@@ -66,13 +82,6 @@ serve(async (req) => {
       status: response.status,
     });
   } catch (error) {
-    // Handle errors
-    return new Response(
-      JSON.stringify({ error: error.message || "An error occurred" }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      },
-    );
+    return handleError(error, "Error updating Supabase function");
   }
 });

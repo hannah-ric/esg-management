@@ -7,9 +7,12 @@ import { supabase } from "./supabase";
  */
 export async function analyzeExternalContent(url: string) {
   try {
-    const { data, error } = await supabase.functions.invoke("analyze-content", {
-      body: { url },
-    });
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-analyze-content",
+      {
+        body: { url },
+      },
+    );
 
     if (error) throw new Error(error.message);
     return data;

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders } from "@shared/cors.index.ts";
+import { corsHeaders } from "@shared/cors";
 
 const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
 const PICA_DIFFBOT_CONNECTION_KEY = Deno.env.get("PICA_DIFFBOT_CONNECTION_KEY");

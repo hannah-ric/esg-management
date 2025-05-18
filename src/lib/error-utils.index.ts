@@ -7,7 +7,7 @@ import {
 
 export { withErrorHandling, useErrorHandler, sanitizeInput, sanitizeObject };
 
-// Create a default export for modules that need it
+// Use direct default export instead of intermediate variable
 export default {
   withErrorHandling,
   useErrorHandler,
