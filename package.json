@@ -9,7 +9,7 @@
     "lint": "eslint -c .eslintrc.json . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "types:supabase": "npx supabase gen types typescript --project-id spmqzflhdlatsfkkylwq > src/types/supabase.ts",
-    "start": "serve -s dist -l 3000",
+    "start": "serve -s dist -l ${PORT:-3000}",
     "dev:debug": "node --inspect=0.0.0.0:9229 ./node_modules/vite/bin/vite.js --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
