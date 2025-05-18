@@ -18,3 +18,7 @@ export default {
   confirmPaymentIntent,
   createSubscription,
 };
+
+export * from "./cors";
+// Add this line:
+export { default } from "./cors";
