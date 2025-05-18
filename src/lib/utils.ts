@@ -11,16 +11,19 @@ export function cn(...inputs: ClassValue[]) {
  * @param value The string value to parse.
  * @returns A number, or NaN if parsing fails.
  */
-export function parseLocaleNumber(value: string | number | undefined | null): number {
-  if (value === null || value === undefined || value === '') return NaN;
-  if (typeof value === 'number') return value;
+export function parseLocaleNumber(
+  value: string | number | undefined | null,
+): number {
+  if (value === null || value === undefined || value === "") return NaN;
+  if (typeof value === "number") return value;
 
-  // Remove thousands separators (both dot and comma)
-  const cleanedThousandSeparators = String(value).replace(/[.,](?=\d{3})/g, '');
-  
-  // Replace comma decimal separator with a period
-  const normalized = cleanedThousandSeparators.replace(',', '.');
-  
+  // Remove spaces and thousand separators (dot or comma)
+  const noSpaces = String(value).replace(/\s+/g, "");
+  const cleaned = noSpaces.replace(/[.,](?=\d{3})/g, "");
+
+  // Replace any remaining comma with a period for decimal
+  const normalized = cleaned.replace(/,/g, ".");
+
   const num = parseFloat(normalized);
   return isNaN(num) ? NaN : num;
 }
