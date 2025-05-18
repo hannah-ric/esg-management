@@ -1,166 +1,91 @@
-import { corsHeaders, handleCors } from "@shared/cors.index";
-import {
-  handleError,
-  handleValidationError,
-} from "@shared/error-handler.index";
+import { corsHeaders } from "@shared/cors";
+import { PaymentIntentCreateParams } from "@shared/stripe-types";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-Deno.serve(async (req) => {
+const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
+const PICA_STRIPE_CONNECTION_KEY = Deno.env.get("PICA_STRIPE_CONNECTION_KEY");
+
+serve(async (req) => {
   // Handle CORS preflight requests
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders, status: 200 });
+  }
 
   try {
-    // Get PICA environment variables
-    const picaSecretKey = Deno.env.get("PICA_SECRET_KEY");
-    const picaConnectionKey = Deno.env.get("PICA_STRIPE_CONNECTION_KEY");
+    const params = (await req.json()) as PaymentIntentCreateParams;
 
-    if (!picaSecretKey || !picaConnectionKey) {
-      return handleError(
+    if (!params.amount || !params.currency) {
+      return new Response(
+        JSON.stringify({ error: "Amount and currency are required" }),
         {
-          message: "PICA configuration is invalid or missing",
-          code: "CONFIG_ERROR",
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
         },
-        500,
       );
     }
 
-    // Parse request body
-    let requestData;
-    try {
-      requestData = await req.json();
-    } catch (parseError) {
-      return handleValidationError("Invalid JSON in request body");
-    }
+    // Prepare URL parameters
+    const urlParams = new URLSearchParams();
+    urlParams.append("amount", params.amount.toString());
+    urlParams.append("currency", params.currency);
 
-    const { amount, currency, description, receipt_email, metadata } =
-      requestData;
+    // Add optional parameters if provided
+    if (params.description) urlParams.append("description", params.description);
+    if (params.receipt_email)
+      urlParams.append("receipt_email", params.receipt_email);
+    if (params.customer) urlParams.append("customer", params.customer);
 
-    // Validate required parameters
-    if (!amount || !currency) {
-      return handleValidationError(
-        "Missing required parameters: amount and currency",
-      );
-    }
-
-    // Validate amount (must be a positive integer)
-    if (
-      typeof amount !== "number" ||
-      amount <= 0 ||
-      !Number.isInteger(amount)
-    ) {
-      return handleValidationError(
-        "Invalid amount: must be a positive integer",
-      );
-    }
-
-    // Validate currency (must be a 3-letter ISO code)
-    if (typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency)) {
-      return handleValidationError(
-        "Invalid currency: must be a 3-letter ISO currency code",
-      );
-    }
-
-    // Prepare form data for creating payment intent
-    const params = new URLSearchParams();
-    params.append("amount", amount.toString());
-    params.append("currency", currency);
-
-    // Add optional parameters
-    if (description) {
-      params.append("description", description);
-    }
-
-    if (receipt_email) {
-      params.append("receipt_email", receipt_email);
-    }
+    // Add automatic payment methods
+    urlParams.append("automatic_payment_methods[enabled]", "true");
 
     // Add metadata if provided
-    if (metadata && typeof metadata === "object") {
-      Object.entries(metadata).forEach(([key, value]) => {
-        params.append(`metadata[${key}]`, value as string);
+    if (params.metadata) {
+      Object.entries(params.metadata).forEach(([key, value]) => {
+        urlParams.append(`metadata[${key}]`, value);
       });
     }
 
-    // Call PICA API to create payment intent
-    let response;
-    try {
-      response = await fetch(
-        "https://api.picaos.com/v1/passthrough/payment_intents",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "x-pica-secret": picaSecretKey,
-            "x-pica-connection-key": picaConnectionKey,
-            "x-pica-action-id":
-              "conn_mod_def::GCmLQS4UamM::jfaFq3gOS5KTpn9wv1_O_A",
-          },
-          body: params,
-        },
-      );
-    } catch (fetchError) {
-      console.error("Network error calling PICA API:", fetchError);
-      return handleError(
-        {
-          message: "Network error when calling PICA API",
-          code: "NETWORK_ERROR",
-          details: { error: fetchError.message },
-        },
-        503,
-      );
-    }
-
-    if (!response.ok) {
-      let errorText;
-      try {
-        errorText = await response.text();
-      } catch (e) {
-        errorText = "Could not read error response";
-      }
-
-      console.error("PICA API error:", response.status, errorText);
-      return handleError(
-        {
-          message: "Failed to create payment intent through PICA API",
-          code: "PICA_API_ERROR",
-          details: {
-            status: response.status,
-            response: errorText,
-          },
-        },
-        response.status,
-      );
-    }
-
-    // Parse and return the response
-    let paymentIntent;
-    try {
-      paymentIntent = await response.json();
-    } catch (parseError) {
-      console.error("Error parsing PICA API response:", parseError);
-      return handleError(
-        {
-          message: "Invalid response from PICA API",
-          code: "INVALID_RESPONSE",
-        },
-        500,
-      );
-    }
-
-    return new Response(
-      JSON.stringify({
-        id: paymentIntent.id,
-        clientSecret: paymentIntent.client_secret,
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency,
-        status: paymentIntent.status,
-      }),
+    // Make request to Pica API
+    const response = await fetch(
+      "https://api.picaos.com/v1/passthrough/payment_intents",
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
+        method: "POST",
+        headers: {
+          "x-pica-secret": PICA_SECRET_KEY || "",
+          "x-pica-connection-key": PICA_STRIPE_CONNECTION_KEY || "",
+          "x-pica-action-id":
+            "conn_mod_def::GCmOAuPP5MQ::O0MeKcobRza5lZQrIkoqBA",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: urlParams.toString(),
       },
     );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return new Response(
+        JSON.stringify({
+          error: data.error || "Failed to create payment intent",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: response.status,
+        },
+      );
+    }
+
+    return new Response(JSON.stringify(data), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
   } catch (error) {
-    return handleError(error);
+    return new Response(
+      JSON.stringify({ error: error.message || "Internal server error" }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      },
+    );
   }
 });

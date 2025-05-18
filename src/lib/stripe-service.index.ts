@@ -1,6 +1,20 @@
-export * from "./stripe-service";
-export type {
-  PaymentIntentParams,
-  SubscriptionParams,
-  CancelSubscriptionParams,
+import {
+  stripeService,
+  createPaymentIntent,
+  confirmPaymentIntent,
+  createSubscription,
 } from "./stripe-service";
+
+export {
+  stripeService,
+  createPaymentIntent,
+  confirmPaymentIntent,
+  createSubscription,
+};
+
+export default {
+  stripeService,
+  createPaymentIntent,
+  confirmPaymentIntent,
+  createSubscription,
+};

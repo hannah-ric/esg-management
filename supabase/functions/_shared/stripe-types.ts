@@ -142,3 +142,104 @@ export interface StripeSubscription {
   trial_end: number | null;
   trial_start: number | null;
 }
+
+// Add new interfaces for API parameters
+export interface PaymentIntentCreateParams {
+  amount: number;
+  currency: string;
+  automatic_payment_methods?: { enabled: boolean };
+  confirm?: boolean;
+  customer?: string;
+  description?: string;
+  metadata?: Record<string, string>;
+  off_session?: boolean | string;
+  payment_method?: string;
+  receipt_email?: string;
+  setup_future_usage?: string;
+  shipping?: {
+    address: {
+      city?: string;
+      country: string;
+      line1?: string;
+      line2?: string;
+      postal_code: string;
+      state?: string;
+    };
+    name: string;
+    carrier?: string;
+    phone?: string;
+    tracking_number?: string;
+  };
+  statement_descriptor?: string;
+  statement_descriptor_suffix?: string;
+  transfer_data?: {
+    destination: string;
+    amount?: number;
+  };
+  transfer_group?: string;
+  use_stripe_sdk?: boolean;
+}
+
+export interface PaymentIntentConfirmParams {
+  payment_method: string;
+  receipt_email?: string;
+  setup_future_usage?: "off_session" | "on_session";
+  shipping?: {
+    address?: {
+      city?: string;
+      country?: string;
+      line1?: string;
+      line2?: string;
+      postal_code?: string;
+      state?: string;
+    };
+    name?: string;
+    carrier?: string;
+    phone?: string;
+    tracking_number?: string;
+  };
+  confirmation_token?: string;
+  error_on_requires_action?: boolean;
+  mandate?: string;
+  mandate_data?: {
+    customer_acceptance: {
+      type: string;
+      accepted_at: number;
+      online?: {
+        ip_address: string;
+        user_agent: string;
+      };
+    };
+  };
+  off_session?: boolean | string;
+  payment_method_data?: {
+    type: string;
+    details: Record<string, any>;
+  };
+  payment_method_options?: Record<string, any>;
+  return_url?: string;
+}
+
+export interface SubscriptionCreateParams {
+  customer: string;
+  items: Array<{ price: string }>;
+  automatic_tax?: {
+    enabled: boolean;
+    liability?: {
+      type: "account" | "self";
+      account?: string;
+    };
+  };
+  cancel_at_period_end?: boolean;
+  currency?: string;
+  default_payment_method?: string;
+  description?: string;
+  metadata?: Record<string, string>;
+  payment_behavior?:
+    | "allow_incomplete"
+    | "default_incomplete"
+    | "error_if_incomplete"
+    | "pending_if_incomplete";
+  trial_end?: string | number;
+  trial_period_days?: number;
+}

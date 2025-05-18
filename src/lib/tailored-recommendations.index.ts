@@ -2,11 +2,11 @@
 import {
   TailoredRecommendationsRequest, // Interface
   TailoredRecommendationsResponse, // Interface
-  ParsedRecommendations,          // Interface
-  MaterialityTopic,               // Interface
-  FrameworkRecommendation,        // Interface
-  ImplementationStep,             // Interface
-  ResourceRecommendation,         // Interface
+  ParsedRecommendations, // Interface
+  MaterialityTopic, // Interface
+  FrameworkRecommendation, // Interface
+  ImplementationStep, // Interface
+  ResourceRecommendation, // Interface
   getTailoredRecommendations,
   parseRecommendations,
 } from "./tailored-recommendations";
@@ -18,12 +18,13 @@ export type {
   MaterialityTopic,
   FrameworkRecommendation,
   ImplementationStep,
-  ResourceRecommendation
-} from "./tailored-recommendations";
+  ResourceRecommendation,
+};
 
-export {
+export { getTailoredRecommendations, parseRecommendations };
+
+// Add a default export with all the functions
+export default {
   getTailoredRecommendations,
-  parseRecommendations
-} from "./tailored-recommendations";
-
-// No default export, all are named exports now.
+  parseRecommendations,
+};

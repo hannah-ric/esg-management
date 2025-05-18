@@ -1,6 +1,7 @@
 // CORS headers for Supabase Edge Functions
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
@@ -19,3 +20,5 @@ export const handleCors = (req: Request): Response | null => {
   }
   return null;
 };
+
+export default corsHeaders;

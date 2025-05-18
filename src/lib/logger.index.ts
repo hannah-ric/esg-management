@@ -1,9 +1,8 @@
-// Import the logger explicitly to include in the default export
 import { logger } from "./logger";
 
+export { logger };
+
 // Create a default export for modules that need it
-const loggerExports = {
+export default {
   logger,
 };
-
-export default loggerExports;
