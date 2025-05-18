@@ -13,18 +13,54 @@ If you are developing a production application, we recommend updating the config
 
 - Configure the top-level `parserOptions` property like this:
 
-```js
-export default {
+```jsonc
+{
   // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module",
+    "project": ["./tsconfig.json", "./tsconfig.node.json"],
+    "tsconfigRootDir": "__dirname"
+  }
 }
 ```
 
 - Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
 - Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
 - Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+
+## Environment variables
+
+Create a `.env` file based on `.env.example` and provide the credentials for your Supabase project. The following variables are required:
+
+```
+VITE_SUPABASE_URL=<your-supabase-url>
+VITE_SUPABASE_ANON_KEY=<your-anon-key>
+```
+
+Optional variables such as `VITE_STRIPE_PUBLISHABLE_KEY` can also be set if you plan to use the payment features.
+
+## Running locally
+
+Install the dependencies and start the development server:
+
+```bash
+npm install
+npm run dev
+```
+
+For a production build use:
+
+```bash
+npm run build
+npm start
+```
+
+## Helper scripts
+
+Run linting and build tasks via the helper scripts in the `scripts` directory:
+
+```bash
+./scripts/lint.sh
+./scripts/build.sh
+```
