@@ -1,12 +1,51 @@
 // Main index file for shared modules
 // Export all named exports from each module
-export * from "./cors.index";
-export * from "./error-handler.index";
-export * from "./stripe-types.index";
-export * from "./validation.index";
-export * from "./cache.index";
-export * from "./stripe-config.index";
-export * from "./types.index";
+export { corsHeaders, setCorsHeaders, handleCors } from "./cors.index";
+export {
+  ApiError,
+  ErrorResponse,
+  handleError,
+  handleValidationError,
+  handleNotFoundError,
+  handleAuthError,
+} from "./error-handler.index";
+export type {
+  StripeWebhookEvent,
+  StripePaymentIntent,
+  StripeSubscription,
+  PaymentIntentCreateParams,
+  PaymentIntentConfirmParams,
+  SubscriptionCreateParams,
+} from "./stripe-types.index";
+export { validateRequiredFields } from "./validation.index";
+export { Cache, cache } from "./cache.index";
+export {
+  stripeConfig,
+  validateStripeConfig,
+  validateWebhookConfig,
+  handleStripeCorsRequest,
+  stripe,
+} from "./stripe-config.index";
+export type {
+  PaginationParams,
+  SortParams,
+  FilterParams,
+  ApiResponse,
+  PaginatedResponse,
+} from "./types.index";
 
-// Do not use default export to avoid the SyntaxError
-// with "Importing binding name 'default' cannot be resolved by star export entries"
+import * as cors from "./cors.index";
+import * as errorHandler from "./error-handler.index";
+import * as validation from "./validation.index";
+import * as cacheModule from "./cache.index";
+import * as stripeConfigModule from "./stripe-config.index";
+
+const shared = {
+  ...cors,
+  ...errorHandler,
+  ...validation,
+  ...cacheModule,
+  ...stripeConfigModule,
+};
+
+export default shared;
