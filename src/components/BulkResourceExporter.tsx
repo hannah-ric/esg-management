@@ -187,7 +187,17 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
           if (fmError) throw fmError;
 
           selectedResourcesData.push({
-            ...(resourceData as EnrichedResourceItemFromDB), // Cast to ensure type compatibility
+            id: resourceData.id,
+            title: resourceData.title,
+            description: resourceData.description,
+            type: resourceData.type,
+            category: resourceData.category,
+            file_type: resourceData.file_type,
+            url: resourceData.url,
+            date_added: resourceData.date_added,
+            source: resourceData.source,
+            user_id: resourceData.user_id,
+            framework: resourceData.framework,
             dataPoints: dataPoints || [],
             frameworkMappings: frameworkMappings || [],
           });

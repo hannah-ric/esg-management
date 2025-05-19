@@ -60,7 +60,7 @@ import type { AnalyzedContentResult } from "@/lib/plan-enhancement";
 interface UploadedResourceData {
   id?: string;
   title: string;
-  description: string;
+  description: string | null;
   type: string;
   category: string;
   fileType?: string;
@@ -425,17 +425,19 @@ const ResourceLibrary: React.FC = () => {
 
         if (data && data.length > 0) {
           // Map database resources to our ResourceItem format
-          const recommendedItems = data.map((item) => ({
+          const recommendedItems: ResourceItem[] = data.map((item) => ({
             id: item.id,
-            title: item.title,
-            description: item.description,
+            title: item.title || "",
+            description: item.description || "",
             type: item.type,
             category: item.category,
-            framework: item.framework,
+            framework: item.framework || undefined,
             fileType: item.file_type || "url",
             url: item.url,
-            dateAdded: new Date(item.date_added).toLocaleDateString(),
-            rawContent: item.rawContent || undefined,
+            dateAdded: item.date_added
+              ? new Date(item.date_added).toLocaleDateString()
+              : "",
+            rawContent: undefined,
           }));
 
           setRecommendedResources(recommendedItems);

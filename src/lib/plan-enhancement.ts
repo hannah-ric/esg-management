@@ -1,5 +1,38 @@
 import { supabase } from "./supabase";
 
+export interface AnalyzedContentDataPoint {
+  metric_id: string;
+  value: string;
+  framework_id?: string | null;
+  disclosure_id?: string | null;
+  confidence?: number | null;
+  context?: string | null;
+  is_edited?: boolean | null;
+}
+
+export interface AnalyzedContentFrameworkMapping {
+  framework_id: string;
+  disclosure_id: string;
+}
+
+export interface AnalyzedContentESGData {
+  dataPoints: Record<string, AnalyzedContentDataPoint>;
+  mappings: Record<string, AnalyzedContentFrameworkMapping[]>;
+}
+
+export interface AnalyzedContentResult {
+  id?: string;
+  title?: string;
+  url?: string;
+  rawContent?: string;
+  fileType?: string;
+  esgData?: AnalyzedContentESGData;
+}
+
+export interface EnhancedPlanData {
+  recommendations: string[];
+}
+
 /**
  * Analyzes external content using the Diffbot API via Edge Function
  * @param url The URL to analyze

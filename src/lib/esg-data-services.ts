@@ -12,8 +12,8 @@ export interface ESGDataPoint {
   resource_id: string;
   metric_id: string;
   value: string;
-  context?: string;
-  confidence: number;
+  context?: string | null;
+  confidence: number | null;
   source: string;
   framework_id?: string;
   disclosure_id?: string;
@@ -31,13 +31,13 @@ export interface ESGFrameworkMapping {
   framework_id: string;
   disclosure_id: string;
   created_at?: string;
-  updated_at?: string;
+  updated_at?: string | null;
 }
 
 export interface ESGFramework {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
 }
 
 export interface PaginationParams {

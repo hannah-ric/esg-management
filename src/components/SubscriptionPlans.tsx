@@ -158,9 +158,9 @@ export default function SubscriptionPlans() {
 
         if (data && data.length > 0) {
           // Transform the data to match our SubscriptionPlan interface
-          const formattedPlans = data.map((plan) => ({
+          const formattedPlans: SubscriptionPlan[] = data.map((plan) => ({
             ...plan,
-            features: plan.metadata?.features || [],
+            features: (plan.features as unknown as string[]) || [],
           }));
           setPlans(formattedPlans);
         }
@@ -178,8 +178,8 @@ export default function SubscriptionPlans() {
           .eq("id", user.id)
           .single();
         if (userError && userError.code !== "PGRST116") throw userError;
-        if (userData?.stripe_customer_id) {
-          setCustomerId(userData.stripe_customer_id);
+        if (userData && typeof userData === "object" && "stripe_customer_id" in userData) {
+          setCustomerId((userData as { stripe_customer_id: string | null }).stripe_customer_id || null);
         }
 
         const { data, error } = await supabase
@@ -203,7 +203,7 @@ export default function SubscriptionPlans() {
       if (!customerId) return;
       try {
         const { data, error } = await supabase
-          .from("customers")
+          .from("Customers")
           .select("id, stripe_customer_id, /* other fields you store */")
           .eq("stripe_customer_id", customerId)
           .single();

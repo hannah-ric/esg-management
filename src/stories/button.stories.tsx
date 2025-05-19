@@ -14,11 +14,18 @@ const meta: Meta<typeof Button> = {
   argTypes: {
     variant: {
       control: "select",
-      options: Object.keys(buttonVariants.variantMap),
+      options: [
+        "default",
+        "destructive",
+        "outline",
+        "secondary",
+        "ghost",
+        "link",
+      ],
     },
     size: {
       control: "select",
-      options: Object.keys(buttonVariants.sizeMap),
+      options: ["default", "sm", "lg", "icon"],
     },
     asChild: { control: "boolean" },
   },

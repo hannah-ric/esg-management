@@ -19,7 +19,7 @@ interface PaymentFromDB {
   currency: string;
   status: string;
   description: string | null;
-  created_at: string;
+  created_at: string | null;
   error_message?: string | null;
   metadata?: Json | null;
   user_id?: string;
@@ -65,7 +65,7 @@ export default function PaymentHistory() {
           currency: p.currency,
           status: p.status,
           description: p.description || "Payment",
-          created_at: p.created_at,
+          created_at: p.created_at || "",
           error_message: p.error_message || undefined,
         }));
         setPayments(formattedPayments);

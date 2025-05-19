@@ -3,7 +3,6 @@
 export { corsHeaders, setCorsHeaders, handleCors } from "./cors.index";
 export {
   ApiError,
-  ErrorResponse,
   handleError,
   handleValidationError,
   handleNotFoundError,
@@ -36,7 +35,7 @@ export type {
 
 // Import default exports from each module
 import corsModule from "./cors.index";
-import errorHandlerModule from "./error-handler.index";
+import * as errorHandlerModule from "./error-handler.index";
 import validationModule from "./validation.index";
 import cacheModule from "./cache.index";
 import stripeConfigModule from "./stripe-config.index";
