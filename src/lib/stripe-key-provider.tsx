@@ -29,12 +29,18 @@ export function StripeKeyProvider({ children }: StripeKeyProviderProps) {
   useEffect(() => {
     const fetchStripeKey = async () => {
       try {
-        // Fetch from Supabase edge function
+        const envKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+        if (envKey) {
+          logger.info("Using Stripe key from environment variables");
+          setPublishableKey(envKey);
+          setIsMockMode(envKey.includes("pk_test_"));
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.functions.invoke(
           "supabase-functions-get-stripe-key",
-          {
-            method: "GET",
-          },
+          { method: "GET" },
         );
 
         if (error) {
@@ -54,24 +60,16 @@ export function StripeKeyProvider({ children }: StripeKeyProviderProps) {
         logger.info("Retrieved Stripe key", { source: data.source });
         setPublishableKey(key);
         setIsMockMode(key.includes("pk_test_"));
-        setError(null); // Clear any previous errors
+        setError(null);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         logger.error("Error fetching Stripe key", errorMessage);
         setError(`Payment system error: ${errorMessage}`);
 
-        // Fallback to environment variable as last resort
-        const fallbackKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-        if (fallbackKey && !fallbackKey.includes("mock-key")) {
-          logger.info("Using fallback key from environment variables");
-          setPublishableKey(fallbackKey);
-          setIsMockMode(fallbackKey.includes("pk_test_"));
-        } else {
-          // If no valid key is found, fall back to mock mode
-          logger.info("Falling back to mock mode due to missing valid key");
-          setPublishableKey("pk_test_mockstripekey123456789");
-          setIsMockMode(true);
-        }
+        // If no valid key is found, fall back to mock mode
+        logger.info("Falling back to mock mode due to missing valid key");
+        setPublishableKey("pk_test_mockstripekey123456789");
+        setIsMockMode(true);
       } finally {
         setLoading(false);
       }
