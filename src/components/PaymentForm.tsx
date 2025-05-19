@@ -10,9 +10,10 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { createPaymentIntent } from "@/lib/stripe-service";
 import { confirmPaymentIntent } from "@/lib/stripe-service";
 import { useStripeKey } from "@/lib/stripe-key-provider";

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { isMockAuth, mockUser } from "@/lib/mock-auth";
+import { logger } from "@/lib/logger";
 
 export type Priority = "high" | "medium" | "low";
 export type Effort = "high" | "medium" | "low";
@@ -148,26 +149,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireAnswers | null>(null);
 
   const updateESGPlan = (plan: ESGPlan) => {
-    console.log("Updating ESG Plan:", plan);
+    logger.debug("Updating ESG Plan", plan);
     setEsgPlan(plan);
   };
 
   const saveESGPlan = async () => {
-    console.log("Saving ESG Plan...", esgPlan);
+    logger.debug("Saving ESG Plan", esgPlan);
   };
 
   const updateMaterialityTopics = (topics: MaterialityTopic[]) => {
     setMaterialityTopics(topics);
-    console.log("Updated Materiality Topics in context");
+    logger.debug("Updated Materiality Topics in context");
   };
 
   const saveMaterialityTopics = async () => {
-    console.log("Saving Materiality Topics...", materialityTopics);
+    logger.debug("Saving Materiality Topics", materialityTopics);
   };
 
   const updateQuestionnaireData = (data: QuestionnaireAnswers | null) => {
     setQuestionnaireData(data);
-    console.log("Updated Questionnaire Data in context");
+    logger.debug("Updated Questionnaire Data in context");
   };
 
   useEffect(() => {
