@@ -145,6 +145,13 @@ export {
   searchResourceLibrary,
   generateAIRecommendations,
 };
+export type {
+  AnalyzedContentDataPoint,
+  AnalyzedContentFrameworkMapping,
+  AnalyzedContentESGData,
+  AnalyzedContentResult,
+  EnhancedPlanData,
+} from "./plan-enhancement";
 export { StripeKeyProvider, useStripeKey };
 export {
   createPaymentIntent,

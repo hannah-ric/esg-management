@@ -1,3 +1,5 @@
+// deno-lint-ignore-file
+/// <reference lib="deno.ns" />
 import { corsHeaders } from "./cors";
 
 export class ApiError extends Error {

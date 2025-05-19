@@ -12,7 +12,7 @@ const meta: Meta<typeof Badge> = {
   argTypes: {
     variant: {
       control: "select",
-      options: Object.keys(badgeVariants.variantMap),
+      options: ["default", "secondary", "destructive", "outline"],
     },
   },
 };

@@ -19,15 +19,7 @@ const meta: Meta<typeof Accordion> = {
 export default meta;
 
 // Define a simple type for story args if needed
-interface AccordionStoryArgs {
-  type: "single" | "multiple";
-  collapsible?: boolean;
-  defaultValue?: string | string[];
-  className?: string;
-  // Add other Accordion props if used in stories
-}
-
-export const Default: StoryObj<AccordionStoryArgs> = {
+export const Default: StoryObj = {
   args: {
     type: "single",
     collapsible: true,

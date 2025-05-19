@@ -43,7 +43,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 export interface UploadedResourceData {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   type: string;
   category: string;
   url: string;

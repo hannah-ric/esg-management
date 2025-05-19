@@ -1,9 +1,10 @@
 import { supabase } from "./supabase";
+import type { Json } from "../types/supabase";
 // import { mockUser } from "./mock-auth"; // Unused
 
 interface QuestionnaireDataToSave {
   user_id: string;
-  data: Record<string, unknown>; // Changed from any
+  data: Json;
   // Define other properties if known, e.g., id, created_at, etc.
 }
 
@@ -24,7 +25,7 @@ export async function saveQuestionnaireData(data: QuestionnaireDataToSave, userI
       .from("questionnaire_data")
       .upsert({
         user_id: userId,
-        data: data,
+        data: data.data as Json,
         updated_at: new Date().toISOString(),
       })
       .select();

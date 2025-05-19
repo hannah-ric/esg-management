@@ -1,3 +1,5 @@
+// deno-lint-ignore-file
+/// <reference lib="deno.ns" />
 // Centralized configuration for Stripe API integration
 import { corsHeaders } from "./cors.index";
 

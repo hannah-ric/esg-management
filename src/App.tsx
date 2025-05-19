@@ -36,8 +36,10 @@ const SubscriptionPlans = lazy(() => import("./components/SubscriptionPlans"));
 const PaymentForm = lazy(() => import("./components/PaymentForm"));
 const PaymentHistory = lazy(() => import("./components/PaymentHistory"));
 const AdvisoryServices = lazy(() => import("./components/AdvisoryServices"));
-const ImplementationSupport = lazy(
-  () => import("./components/ImplementationSupport"),
+const ImplementationSupport = lazy(() =>
+  import("./components/ImplementationSupport").then((m) => ({
+    default: m.ImplementationSupport,
+  }))
 );
 
 // Import auth components
