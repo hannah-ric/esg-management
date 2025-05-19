@@ -289,11 +289,17 @@ const BulkResourceExporter: React.FC<BulkResourceExporterProps> = ({
               resourceDiv.appendChild(resourceDesc);
 
               const resourceType = document.createElement("p");
-              resourceType.innerHTML = `<strong>Type:</strong> ${resource.type}`;
+              const typeLabel = document.createElement("strong");
+              typeLabel.textContent = "Type:";
+              resourceType.appendChild(typeLabel);
+              resourceType.append(` ${resource.type}`);
               resourceDiv.appendChild(resourceType);
 
               const resourceUrl = document.createElement("p");
-              resourceUrl.innerHTML = `<strong>URL:</strong> ${resource.url}`;
+              const urlLabel = document.createElement("strong");
+              urlLabel.textContent = "URL:";
+              resourceUrl.appendChild(urlLabel);
+              resourceUrl.append(` ${resource.url}`);
               resourceDiv.appendChild(resourceUrl);
 
               // Add data points if available

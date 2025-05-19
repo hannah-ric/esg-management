@@ -1,6 +1,6 @@
-import { corsHeaders } from "@shared/cors.index";
+import { corsHeaders } from "@shared/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { handleError } from "@shared/error-handler.index";
+import { handleError } from "@shared/error-handler";
 
 interface UpdateProfileRequest {
   userId: string;

@@ -1,4 +1,4 @@
-import { corsHeaders, handleCors } from "@shared/cors.index";
+import { corsHeaders, handleCors } from "@shared/cors";
 import qs from "https://cdn.skypack.dev/qs@6.11.0";
 
 Deno.serve(async (req) => {

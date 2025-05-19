@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { useToast } from "../ui/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 import { useAppContext } from "../AppContext";
-import { updateProfile } from "../../lib/auth";
+import { updateProfile } from "@/lib/auth";
 
 export default function ProfileForm() {
   const { user } = useAppContext();

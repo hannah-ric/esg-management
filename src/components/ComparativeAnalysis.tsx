@@ -1,5 +1,5 @@
 import React, { useState, useEffect /*, useMemo*/ } from "react";
-import { useAppContext } from "./AppContext";
+import { useAppContext } from "@/components/AppContext";
 import { getPeerBenchmarking } from "@/lib/ai-services";
 import {
   Card,

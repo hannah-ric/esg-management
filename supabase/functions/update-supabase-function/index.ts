@@ -1,5 +1,5 @@
-import { corsHeaders } from "@shared/cors.index";
-import { handleError } from "@shared/error-handler.index";
+import { corsHeaders } from "@shared/cors";
+import { handleError } from "@shared/error-handler";
 import { validateRequiredFields } from "@shared/validation";
 
 const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");

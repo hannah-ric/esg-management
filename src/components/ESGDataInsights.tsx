@@ -12,7 +12,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useAppContext } from "./AppContext";
+import { useAppContext } from "@/components/AppContext";
+import { useErrorHandler } from "@/lib/error-utils";
 
 // Helper functions (module scope - defined before use)
 const getMetricCategory = (metricId: string): string => {
@@ -168,44 +169,42 @@ const ESGDataInsights: React.FC<ESGDataInsightsProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("all");
+  const { handleAsync } = useErrorHandler();
 
   const loadInsights = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    try {
-      const { data, error: funcError } = await supabase.functions.invoke(
-        "supabase-functions-esg-data-insights",
-        {
+    const { data, error: err } = await handleAsync(
+      () =>
+        supabase.functions.invoke("supabase-functions-esg-data-insights", {
           body: {
             userId: user?.id,
             resourceId,
             metricId,
             timeframe: "month",
           },
-        },
-      );
+        }),
+      {
+        errorMessage: "Error loading ESG insights",
+      },
+    );
 
-      if (funcError) throw new Error(funcError.message);
-      if (data?.error || !data?.insights) {
-        setError(data?.error || "No data returned from insights service.");
-        return;
+    if (err) {
+      setError(err);
+    } else if (data) {
+      const { data: payload, error: funcError } = data as any;
+      if (funcError) {
+        setError(funcError.message);
+      } else if (!payload?.insights || payload?.error) {
+        setError(payload?.error || "No data returned from insights service.");
+      } else {
+        setInsights(payload.insights);
       }
-
-      setInsights(data.insights);
-    } catch (err) {
-      console.error("Error loading ESG insights:", err);
-      let message = "Failed to load ESG insights. Please try again.";
-      if (err instanceof Error) {
-        message = err.message;
-      } else if (typeof err === 'string') {
-        message = err;
-      }
-      setError(message);
-    } finally {
-      setLoading(false);
     }
-  }, [user, resourceId, metricId]);
+
+    setLoading(false);
+  }, [user, resourceId, metricId, handleAsync]);
 
   useEffect(() => {
     if (user) {

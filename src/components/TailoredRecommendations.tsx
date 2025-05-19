@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { useAppContext, MaterialityTopic as AppContextMaterialityTopic } from "./AppContext";
+import { useAppContext, MaterialityTopic as AppContextMaterialityTopic } from "@/components/AppContext";
 import {
   getTailoredRecommendations,
   parseRecommendations,

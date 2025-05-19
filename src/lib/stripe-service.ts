@@ -109,6 +109,23 @@ export async function createSubscription(params: {
   }
 }
 
+export async function cancelSubscription(params: { subscriptionId: string }) {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-stripe-cancel-subscription",
+      {
+        body: params,
+      },
+    );
+
+    if (error) throw new Error(error.message);
+    return data;
+  } catch (error) {
+    console.error("Error canceling subscription:", error);
+    throw error;
+  }
+}
+
 export const stripeService = {
   async createProduct(params: CreateProductParams) {
     try {
@@ -161,3 +178,7 @@ export const stripeService = {
     }
   },
 };
+
+export type PaymentIntentParams = Parameters<typeof createPaymentIntent>[0];
+export type SubscriptionParams = Parameters<typeof createSubscription>[0];
+export type CancelSubscriptionParams = Parameters<typeof cancelSubscription>[0];

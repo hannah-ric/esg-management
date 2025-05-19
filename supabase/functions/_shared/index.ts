@@ -1,6 +1,6 @@
 // Main index file for shared modules
 // Import and re-export named exports from each module
-export { corsHeaders, setCorsHeaders, handleCors } from "./cors.index";
+export { corsHeaders, setCorsHeaders, handleCors } from "./cors";
 export {
   ApiError,
   ErrorResponse,
@@ -8,7 +8,7 @@ export {
   handleValidationError,
   handleNotFoundError,
   handleAuthError,
-} from "./error-handler.index";
+} from "./error-handler";
 export type {
   StripeWebhookEvent,
   StripePaymentIntent,
@@ -16,38 +16,20 @@ export type {
   PaymentIntentCreateParams,
   PaymentIntentConfirmParams,
   SubscriptionCreateParams,
-} from "./stripe-types.index";
-export { validateRequiredFields } from "./validation.index";
-export { Cache, cache } from "./cache.index";
+} from "./stripe-types";
+export { validateRequiredFields } from "./validation";
+export { Cache, cache } from "./cache";
 export {
   stripeConfig,
   validateStripeConfig,
   validateWebhookConfig,
   handleStripeCorsRequest,
   stripe,
-} from "./stripe-config.index";
+} from "./stripe-config";
 export type {
   PaginationParams,
   SortParams,
   FilterParams,
   ApiResponse,
   PaginatedResponse,
-} from "./types.index";
-
-// Import default exports from each module
-import corsModule from "./cors.index";
-import errorHandlerModule from "./error-handler.index";
-import validationModule from "./validation.index";
-import cacheModule from "./cache.index";
-import stripeConfigModule from "./stripe-config.index";
-
-// Create a single default export object that combines all module exports
-const shared = {
-  ...corsModule,
-  ...errorHandlerModule,
-  ...validationModule,
-  ...cacheModule,
-  ...stripeConfigModule,
-};
-
-export default shared;
+} from "./types";

@@ -1,7 +1,7 @@
 import { vi, describe, it, expect } from 'vitest';
-import { getFrameworkRecommendations } from '../src/lib/ai-services';
+import { getFrameworkRecommendations } from '@/lib/ai-services';
 
-vi.mock('../src/lib/supabase', () => {
+vi.mock('@/lib/supabase', () => {
   return {
     supabase: {
       functions: {

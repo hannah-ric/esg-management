@@ -1,7 +1,7 @@
 import { vi, describe, it, expect } from 'vitest';
-import { getESGDataPoints } from '../src/lib/esg-data-services';
+import { getESGDataPoints } from '@/lib/esg-data-services';
 
-vi.mock('../src/lib/supabase', () => {
+vi.mock('@/lib/supabase', () => {
   const from = vi.fn(() => ({
     select: vi.fn((...args: any[]) => {
       if (args[1]?.count) {

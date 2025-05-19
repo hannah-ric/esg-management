@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useAppContext } from "./AppContext";
+import { useAppContext } from "@/components/AppContext";
 import { supabase } from "@/lib/supabase";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,12 +9,12 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "./ui/card";
-import { Badge } from "./ui/badge";
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Check, Loader2 } from "lucide-react";
 import { createSubscription } from "@/lib/stripe-service";
 import { useNavigate } from "react-router-dom";
-import { toast } from "./ui/use-toast";
+import { toast } from "@/components/ui/use-toast";
 // import type { Subscription, Plan as StripePlan } from "@stripe/stripe-js"; // StripePlan unused
 
 // Define our own Subscription type instead of importing from @stripe/stripe-js

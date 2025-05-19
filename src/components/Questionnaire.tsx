@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import QuestionnaireStep from "./QuestionnaireStep";
 import type { Question } from "./QuestionnaireStep";
-import { useAppContext } from "./AppContext";
+import { useAppContext } from "@/components/AppContext";
 import { saveQuestionnaireData } from "@/lib/services";
 // import { toast } from "@/components/ui/use-toast"; // Commented out unused toast
 

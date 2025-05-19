@@ -1,4 +1,4 @@
-import { corsHeaders, handleCors } from "@shared/cors.index.ts";
+import { corsHeaders, handleCors } from "@shared/cors";
 
 Deno.serve(async (req) => {
   // Handle CORS

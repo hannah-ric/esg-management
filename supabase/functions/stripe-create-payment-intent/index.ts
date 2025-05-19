@@ -1,7 +1,7 @@
-import { corsHeaders } from "@shared/cors.index";
-import { PaymentIntentCreateParams } from "@shared/stripe-types.index";
-import { handleError } from "@shared/error-handler.index";
-import { validateRequiredFields } from "@shared/validation.index";
+import { corsHeaders } from "@shared/cors";
+import { PaymentIntentCreateParams } from "@shared/stripe-types";
+import { handleError } from "@shared/error-handler";
+import { validateRequiredFields } from "@shared/validation";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
