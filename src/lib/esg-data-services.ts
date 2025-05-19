@@ -313,93 +313,34 @@ export async function searchESGDataPoints(
   searchTerm: string,
   pagination?: PaginationParams,
   filters?: { metricId?: string; frameworkId?: string },
-): Promise<PaginatedResponse<ESGDataPoint & { rank?: number }>> {
+): Promise<PaginatedResponse<ESGDataPoint & { similarity?: number }>> {
   return measureAsync("searchESGDataPoints", async () => {
     try {
       const page = pagination?.page || 1;
       const pageSize = pagination?.pageSize || 20;
-      const startIndex = (page - 1) * pageSize;
+      const { data: embedData, error: embedErr } = await supabase.functions.invoke(
+        "supabase-functions-embed-text",
+        { body: { text: searchTerm } },
+      );
+      if (embedErr) throw embedErr;
+      const embedding = (embedData as any).embedding as number[];
 
-      // Prepare the search query for Supabase full-text search
-      // websearch_to_tsquery is often more user-friendly than to_tsquery
-      // It handles multiple words, OR operators, quoted phrases etc.
-      const ftsQuery = searchTerm.trim().split(/\s+/).join(" & "); // Basic conversion to 'word1 & word2' for AND logic
-      // For more complex parsing use websearch_to_tsquery or plainto_tsquery
-      // directly in a .rpc() call if needed, or ensure searchTerm is formatted correctly.
+      const rpcPayload: Record<string, unknown> = {
+        embedding,
+        match_count: pageSize,
+        similarity_threshold: 0.7,
+        offset: (page - 1) * pageSize,
+      };
+      if (filters?.metricId) rpcPayload.metric_id = filters.metricId;
+      if (filters?.frameworkId) rpcPayload.framework_id = filters.frameworkId;
 
-      // Query for the total count of matching records using FTS
-      const { count, error: countError } = await supabase
-        .from("esg_data_points")
-        .select("*", { count: "exact", head: true })
-        .textSearch("fts", ftsQuery, { type: "websearch" });
-
-      if (countError) {
-        // Fallback to ILIKE if FTS fails (e.g. column not ready, or temporary issue)
-        // This is a temporary measure; ideally, FTS should be reliable.
-        console.warn(
-          "FTS count query failed, falling back to ILIKE search for count:",
-          countError,
-        );
-        const { count: ilikeCount, error: ilikeCountError } = await supabase
-          .from("esg_data_points")
-          .select("*", { count: "exact", head: true })
-          .or(
-            [
-              // Ensure this OR query matches the ILIKE data query fallback
-              `metric_id.ilike.%${searchTerm}%`,
-              `value.ilike.%${searchTerm}%`,
-              `context.ilike.%${searchTerm}%`,
-              `source.ilike.%${searchTerm}%`,
-            ].join(","),
-          );
-        if (ilikeCountError) throw ilikeCountError;
-        if (ilikeCount === null)
-          throw new Error("Failed to retrieve count with ILIKE fallback.");
-        return searchESGDataPointsWithIlikeFallback(
-          searchTerm,
-          pagination,
-          ilikeCount,
-        ); // Call a fallback using ILIKE for data as well
-      }
-
-      // Query for the paginated data using FTS with ranking
-      let dataQuery = supabase
-        .from("esg_data_points")
-        .select(
-          `*, rank:ts_rank(fts, websearch_to_tsquery('english', '${ftsQuery}'))`,
-        )
-        .textSearch("fts", ftsQuery, { type: "websearch" })
-        .order("rank", { ascending: false })
-        .range(startIndex, startIndex + pageSize - 1);
-
-      if (filters?.metricId) {
-        dataQuery = dataQuery.eq("metric_id", filters.metricId);
-      }
-      if (filters?.frameworkId) {
-        dataQuery = dataQuery.eq("framework_id", filters.frameworkId);
-      }
-
-      const { data, error } = await dataQuery;
-
-      if (error) {
-        console.warn(
-          "FTS data query failed, falling back to ILIKE search for data:",
-          error,
-        );
-        if (count === null)
-          throw new Error(
-            "Count is null, cannot proceed with ILIKE fallback accurately for data pagination.",
-          );
-        return searchESGDataPointsWithIlikeFallback(
-          searchTerm,
-          pagination,
-          count,
-        ); // Call a fallback using ILIKE
-      }
-
+      const { data, error, count } = await supabase.rpc(
+        "match_esg_data_points",
+        rpcPayload,
+      );
+      if (error) throw error;
       const totalCount = count || 0;
       const totalPages = Math.ceil(totalCount / pageSize);
-
       return {
         data: data || [],
         count: totalCount,
@@ -408,69 +349,16 @@ export async function searchESGDataPoints(
         totalPages,
       };
     } catch (error) {
-      console.error(
-        "Error searching ESG data points (FTS with fallback):",
-        error,
-      );
-      // Final fallback if everything else fails, or rethrow
-      return searchESGDataPointsWithIlikeFallback(searchTerm, pagination);
+      console.error("Error searching ESG data points with embeddings:", error);
+      return {
+        data: [],
+        count: 0,
+        page: 1,
+        pageSize: pagination?.pageSize || 20,
+        totalPages: 0,
+      };
     }
   });
-}
-
-// Fallback function using ILIKE (original paginated search)
-async function searchESGDataPointsWithIlikeFallback(
-  searchTerm: string,
-  pagination?: PaginationParams,
-  precomputedCount?: number | null,
-): Promise<PaginatedResponse<ESGDataPoint>> {
-  console.log("Executing ILIKE fallback search for:", searchTerm);
-  const page = pagination?.page || 1;
-  const pageSize = pagination?.pageSize || 20;
-  const startIndex = (page - 1) * pageSize;
-  let totalCount = 0;
-
-  if (precomputedCount !== undefined && precomputedCount !== null) {
-    totalCount = precomputedCount;
-  } else {
-    const { count, error: countError } = await supabase
-      .from("esg_data_points")
-      .select("*", { count: "exact", head: true })
-      .or(
-        [
-          `metric_id.ilike.%${searchTerm}%`,
-          `value.ilike.%${searchTerm}%`,
-          `context.ilike.%${searchTerm}%`,
-          `source.ilike.%${searchTerm}%`,
-        ].join(","),
-      );
-    if (countError) throw countError;
-    totalCount = count || 0;
-  }
-
-  const { data, error } = await supabase
-    .from("esg_data_points")
-    .select("*")
-    .or(
-      [
-        `metric_id.ilike.%${searchTerm}%`,
-        `value.ilike.%${searchTerm}%`,
-        `context.ilike.%${searchTerm}%`,
-        `source.ilike.%${searchTerm}%`,
-      ].join(","),
-    )
-    .range(startIndex, startIndex + pageSize - 1);
-
-  if (error) throw error;
-
-  const totalPages = Math.ceil(totalCount / pageSize);
-  return {
-    data: data || [],
-    count: totalCount,
-    page,
-    pageSize,
-    totalPages,
-  };
 }
 
 // Define a more specific type for framework recommendations

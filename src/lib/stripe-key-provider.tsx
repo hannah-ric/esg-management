@@ -46,13 +46,14 @@ export function StripeKeyProvider({ children }: StripeKeyProviderProps) {
           throw new Error("No data returned from edge function");
         }
 
-        if (!data.publishableKey) {
+        const key = data.publishableKey || data.publicKey;
+        if (!key) {
           throw new Error("Stripe key not found in response");
         }
 
         logger.info("Retrieved Stripe key", { source: data.source });
-        setPublishableKey(data.publishableKey);
-        setIsMockMode(data.publishableKey.includes("pk_test_"));
+        setPublishableKey(key);
+        setIsMockMode(key.includes("pk_test_"));
         setError(null); // Clear any previous errors
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
