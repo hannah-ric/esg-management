@@ -12,7 +12,6 @@ export { default as ESGHistoricalAnalysis } from './ESGHistoricalAnalysis';
 export { default as ESGMetricChart } from './ESGMetricChart';
 export { default as ESGMetricDashboard } from './ESGMetricDashboard';
 export { default as ESGMetricForm } from './ESGMetricForm';
-export * from './ESGPlan';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as ErrorFallback } from './ErrorFallback';
 export * from './ExportUtils';

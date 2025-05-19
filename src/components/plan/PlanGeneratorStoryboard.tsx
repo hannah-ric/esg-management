@@ -293,47 +293,32 @@ const PlanGeneratorStoryboard: React.FC = () => {
         phases,
       };
 
-      const result = await generateAIRecommendations(
+      const result = await generateAIRecommendations({
         companyName,
         industry,
         materialityTopics,
         esgPlan,
-      );
+      });
 
-      if (result.success && result.data) {
-        // Add AI-generated recommendations to the existing ones
-        if (
-          result.data.frameworks && // Ensure frameworks exists
-          typeof result.data.frameworks !== 'string' && // Ensure it's not the raw string fallback
-          result.data.frameworks.recommendations && // Ensure recommendations array exists
-          Array.isArray(result.data.frameworks.recommendations)
-        ) {
-          const aiRecs = result.data.frameworks.recommendations.map(
-            (rec: AIRecommendationItem) => ({ // Typed rec
-              id: `rec-ai-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-              title: rec.title || "AI Recommendation",
-              description: rec.description || "",
-              framework: rec.framework || "AI Generated",
-              indicator: rec.indicator || "N/A",
-              priority: (rec.priority || "medium").toLowerCase() as Priority,
-              effort: (rec.effort || "medium").toLowerCase() as Effort,
-              impact: (rec.impact || "medium").toLowerCase() as Impact,
-            }),
-          );
+      if (result.success) {
+        const aiRecs = result.recommendations.map(
+          (rec: AIRecommendationItem) => ({
+            id: `rec-ai-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            title: rec.title || "AI Recommendation",
+            description: rec.description || "",
+            framework: rec.framework || "AI Generated",
+            indicator: rec.indicator || "N/A",
+            priority: (rec.priority || "medium").toLowerCase() as Priority,
+            effort: (rec.effort || "medium").toLowerCase() as Effort,
+            impact: (rec.impact || "medium").toLowerCase() as Impact,
+          }),
+        );
 
-          setRecommendations((prev) => [...prev, ...aiRecs]);
-          toast({
-            title: "AI Recommendations Generated",
-            description: `Added ${aiRecs.length} new recommendations to your plan.`,
-          });
-        } else {
-          toast({
-            title: "AI Generation Issue",
-            description:
-              "Received response but couldn't parse recommendations.",
-            variant: "destructive",
-          });
-        }
+        setRecommendations((prev) => [...prev, ...aiRecs]);
+        toast({
+          title: "AI Recommendations Generated",
+          description: `Added ${aiRecs.length} new recommendations to your plan.`,
+        });
       } else {
         toast({
           title: "AI Generation Failed",

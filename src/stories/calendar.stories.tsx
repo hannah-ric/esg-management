@@ -42,22 +42,12 @@ const meta: Meta<typeof Calendar> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Define a simple type for the story arguments if not too complex
-interface CalendarStoryArgs {
-  mode?: "single" | "multiple" | "range";
-  selected?: Date | Date[] | { from?: Date; to?: Date };
-  onSelect?: (date: Date | Date[] | { from?: Date; to?: Date } | undefined) => void; // Made more specific
-  className?: string;
-  // Add other props Calendar accepts
-  [key: string]: any; // Allow other args for flexibility in Storybook controls
-}
-
 export const Default: Story = {
   args: {
     mode: "single",
     className: "rounded-md border",
-  } as CalendarStoryArgs, // Cast args for type safety
-  render: function Render(args: CalendarStoryArgs) { // Make render a function component
+  },
+  render: function Render(args) {
     const [date, setDate] = React.useState<Date | undefined>(new Date());
     return (
       <Calendar
@@ -75,8 +65,8 @@ export const Multiple: Story = {
   args: {
     mode: "multiple",
     className: "rounded-md border",
-  } as CalendarStoryArgs,
-  render: function Render(args: CalendarStoryArgs) {
+  },
+  render: function Render(args) {
     const [dates, setDates] = React.useState<Date[] | undefined>([]);
     return (
       <Calendar

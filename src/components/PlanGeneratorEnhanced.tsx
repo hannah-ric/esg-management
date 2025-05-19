@@ -100,18 +100,17 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     setIsAnalyzing(true);
     setError(null);
 
-    const result = await analyzeExternalContent(url);
-    
-    if (result.success) {
-      if (onEnhancementComplete && result.data) {
+    try {
+      const data = await analyzeExternalContent(url);
+      if (onEnhancementComplete && data) {
         onEnhancementComplete({
           source: "diffbot",
           type: "url_analysis",
-          data: result.data as unknown as AnalyzedUrlData,
+          data: data as unknown as AnalyzedUrlData,
         });
       }
-    } else {
-      setError(result.error || "Failed to analyze the URL. Please try again.");
+    } catch (err) {
+      setError("Failed to analyze the URL. Please try again.");
     }
     
     setIsAnalyzing(false);
@@ -123,15 +122,14 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     setIsSearching(true);
     setError(null);
 
-    const result = await searchResourceLibrary(searchQuery);
-    
-    if (result.success) {
-      setSearchResults(result.data as SearchResultItem[]);
-    } else {
-      setError(result.error || "Failed to search resources. Please try again.");
+    try {
+      const { results } = await searchResourceLibrary(searchQuery);
+      setSearchResults(results as SearchResultItem[]);
+    } catch (err) {
+      setError("Failed to search resources. Please try again.");
+    } finally {
+      setIsSearching(false);
     }
-    
-    setIsSearching(false);
   };
 
   const toggleResultSelection = (result: SearchResultItem) => {
@@ -164,21 +162,21 @@ const PlanGeneratorEnhanced: React.FC<PlanGeneratorEnhancedProps> = ({
     setIsGeneratingAI(true);
     setError(null);
 
-    const result = await generateAIRecommendations(
+    const result = await generateAIRecommendations({
       companyName,
       industry,
       materialityTopics,
-      esgPlan || {}
-    );
+      esgPlan: esgPlan || {},
+    });
     
-    if (result.success && result.data) {
-      setAiRecommendations(result.data);
+    if (result.success) {
+      setAiRecommendations({ recommendations: result.recommendations });
 
       if (onEnhancementComplete) {
         onEnhancementComplete({
           source: "ai",
           type: "ai_recommendations",
-          data: result.data,
+          data: result.recommendations,
         });
       }
     } else {
