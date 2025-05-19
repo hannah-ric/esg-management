@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import { stripeService } from "../lib/stripe-service";
+import { stripeService } from "@/lib/stripe-service";
 import { LoadingSpinner } from "./LoadingSpinner";
 
 export function StripeProductCreator() {

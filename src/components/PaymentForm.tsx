@@ -13,9 +13,9 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { createPaymentIntent } from "../lib/stripe-service";
-import { confirmPaymentIntent } from "../lib/stripe-service";
-import { useStripeKey } from "../lib/stripe-key-provider";
+import { createPaymentIntent } from "@/lib/stripe-service";
+import { confirmPaymentIntent } from "@/lib/stripe-service";
+import { useStripeKey } from "@/lib/stripe-key-provider";
 
 const formSchema = z.object({
   amount: z.string().min(1, "Amount is required"),
