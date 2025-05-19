@@ -1,8 +1,13 @@
 // ESM test file for Supabase connection
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://spmqzflhdlatsfkkylwq.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwbXF6ZmxoZGxhdHNma2t5bHdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcxMTI1NTEsImV4cCI6MjA2MjY4ODU1MX0.8YlKrC32v2FIPXXWoYUET3NGDCKzoYTOJCXafCzBdHI';
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+if (!supabaseUrl || !supabaseKey) {
+  console.error("Missing Supabase credentials");
+  process.exit(1);
+}
+
 
 // Create a Supabase client
 const supabase = createClient(supabaseUrl, supabaseKey);

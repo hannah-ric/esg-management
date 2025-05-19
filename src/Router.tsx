@@ -7,7 +7,8 @@ import PlanGeneratorPage from "./pages/PlanGeneratorPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import AdvisoryServicesPage from "./pages/AdvisoryServicesPage";
 import BenchmarkingPage from "./pages/BenchmarkingPage";
-import EsgMetricsPage from "./pages/EsgMetricsPage";
+import ESGMetricsPage from "./pages/ESGMetricsPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import LoginForm from "./components/auth/LoginForm";
 import SignUpForm from "./components/auth/SignUpForm";
 import ProfileForm from "./components/auth/ProfileForm";
@@ -65,7 +66,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="materiality"
+          path="materiality-matrix"
           element={
             <AuthGuard>
               <ErrorBoundary>
@@ -74,9 +75,8 @@ export default function AppRouter() {
             </AuthGuard>
           }
         />
-        <Route path="materiality-matrix" element={<MaterialityMatrixPage />} />
         <Route
-          path="plan"
+          path="plan-generator"
           element={
             <AuthGuard>
               <ErrorBoundary>
@@ -231,7 +231,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="advisory"
+          path="advisory-services"
           element={
             <AuthGuard>
               <ErrorBoundary>
@@ -253,6 +253,8 @@ export default function AppRouter() {
             </AuthGuard>
           }
         />
+        <Route path="esg-metrics" element={<ESGMetricsPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );
