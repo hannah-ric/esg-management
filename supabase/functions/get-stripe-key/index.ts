@@ -1,4 +1,5 @@
 import { corsHeaders } from "@shared/cors.index";
+import { handleError } from "@shared/error-handler.index";
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests

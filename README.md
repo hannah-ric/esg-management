@@ -1,30 +1,54 @@
-# React + TypeScript + Vite
+# ESG Management Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project is a React and TypeScript application powered by Vite. Supabase provides authentication and backend edge functions, while Stripe is used for payments.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Node.js 18 or higher
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (for running local functions)
 
-## Expanding the ESLint configuration
+## Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+1. Install dependencies:
 
-- Configure the top-level `parserOptions` property like this:
+   ```bash
+   npm install
+   ```
 
-```jsonc
-{
-  // other rules...
-  "parserOptions": {
-    "ecmaVersion": "latest",
-    "sourceType": "module",
-    "project": ["./tsconfig.json", "./tsconfig.node.json"],
-    "tsconfigRootDir": "__dirname"
-  }
-}
+2. Copy `.env.example` to `.env` and provide the required values:
+
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_STRIPE_PUBLISHABLE_KEY` (optional fallback key)
+   - `VITE_TEMPO` and `VITE_USE_MOCK_AUTH` (optional for development)
+
+## Development
+
+Start the development server:
+
+```bash
+npm run dev
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+To run Supabase edge functions locally, use:
+
+```bash
+supabase functions serve
+```
+
+## Scripts
+
+- `npm run lint` – run ESLint
+- `npm run test` – execute unit tests with Vitest
+- `npm run build` – generate a production build
+
+## Deployment
+
+Build the project and serve the compiled assets:
+
+```bash
+npm run build
+npm start
+```
+
+Docker and `docker-compose.yml` are provided for containerized deployments.
