@@ -4,7 +4,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "../ui/use-toast";
-import { signUp } from "../../lib/auth";
+import { signUp } from "@/lib/auth";
 
 export default function SignUpForm() {
   const [firstName, setFirstName] = useState("");

@@ -3,7 +3,7 @@ import { Link, Outlet, useNavigate } from "react-router-dom";
 import { Globe, User, LogOut, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 import { useAppContext } from "./AppContext";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/lib/supabase";
 import {
   DropdownMenu,
   DropdownMenuContent,

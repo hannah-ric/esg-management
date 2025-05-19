@@ -3,7 +3,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "../ui/use-toast";
-import { resetPassword } from "../../lib/auth";
+import { resetPassword } from "@/lib/auth";
 
 export default function ResetPasswordForm() {
   const [email, setEmail] = useState("");

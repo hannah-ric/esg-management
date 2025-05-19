@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
-import { isMockAuth, mockUser } from "../lib/mock-auth";
+import { supabase } from "@/lib/supabase";
+import { isMockAuth, mockUser } from "@/lib/mock-auth";
 
 export type Priority = "high" | "medium" | "low";
 export type Effort = "high" | "medium" | "low";
