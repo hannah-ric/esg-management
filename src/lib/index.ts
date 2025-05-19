@@ -33,6 +33,19 @@ import {
   getMockUser,
 } from "./services";
 
+// Audit Log
+import type { AuditLogEntry, AuditLogFilters } from "./audit-log";
+import {
+  recordAuditLog,
+  queryAuditLogs,
+  exportAuditLogsCsv,
+  exportAuditLogsPdf,
+} from "./audit-log";
+
+// Framework Mapping
+import type { FrameworkDefinition, FrameworkMetric } from "./framework-mapping";
+import { loadFrameworkDefinition, compareFrameworks } from "./framework-mapping";
+
 // ESG Data Services
 import type {
   ESGHistoricalDataPoint,
@@ -159,5 +172,16 @@ export {
   createSubscription,
   cancelSubscription,
 };
+
+export type { FrameworkDefinition, FrameworkMetric } from "./framework-mapping";
+export { loadFrameworkDefinition, compareFrameworks } from "./framework-mapping";
+
+export type { AuditLogEntry, AuditLogFilters } from "./audit-log";
+export {
+  recordAuditLog,
+  queryAuditLogs,
+  exportAuditLogsCsv,
+  exportAuditLogsPdf,
+} from "./audit-log";
 
 

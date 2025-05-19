@@ -28,6 +28,14 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const picaSecret = Deno.env.get("PICA_SECRET_KEY");
+    const diffbotConnection = Deno.env.get("PICA_DIFFBOT_CONNECTION_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_KEY");
+
+    if (!picaSecret || !diffbotConnection || !supabaseUrl || !supabaseKey) {
+      throw new Error("Missing required environment configuration");
+    }
     const {
       url,
       mode = "article",
@@ -380,6 +388,9 @@ async function storeESGResource(
   // Initialize Supabase client
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_KEY") || "";
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Supabase service credentials not configured");
+  }
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {

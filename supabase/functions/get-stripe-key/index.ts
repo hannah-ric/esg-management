@@ -8,15 +8,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const STRIPE_PUBLIC_KEY = Deno.env.get("STRIPE_PUBLIC_KEY");
+    const STRIPE_PUBLISHABLE_KEY = Deno.env.get("STRIPE_PUBLISHABLE_KEY") || Deno.env.get("STRIPE_PUBLIC_KEY");
 
-    if (!STRIPE_PUBLIC_KEY) {
-      throw new Error("Stripe public key not found");
+    if (!STRIPE_PUBLISHABLE_KEY) {
+      throw new Error("Stripe publishable key not found");
     }
 
     return new Response(
       JSON.stringify({
-        publicKey: STRIPE_PUBLIC_KEY,
+        publishableKey: STRIPE_PUBLISHABLE_KEY,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

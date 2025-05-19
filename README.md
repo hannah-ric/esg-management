@@ -52,3 +52,4 @@ npm start
 ```
 
 Docker and `docker-compose.yml` are provided for containerized deployments.
+\nAdditional documentation is available in `docs/architecture.md`.
