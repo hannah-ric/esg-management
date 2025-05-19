@@ -28,6 +28,5 @@
     "node_modules",
     "dist",
     "src/tempobook"
-  ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  ]
 }
