@@ -858,7 +858,7 @@ const ESGDataDashboard: React.FC<ESGDataDashboardProps> = ({
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
-                  No extracted data points available. Click "Extract Data" to
+                  No extracted data points available. Click &quot;Extract Data&quot; to
                   analyze a document or URL.
                 </p>
               </div>
