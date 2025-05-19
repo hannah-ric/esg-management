@@ -85,6 +85,7 @@ export default function AppRouter() {
             </AuthGuard>
           }
         />
+        <Route path="plan-generator" element={<PlanGeneratorPage />} />
         <Route
           path="resources"
           element={
@@ -108,6 +109,7 @@ export default function AppRouter() {
           }
         />
         <Route path="benchmarking" element={<BenchmarkingPage />} />
+        <Route path="esg-metrics" element={<EsgMetricsPage />} />
         <Route
           path="dashboard"
           element={
@@ -238,6 +240,7 @@ export default function AppRouter() {
             </AuthGuard>
           }
         />
+        <Route path="advisory-services" element={<AdvisoryServicesPage />} />
         <Route
           path="implementation-support"
           element={

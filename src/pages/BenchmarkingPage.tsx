@@ -6,5 +6,14 @@ export default function BenchmarkingPage() {
         This page will display benchmarking data comparing your ESG metrics with industry peers.
       </p>
     </div>
+import { Suspense } from "react";
+import ComparativeAnalysis from "../components/ComparativeAnalysis";
+import LoadingSpinner from "../components/LoadingSpinner";
+
+export default function BenchmarkingPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <ComparativeAnalysis />
+    </Suspense>
   );
 }
