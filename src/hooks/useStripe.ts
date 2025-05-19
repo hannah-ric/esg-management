@@ -4,12 +4,11 @@ import {
   confirmPaymentIntent,
   createSubscription,
   cancelSubscription,
-} from "../lib/stripe-service.index";
-import type {
-  PaymentIntentParams,
-  SubscriptionParams,
-  CancelSubscriptionParams,
-} from "../lib/stripe-service";
+} from "@/lib/stripe-service";
+
+type PaymentIntentParams = Parameters<typeof createPaymentIntent>[0];
+type SubscriptionParams = Parameters<typeof createSubscription>[0];
+type CancelSubscriptionParams = Parameters<typeof cancelSubscription>[0];
 
 export function useStripe() {
   const [loading, setLoading] = useState(false);
