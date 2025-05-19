@@ -400,7 +400,7 @@ const ESGMetricForm: React.FC<ESGMetricFormProps> = ({
               <div className="text-center py-8 border rounded-md">
                 <Calendar className="h-8 w-8 mx-auto text-muted-foreground" />
                 <p className="mt-2 text-muted-foreground">
-                  No historical data added yet. Click "Add Historical Entry" to
+                  No historical data added yet. Click &quot;Add Historical Entry&quot; to
                   add data from previous years.
                 </p>
               </div>

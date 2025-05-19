@@ -5,7 +5,8 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
     'plugin:react/recommended',
     'plugin:react/jsx-runtime',
-    'plugin:react-hooks/recommended'
+    'plugin:react-hooks/recommended',
+    'plugin:import/recommended'
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
@@ -14,7 +15,7 @@ module.exports = {
     sourceType: 'module',
     project: './tsconfig.json'
   },
-  plugins: ['@typescript-eslint', 'react', 'react-hooks'],
+  plugins: ['@typescript-eslint', 'react', 'react-hooks', 'import'],
   settings: { react: { version: 'detect' } },
   rules: {
     'react/prop-types': 'off',
@@ -24,5 +25,17 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'warn',
     'import/export': 'error'
   },
-  ignorePatterns: ['dist', 'node_modules', 'vite.config.ts.timestamp-*.mjs', 'supabase/functions/**/*']
+  ignorePatterns: [
+    'dist',
+    'node_modules',
+    'vite.config.ts.timestamp-*.mjs',
+    'supabase/functions/**/*',
+    'src/tempobook/**/*'
+  ],
+  overrides: [
+    {
+      files: ['*.config.ts', 'vite.config.ts', 'src/vite.config.ts', 'vitest.config.ts'],
+      parserOptions: { project: './tsconfig.node.json' }
+    }
+  ]
 };

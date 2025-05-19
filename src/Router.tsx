@@ -109,7 +109,6 @@ export default function AppRouter() {
           }
         />
         <Route path="benchmarking" element={<BenchmarkingPage />} />
-        <Route path="esg-metrics" element={<EsgMetricsPage />} />
         <Route
           path="dashboard"
           element={

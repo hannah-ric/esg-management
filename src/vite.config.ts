@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   server: {
-    // @ts-ignore
+    // @ts-expect-error -- allowedHosts expects string[] | undefined
     allowedHosts: process.env.TEMPO === "true" ? true : undefined,
   },
 });

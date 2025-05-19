@@ -139,7 +139,7 @@ const ESGHistoricalAnalysis: React.FC<ESGHistoricalAnalysisProps> = ({
         {!analysis && !loading && !error && (
           <div className="text-center py-8">
             <p className="text-muted-foreground">
-              Click "Analyze Trend" to generate insights from historical data.
+              Click &quot;Analyze Trend&quot; to generate insights from historical data.
             </p>
           </div>
         )}
