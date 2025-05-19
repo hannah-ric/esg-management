@@ -146,9 +146,10 @@ const PaymentFormContent = () => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="card">Card Details</Label>
-        <div className="border rounded-md p-3">
+        <Label htmlFor="card-element">Card Details</Label>
+        <div id="card-element" className="border rounded-md p-3">
           <CardElement
+            aria-label="Card details"
             options={{
               style: {
                 base: {

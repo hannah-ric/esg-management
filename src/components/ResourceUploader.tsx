@@ -1,4 +1,9 @@
-import React, { useState, useCallback /*, ChangeEvent*/ } from "react";
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useRef /*, ChangeEvent*/,
+} from "react";
 import { useDropzone } from "react-dropzone";
 // import { motion } from "framer-motion"; // Unused
 import { supabase } from "@/lib/supabase";
@@ -67,6 +72,15 @@ const ResourceUploader: React.FC<ResourceUploaderProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimeoutRef.current) {
+        clearTimeout(resetTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -201,7 +215,7 @@ const ResourceUploader: React.FC<ResourceUploaderProps> = ({
         }
 
         // Reset form after successful upload
-        setTimeout(() => {
+        resetTimeoutRef.current = setTimeout(() => {
           setFile(null);
           setTitle("");
           setDescription("");
