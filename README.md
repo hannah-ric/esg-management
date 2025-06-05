@@ -42,6 +42,18 @@ supabase functions serve
 - `npm run test` – execute unit tests with Vitest
 - `npm run build` – generate a production build
 
+## Testing
+
+Run `npm install` (or `npm ci`) before executing `npm run test` to ensure
+Vitest is available.
+
+```bash
+npm install
+# or
+npm ci
+npm run test
+```
+
 ## Deployment
 
 Build the project and serve the compiled assets:
@@ -52,4 +64,5 @@ npm start
 ```
 
 Docker and `docker-compose.yml` are provided for containerized deployments.
-\nAdditional documentation is available in `docs/architecture.md`.
+
+Additional documentation is available in `docs/architecture.md`.
